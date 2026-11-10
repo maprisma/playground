@@ -152,7 +152,9 @@ in `~/.config/maprisma-playground`.
 
 **Screenshots** (F12) are saved only when you press it, in `~/Pictures/Maprisma Playground/` (the
 pictures folder of `user-dirs.dirs`), as new files readable only by you (folder 0700, files 0600,
-never over an existing file or through a link); a note you type goes next to it as a `.txt`. The
+never over an existing file or through a link), and only into a real folder of yours that others
+cannot write to; a file is written completely or not at all. A note you type goes next to it as a
+`.txt`. The
 window draws itself into the picture: no screenshot program is started and nothing is sent
 anywhere.
 
@@ -162,7 +164,8 @@ program writes what you say at the cursor. Maprisma Playground records nothing i
 words are recognised on this PC or by a cloud service is the backend's setting. No backend set up
 yet: a click on the microphone explains how (Setup › Defaults › Dictation) and can open that menu;
 away from Omarchy there is no microphone. The programs are started as argument lists, never through
-a shell.
+a shell, and their answers are read bounded (64 KiB, 3 s). One microphone records at a time, and
+closing Maprisma Playground stops a dictation it started.
 
 ## Building and testing
 

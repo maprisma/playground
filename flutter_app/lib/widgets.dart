@@ -444,17 +444,30 @@ class _DictateButtonState extends State<DictateButton> {
 
   @override
   void dispose() {
+    if (_on) {
+      _dictation.act('stop'); // a field that goes away takes its dictation with it
+      _dictation.release(_stopHere);
+    }
     _poll?.cancel();
     super.dispose();
+  }
+
+  /// Stop the dictation this button started (the app closes, or another field takes over).
+  void _stopHere() {
+    if (!_on) return;
+    _dictation.act('stop');
+    _off();
   }
 
   String get _tip => _name == null ? tr(dictationNotSetUpTip) : trf(dictationTip, [dictationDisplayName(_name!)]);
 
   void _off() {
+    _dictation.release(_stopHere);
     _session++;
     _poll?.cancel();
     _poll = null;
-    if (mounted) setState(() => _on = false);
+    _on = false;
+    if (mounted) setState(() {});
   }
 
   Future<void> _toggle() async {
@@ -476,11 +489,13 @@ class _DictateButtonState extends State<DictateButton> {
     // The words go where the cursor is: at the end of this field.
     widget.controller.selection = TextSelection.collapsed(offset: widget.controller.text.length);
     widget.focus.requestFocus();
-    _dictation.act(_on ? 'stop' : 'start');
     if (_on) {
+      _dictation.act('stop');
       _off();
       return;
     }
+    _dictation.claim(_stopHere); // one recorder: a microphone in another field stops first
+    _dictation.act('start');
     final session = ++_session;
     setState(() => _on = true);
     _poll ??= Timer.periodic(const Duration(seconds: 1), (_) async {

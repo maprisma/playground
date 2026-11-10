@@ -176,6 +176,7 @@ class _ShellState extends State<Shell> {
   /// The window asked to close (or --toggle, or SIGTERM): the state is kept, then the core ends
   /// every agent, download and held model it started, and only then the app quits.
   Future<void> _close() async {
+    Dictation.instance.stopAll(); // no dictation goes on into another window
     _remember();
     _rememberSize();
     ChessSession.disposeAll();
@@ -298,7 +299,10 @@ class _ShellState extends State<Shell> {
   /// "Screenshot saved": where, and an optional note about what is wrong, saved next to it as a
   /// .txt when the dialog closes (Done, Enter, Esc).
   Future<void> _screenshotNote(String path) async {
-    final note = await showDialog<String>(context: context, builder: (_) => ScreenshotNoteDialog(path: path));
+    final note = await showDialog<String>(
+      context: context,
+      builder: (_) => ScreenshotNoteDialog(path: path),
+    );
     try {
       saveScreenshotNote(path, note ?? '');
     } on Object catch (e) {

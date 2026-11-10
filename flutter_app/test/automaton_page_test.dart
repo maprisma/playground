@@ -213,4 +213,22 @@ void main() {
     expect(first.grid.mixing, isFalse);
     expect(painter().ticks.value, greaterThan(before));
   });
+
+  testWidgets('a giant window still gets a bounded grid (600 × 400 cells)', (tester) async {
+    settings.update({'automaton_cell': 4});
+    tester.view.physicalSize = const Size(4000, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final host = Host(settings: settings, toast: (_) {}, show: (_) {});
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: appTheme(Brightness.dark, const {}, 8),
+        home: Scaffold(body: AutomatonPage(host: host, active: true)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.textContaining('$maxCols × $maxRows cells'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

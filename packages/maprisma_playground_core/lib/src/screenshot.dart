@@ -46,36 +46,44 @@ String screenshotStamp(DateTime at) {
       '${two(at.hour)}${two(at.minute)}${two(at.second)}';
 }
 
-bool _taken(String path) => FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.notFound;
-
 /// `maprisma-playground-<stamp>.png`, or -2, -3 … when a picture or a note already has that name
-/// (also a link that points nowhere).
-String freeScreenshotName(String folder, String stamp) {
-  var path = p.join(folder, 'maprisma-playground-$stamp.png');
+/// in the folder (also a link that points nowhere).
+String freeScreenshotName(PrivateFolder folder, String stamp) {
+  var name = 'maprisma-playground-$stamp.png';
   var n = 2;
-  while (_taken(path) || _taken(p.setExtension(path, '.txt'))) {
-    path = p.join(folder, 'maprisma-playground-$stamp-$n.png');
+  while (folder.taken(name) || folder.taken(p.setExtension(name, '.txt'))) {
+    name = 'maprisma-playground-$stamp-$n.png';
     n++;
   }
-  return path;
+  return name;
 }
 
-/// The PNG into a new file of its own (0600, the folder 0700 when it is made); returns its path.
+/// The PNG into a new file of its own (0600) in the private folder (0700 when it is made, only a
+/// real folder of yours that others cannot write to); returns its path.
 String saveScreenshot(String folder, List<int> png, {DateTime? at}) {
-  makePrivateFolder(folder);
-  final path = freeScreenshotName(folder, screenshotStamp(at ?? DateTime.now()));
-  writeNewPrivate(path, png);
-  return path;
+  final where = PrivateFolder.open(folder);
+  try {
+    final name = freeScreenshotName(where, screenshotStamp(at ?? DateTime.now()));
+    where.writeNew(name, png);
+    return p.join(folder, name);
+  } finally {
+    where.close();
+  }
 }
 
-/// The note next to the picture (same name, .txt); no text, no file.
+/// The note next to the picture (same name, .txt); no text, no file. The folder is checked again.
 String? saveScreenshotNote(String picture, String text) {
   var note = text.trim();
   if (note.isEmpty) return null;
   if (note.length > screenshotNoteLimit) note = note.substring(0, screenshotNoteLimit);
-  final path = p.setExtension(picture, '.txt');
-  writeNewPrivate(path, utf8.encode('$note\n'));
-  return path;
+  final where = PrivateFolder.open(p.dirname(picture));
+  try {
+    final name = p.setExtension(p.basename(picture), '.txt');
+    where.writeNew(name, utf8.encode('$note\n'));
+    return p.join(where.path, name);
+  } finally {
+    where.close();
+  }
 }
 
 /// The path as the dialog says it: the home folder as ~.

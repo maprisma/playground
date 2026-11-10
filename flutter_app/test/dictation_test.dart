@@ -195,4 +195,43 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('dictate')));
     await tester.pump();
   });
+
+  testWidgets('one recorder: the microphone of another field stops the first one; stopAll stops it', (tester) async {
+    omarchy(backend: 'voxtype');
+    final a = TextEditingController(), b = TextEditingController();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: appTheme(Brightness.dark, const {}, 8),
+        home: Scaffold(
+          body: Column(
+            children: [
+              PromptField(key: const ValueKey('a'), controller: a),
+              PromptField(key: const ValueKey('b'), controller: b),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    Finder mic(String field) =>
+        find.descendant(of: find.byKey(ValueKey(field)), matching: find.byKey(const ValueKey('dictate')));
+    Finder lit(String field) => find.descendant(of: find.byKey(ValueKey(field)), matching: find.byIcon(Icons.mic));
+    await tester.tap(mic('a'));
+    await tester.pump();
+    expect(lit('a'), findsOneWidget);
+    await tester.tap(mic('b'));
+    await tester.pump();
+    expect(lit('a'), findsNothing);
+    expect(lit('b'), findsOneWidget);
+    expect(spawned.map((x) => x.last), ['start', 'stop', 'start']);
+    Dictation.instance.stopAll(); // the app closes
+    await tester.pump();
+    expect(lit('b'), findsNothing);
+    expect(spawned.map((x) => x.last), ['start', 'stop', 'start', 'stop']);
+    // A field that goes away stops its dictation too.
+    await tester.tap(mic('a'));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox());
+    expect(spawned.map((x) => x.last), ['start', 'stop', 'start', 'stop', 'start', 'stop']);
+  });
 }

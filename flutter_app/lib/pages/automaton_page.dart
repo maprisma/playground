@@ -15,6 +15,9 @@ import '../widgets.dart';
 const _ownRule = 'Own rule…';
 const _paint = 'Draw cells';
 const _densities = [.1, .2, .3, .4, .5];
+
+/// The grid's size limit, whatever the window's size (AI Playground's MAX_COLS, MAX_ROWS).
+const maxCols = 600, maxRows = 400;
 const _intro =
     "A cellular automaton: each cell lives or dies by how many of its eight neighbours are alive. Draw cells with the mouse (the right button erases), place a pattern, or fill at random, then Play. The rule can be changed while it runs: B is how many neighbours bring a cell to life, S how many keep it alive.";
 
@@ -552,7 +555,9 @@ class _AutomatonPageState extends State<AutomatonPage> {
             Expanded(
               child: LayoutBuilder(
                 builder: (context, box) {
-                  final cols = max(1, box.maxWidth ~/ _cell), rows = max(1, box.maxHeight ~/ _cell);
+                  // A huge window: a bounded grid (at most 240 000 cells).
+                  final cols = min(max(1, box.maxWidth ~/ _cell), maxCols);
+                  final rows = min(max(1, box.maxHeight ~/ _cell), maxRows);
                   if (cols != _grid.width || rows != _grid.height) {
                     _grid.resize(cols, rows);
                     // The size in the status line.

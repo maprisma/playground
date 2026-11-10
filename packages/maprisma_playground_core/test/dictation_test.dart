@@ -162,4 +162,76 @@ void main() {
       ['/opt/omarchy/bin/omarchy-menu', 'summon', 'setup.default.dictation'],
     ]);
   });
+
+  group('helper output is read bounded', () {
+    late Directory dir;
+    setUp(() => dir = Directory.systemTemp.createTempSync('dictation-helper-'));
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    String script(String body) {
+      final file = File('${dir.path}/helper-${body.hashCode.abs()}')..writeAsStringSync('#!/bin/sh\n$body\n');
+      Process.runSync('/bin/chmod', ['755', file.path]);
+      return file.path;
+    }
+
+    test('a normal answer', () async {
+      expect(await readOutput([script('echo superwhisper')]), (0, 'superwhisper\n'));
+    });
+
+    test('too much output is cut off and the helper ended', () async {
+      final watch = Stopwatch()..start();
+      expect(await readOutput([script('while :; do echo xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx; done')]), isNull);
+      expect(watch.elapsed, lessThan(const Duration(seconds: 3)));
+    });
+
+    test('a helper that takes too long is ended at the deadline', () async {
+      final watch = Stopwatch()..start();
+      expect(await readOutput([script('exec sleep 30')], timeout: const Duration(milliseconds: 300)), isNull);
+      expect(watch.elapsed, lessThan(const Duration(seconds: 2)));
+    });
+
+    test('a helper that closes its output but keeps running counts as too slow', () async {
+      expect(
+        await readOutput([script('exec >/dev/null; sleep 30')], timeout: const Duration(milliseconds: 300)),
+        isNull,
+      );
+    });
+
+    test('undecodable bytes are replaced, never thrown', () async {
+      final answer = await readOutput([script(r"printf 'super\377\376whisper'")]);
+      expect(answer!.$1, 0);
+      expect(answer.$2, contains('�'));
+    });
+
+    test('a program that cannot start gives nothing', () async {
+      expect(await readOutput(['${dir.path}/missing']), isNull);
+    });
+  });
+
+  test('a status that is not a JSON object is unknown', () async {
+    for (final text in ['[1, 2]', '"recording"', 'null', '\u0000ÿ']) {
+      expect(await make(answer: (0, text)).recording('superwhisper'), isNull, reason: text);
+    }
+  });
+
+  test('a broken PATH lookup means no microphone, not an error', () {
+    expect(make(which: (_) => throw const FileSystemException('broken')).supported, isFalse);
+  });
+
+  test('one recorder: a new claim stops the other, stopAll stops the active one once', () {
+    final stopped = <String>[];
+    final d = make();
+    void a() => stopped.add('a');
+    void b() => stopped.add('b');
+    d.claim(a);
+    d.claim(a); // the same one again: nothing to stop
+    expect(stopped, isEmpty);
+    d.claim(b);
+    expect(stopped, ['a']);
+    d.release(a); // not the active one: b stays
+    d.stopAll();
+    expect(stopped, ['a', 'b']);
+    d.stopAll();
+    expect(stopped, ['a', 'b']);
+  });
 }

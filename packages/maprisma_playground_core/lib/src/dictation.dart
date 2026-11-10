@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
@@ -50,23 +51,52 @@ typedef DictationRun = Future<(int, String)> Function(List<String> argv);
 /// Starts a program (argv, no shell) without waiting for it.
 typedef DictationSpawn = void Function(List<String> argv);
 
-Future<(int, String)> _run(List<String> argv) async {
-  final process = await Process.start(argv.first, argv.sublist(1));
+/// Bytes read from a helper's answer; more ends it.
+const dictationOutputLimit = 64 * 1024;
+
+/// Run argv (no shell) and read at most [limit] bytes of its output within [timeout]; null when it
+/// cannot start, takes too long or says too much (then it is killed). Undecodable bytes are
+/// replaced, so a broken helper cannot throw here.
+Future<(int, String)?> readOutput(
+  List<String> argv, {
+  Duration timeout = const Duration(seconds: 3),
+  int limit = dictationOutputLimit,
+}) async {
+  final Process process;
+  try {
+    process = await Process.start(argv.first, argv.sublist(1));
+  } on Object {
+    return null;
+  }
   process.stdin.close().ignore();
   process.stderr.drain<void>().ignore();
-  final out = StringBuffer();
-  final reading = process.stdout.transform(const Utf8Decoder(allowMalformed: true)).forEach((chunk) {
-    if (out.length < 200000) out.write(chunk);
-  });
+  final bytes = BytesBuilder(copy: false);
+  final done = Completer<bool>(); // true: the output ended within the limit
+  final reading = process.stdout.listen(
+    (chunk) {
+      bytes.add(chunk);
+      if (bytes.length > limit && !done.isCompleted) done.complete(false);
+    },
+    onDone: () => done.isCompleted ? null : done.complete(true),
+    onError: (Object _) => done.isCompleted ? null : done.complete(false),
+    cancelOnError: true,
+  );
+  final deadline = DateTime.now().add(timeout);
   try {
-    final code = await process.exitCode.timeout(const Duration(seconds: 3));
-    await reading.timeout(const Duration(seconds: 1), onTimeout: () {});
-    return (code, out.toString());
-  } on TimeoutException {
+    final ended = await done.future.timeout(timeout, onTimeout: () => false);
+    if (!ended) throw TimeoutException('helper');
+    final left = deadline.difference(DateTime.now());
+    final code = await process.exitCode.timeout(left.isNegative ? Duration.zero : left);
+    return (code, utf8.decode(bytes.takeBytes(), allowMalformed: true));
+  } on Object {
     process.kill(ProcessSignal.sigkill);
-    return (-1, '');
+    return null;
+  } finally {
+    await reading.cancel();
   }
 }
+
+Future<(int, String)> _run(List<String> argv) async => await readOutput(argv) ?? (-1, '');
 
 void _spawn(List<String> argv) {
   Process.start(argv.first, argv.sublist(1), mode: ProcessStartMode.detached).ignore();
@@ -90,7 +120,35 @@ final class Dictation {
   String? _backend;
 
   /// The desktop has a dictation command to call (Omarchy).
-  bool get supported => _which('omarchy-dictation') != null && _which('omarchy-default-dictation') != null;
+  bool get supported {
+    try {
+      return _which('omarchy-dictation') != null && _which('omarchy-default-dictation') != null;
+    } on Object {
+      return false; // a broken PATH: no microphone, never a window that cannot build
+    }
+  }
+
+  /// The one microphone that is recording (one recorder for the whole app): how to stop it.
+  void Function()? _active;
+
+  /// A microphone starts: the one recording in another field stops first.
+  void claim(void Function() stop) {
+    final other = _active;
+    if (other != null && other != stop) other(); // == : tear-offs of one button's method are equal
+    _active = stop;
+  }
+
+  /// A microphone stopped (only its own claim is let go).
+  void release(void Function() stop) {
+    if (_active == stop) _active = null;
+  }
+
+  /// The app closes: a dictation it started must not go on writing into another window.
+  void stopAll() {
+    final active = _active;
+    _active = null;
+    active?.call();
+  }
 
   /// The configured backend whose own program is installed (as Omarchy's key bindings check it),
   /// e.g. "superwhisper", or null; asked at most every 30 s unless [fresh].

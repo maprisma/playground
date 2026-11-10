@@ -15,16 +15,19 @@ void main() {
 
   test('free name never reuses a picture or a note', () {
     final where = folder.path;
-    final first = freeScreenshotName(where, '20261110-120000');
+    final handle = PrivateFolder.open(where);
+    addTearDown(handle.close);
+    String free(String stamp) => p.join(where, freeScreenshotName(handle, stamp));
+    final first = free('20261110-120000');
     expect(p.basename(first), 'maprisma-playground-20261110-120000.png');
     File(first).writeAsBytesSync([1]);
-    final second = freeScreenshotName(where, '20261110-120000');
+    final second = free('20261110-120000');
     expect(p.basename(second), 'maprisma-playground-20261110-120000-2.png');
     File(p.join(where, 'maprisma-playground-20261110-120000-2.txt')).writeAsStringSync('note');
-    expect(p.basename(freeScreenshotName(where, '20261110-120000')), 'maprisma-playground-20261110-120000-3.png');
+    expect(p.basename(free('20261110-120000')), 'maprisma-playground-20261110-120000-3.png');
     // A link that points nowhere takes its name too.
     Link(p.join(where, 'maprisma-playground-20261110-120000-3.png')).createSync(p.join(where, 'gone'));
-    expect(p.basename(freeScreenshotName(where, '20261110-120000')), 'maprisma-playground-20261110-120000-4.png');
+    expect(p.basename(free('20261110-120000')), 'maprisma-playground-20261110-120000-4.png');
   });
 
   test('the stamp is the local date and time', () {
@@ -119,5 +122,43 @@ void main() {
     } on FileSystemException catch (e) {
       expect(e.osError?.errorCode, 13); // EACCES, not the ENOENT of a later stat
     }
+  });
+
+  test('only a real folder of yours that others cannot write to is used', () {
+    final open = Directory(p.join(folder.path, 'shared'))..createSync();
+    Process.runSync('/bin/chmod', ['777', open.path]);
+    expect(() => saveScreenshot(open.path, [1]), throwsA(isA<FileSystemException>()));
+    Process.runSync('/bin/chmod', ['775', open.path]);
+    expect(() => saveScreenshot(open.path, [1]), throwsA(isA<FileSystemException>()));
+    expect(open.listSync(), isEmpty);
+    Process.runSync('/bin/chmod', ['755', open.path]); // readable by others, writable only by you: fine
+    expect(File(saveScreenshot(open.path, [1])).existsSync(), isTrue);
+    // The note checks the folder again.
+    final picture = saveScreenshot(open.path, [2]);
+    Process.runSync('/bin/chmod', ['757', open.path]);
+    expect(() => saveScreenshotNote(picture, 'note'), throwsA(isA<FileSystemException>()));
+    expect(File(p.setExtension(picture, '.txt')).existsSync(), isFalse);
+    Process.runSync('/bin/chmod', ['700', open.path]);
+  });
+
+  test('a write that fails leaves no file behind', () {
+    final where = p.join(folder.path, 'Maprisma Playground');
+    debugFailWriteAfter = 3;
+    addTearDown(() => debugFailWriteAfter = null);
+    expect(() => saveScreenshot(where, List.filled(10, 7)), throwsA(isA<FileSystemException>()));
+    expect(Directory(where).listSync(), isEmpty);
+    debugFailWriteAfter = null;
+    final picture = saveScreenshot(where, List.filled(10, 7));
+    expect(File(picture).lengthSync(), 10);
+    debugFailWriteAfter = 2;
+    expect(() => saveScreenshotNote(picture, 'a longer note'), throwsA(isA<FileSystemException>()));
+    expect(Directory(where).listSync().map((e) => p.basename(e.path)), [p.basename(picture)]);
+  });
+
+  test('a folder handle takes plain names only', () {
+    final handle = PrivateFolder.open(folder.path);
+    addTearDown(handle.close);
+    expect(() => handle.writeNew('../escape.png', [1]), throwsArgumentError);
+    expect(() => handle.taken('a/b'), throwsArgumentError);
   });
 }

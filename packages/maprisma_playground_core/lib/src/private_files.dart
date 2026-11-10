@@ -258,13 +258,9 @@ void atomicPrivateWrite(String path, String text, {bool privateFolder = false}) 
   }
 }
 
-final _errnoLocation = _libc.lookupFunction<Pointer<Int32> Function(), Pointer<Int32> Function()>(
-  '__errno_location',
-);
+final _errnoLocation = _libc.lookupFunction<Pointer<Int32> Function(), Pointer<Int32> Function()>('__errno_location');
 final _strerror = _libc.lookupFunction<Pointer<Uint8> Function(Int32), Pointer<Uint8> Function(int)>('strerror');
-final _mkdir = _libc.lookupFunction<Int32 Function(Pointer<Uint8>, Uint32), int Function(Pointer<Uint8>, int)>(
-  'mkdir',
-);
+final _mkdir = _libc.lookupFunction<Int32 Function(Pointer<Uint8>, Uint32), int Function(Pointer<Uint8>, int)>('mkdir');
 
 /// The last libc error as an OSError (its own English text, as Python's strerror).
 OSError _lastError() {
@@ -323,5 +319,99 @@ void makePrivateFolder(String path) {
     }
   } finally {
     _free(name.cast());
+  }
+}
+
+final _openAt = _libc
+    .lookupFunction<Int32 Function(Int32, Pointer<Uint8>, Int32, Uint32), int Function(int, Pointer<Uint8>, int, int)>(
+      'openat',
+    );
+final _unlinkAt = _libc
+    .lookupFunction<Int32 Function(Int32, Pointer<Uint8>, Int32), int Function(int, Pointer<Uint8>, int)>('unlinkat');
+
+/// Tests only: a write of a new file fails after this many bytes (a full disk, an I/O error).
+int? debugFailWriteAfter;
+
+/// A handle on a folder of this account's that only it may write to: made 0700 when missing; used
+/// only when it is a real folder (opened with O_NOFOLLOW|O_DIRECTORY, so no link), owned by this
+/// account and not writable by group or others (checked on the opened handle). Files are made
+/// relative to that handle, so the folder cannot be swapped between the check and the write.
+final class PrivateFolder {
+  PrivateFolder._(this.path, this._fd);
+
+  factory PrivateFolder.open(String path) {
+    makePrivateFolder(path);
+    final name = _text(path);
+    int fd;
+    try {
+      fd = _openMode(name, 0x10000 | 0x20000 | 0x80000, 0); // O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC
+    } finally {
+      _free(name.cast());
+    }
+    if (fd < 0) throw FileSystemException('open', path, _lastError());
+    final info = fileIdentity('', fd: fd);
+    if (info == null || info.mode & 0xf000 != 0x4000 || info.uid != fileOwnerUid || info.mode & 0x12 != 0) {
+      _close(fd);
+      throw FileSystemException('not a private folder of yours', path, const OSError('Permission denied', 13));
+    }
+    return PrivateFolder._(path, fd);
+  }
+
+  final String path;
+  int _fd;
+
+  static void _plain(String name) {
+    if (name.isEmpty || name == '.' || name == '..' || name.contains('/')) {
+      throw ArgumentError.value(name, 'name', 'not a plain file name');
+    }
+  }
+
+  /// Something of that name is in the folder (also a link that points nowhere).
+  bool taken(String name) {
+    _plain(name);
+    return fileIdentity(name, fd: _fd) != null;
+  }
+
+  /// A new file of our own in the folder (0600, never through a link, never over an existing
+  /// file), written completely and synced, or removed again.
+  void writeNew(String name, List<int> bytes) {
+    _plain(name);
+    final where = '$path/$name';
+    final cName = _text(name);
+    try {
+      final out = _openAt(_fd, cName, 1 | 0x20000 | 0x80000 | 0x40 | 0x80, 0x180);
+      if (out < 0) throw FileSystemException('open', where, _lastError());
+      final buffer = _allocate(bytes.isEmpty ? 1 : bytes.length);
+      var ok = false;
+      try {
+        buffer.asTypedList(bytes.length).setAll(0, bytes);
+        var offset = 0;
+        while (offset < bytes.length) {
+          final limit = debugFailWriteAfter;
+          if (limit != null && offset >= limit) {
+            throw FileSystemException('write', where, const OSError('No space left on device', 28));
+          }
+          final want = limit == null ? bytes.length - offset : (limit - offset).clamp(1, bytes.length - offset);
+          final n = _writeFd(out, buffer + offset, want); // a short write: the loop goes on
+          if (n <= 0) throw FileSystemException('write', where, _lastError());
+          offset += n;
+        }
+        if (_fsync(out) != 0) throw FileSystemException('fsync', where, _lastError());
+        ok = true;
+      } finally {
+        _free(buffer.cast());
+        _close(out);
+        if (!ok) _unlinkAt(_fd, cName, 0); // nothing half-written is left behind
+      }
+    } finally {
+      _free(cName.cast());
+    }
+  }
+
+  void close() {
+    if (_fd >= 0) {
+      _close(_fd);
+      _fd = -1;
+    }
   }
 }
