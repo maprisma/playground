@@ -71,8 +71,8 @@ String? ruleName(Rule rule) {
 }
 
 /// A pattern to stamp, as rows of '.' (dead) and 'O' (alive).
-final class Pattern {
-  const Pattern(this.name, this.rows, {this.about = ''});
+final class CellPattern {
+  const CellPattern(this.name, this.rows, {this.about = ''});
   final String name, about;
   final List<String> rows;
   int get width => rows.fold(0, (w, r) => max(w, r.length));
@@ -88,10 +88,10 @@ final class Pattern {
   }
 }
 
-const patterns = <Pattern>[
-  Pattern('Glider', ['.O.', '..O', 'OOO'], about: 'flies diagonally, 4 generations per step'),
-  Pattern('Lightweight spaceship', ['.O..O', 'O....', 'O...O', 'OOOO.'], about: 'flies sideways'),
-  Pattern('Pulsar', [
+const patterns = <CellPattern>[
+  CellPattern('Glider', ['.O.', '..O', 'OOO'], about: 'flies diagonally, 4 generations per step'),
+  CellPattern('Lightweight spaceship', ['.O..O', 'O....', 'O...O', 'OOOO.'], about: 'flies sideways'),
+  CellPattern('Pulsar', [
     '..OOO...OOO..',
     '.............',
     'O....O.O....O',
@@ -106,7 +106,7 @@ const patterns = <Pattern>[
     '.............',
     '..OOO...OOO..',
   ], about: 'blinks with period 3'),
-  Pattern('Gosper glider gun', [
+  CellPattern('Gosper glider gun', [
     '........................O...........',
     '......................O.O...........',
     '............OO......OO............OO',
@@ -117,9 +117,9 @@ const patterns = <Pattern>[
     '...........O...O....................',
     '............OO......................',
   ], about: 'shoots a glider every 30 generations'),
-  Pattern('R-pentomino', ['.OO', 'OO.', '.O.'], about: 'five cells, settles after 1103 generations'),
-  Pattern('Acorn', ['.O.....', '...O...', 'OO..OOO'], about: 'seven cells, 5206 generations'),
-  Pattern('Diehard', ['......O.', 'OO......', '.O...OOO'], about: 'vanishes after 130 generations'),
+  CellPattern('R-pentomino', ['.OO', 'OO.', '.O.'], about: 'five cells, settles after 1103 generations'),
+  CellPattern('Acorn', ['.O.....', '...O...', 'OO..OOO'], about: 'seven cells, 5206 generations'),
+  CellPattern('Diehard', ['......O.', 'OO......', '.O...OOO'], about: 'vanishes after 130 generations'),
 ];
 
 /// The grid and its history. Cells: 0 dead, 1 alive, 2 … states-1 dying (Generations rules).
@@ -230,7 +230,7 @@ final class Automaton {
   }
 
   /// Stamp a pattern with its top left at (x, y); it wraps when the edges do.
-  void stamp(Pattern pattern, int x, int y) {
+  void stamp(CellPattern pattern, int x, int y) {
     for (final (px, py) in pattern.cells) {
       var cx = x + px, cy = y + py;
       if (wrap) {

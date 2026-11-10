@@ -125,7 +125,7 @@ class _DuelPageState extends State<DuelPage> {
       setState(() => _score = 'The same one twice: no score is kept.');
       return;
     }
-    final scores = Map<String, Object?>.of(widget.host.settings.get('duel_scores') as Map<String, Object?>);
+    final scores = Map<String, Object?>.from(widget.host.settings.get('duel_scores') as Map);
     final key = '$first|$second';
     final stored = scores[key];
     final score = stored is List && stored.length == 3 && stored.every((v) => v is int)

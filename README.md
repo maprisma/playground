@@ -134,6 +134,14 @@ cd flutter_app && flutter test                        # the window
 cd bar && cargo test                                  # the tray's menu
 ```
 
+Live checks of the real app with your agents and local LLMs (they ask Claude Code a few short
+questions, which costs a little of its plan, and the small Gemma model on Ollama when it is there):
+
+```sh
+cd flutter_app
+MAPRISMA_PLAYGROUND_NON_UNIQUE=1 XDG_CONFIG_HOME=$(mktemp -d) flutter test integration_test/live_test.dart -d linux
+```
+
 The plan and the reviews are in `docs/`. The core speaks the protocol in `docs/protocol.md`.
 
 ## License

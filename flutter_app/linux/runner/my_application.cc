@@ -368,7 +368,11 @@ static void my_application_init(MyApplication* self) {}
 
 MyApplication* my_application_new() {
   g_set_prgname(APPLICATION_ID);
+  // MAPRISMA_PLAYGROUND_NON_UNIQUE=1 (the live tests): a copy of its own beside an open window.
+  const gchar* separate = g_getenv("MAPRISMA_PLAYGROUND_NON_UNIQUE");
+  GApplicationFlags flags = (separate != nullptr && g_strcmp0(separate, "1") == 0)
+                                ? G_APPLICATION_NON_UNIQUE
+                                : G_APPLICATION_DEFAULT_FLAGS;
   return MY_APPLICATION(g_object_new(my_application_get_type(), "application-id",
-                                     APPLICATION_ID, "flags", G_APPLICATION_DEFAULT_FLAGS,
-                                     nullptr));
+                                     APPLICATION_ID, "flags", flags, nullptr));
 }
