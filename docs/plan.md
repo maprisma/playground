@@ -116,3 +116,46 @@ ActionButton and the Mark.
 - Flutter: widget tests for the header, tabs, fold cards and the board.
 - The live checks ask the real agents (the user's plan tokens): a small sum per agent, one chess
   move, and one vision question.
+
+## After Codex's plan review (docs/reviews/codex-plan-review.md, 18 findings, all accepted)
+
+- **Who does what.**
+  - Codex (A): the core and its safety. That covers the shared process runner (new session, a
+    process-group kill on timeout, overflow or cancel, stdin fed on its own, agent-session
+    variables dropped, every child known so shutdown can end it), agents (the access metadata of
+    the four adapters, stat-only credential checks, local providers), the media guards (picture
+    size, dimensions and pixels checked *before* decoding; ffmpeg protocol and format whitelists;
+    yt-dlp without user config or exec hooks), local HTTP (only listeners owned by this user,
+    literal 127.0.0.1, no proxy, no redirects, bounded responses), downloads (resumable `.part`
+    files opened O_NOFOLLOW with owner and link-count checks, locks, archive checks), the
+    `ChessGame` controller, CoreService plus the protocol, and the CLI.
+  - Claude (B): the native shell, widgets and pages, the board widget through ChessGame, the
+    bar, the installer, the Manager entry and the screenshots.
+  - Each reviews the other's work after every slice.
+- **Untrusted input:** only `reads_untrusted` agents get it (Claude, Hermes, Pi). Codex never
+  does, because its read-only sandbox can still read files.
+- **Chess prompts go on stdin** where the agent takes it. This is a deliberate improvement over
+  the plugin.
+- **Shared configuration that Analyze/frame_check touches** (`~/.config/llama.cpp/models.ini`,
+  Pi's models.json entry, the projector next to a model, a server started for vision) keeps the
+  plugin's shared names and its backup/safe-write rules. The Manager lists it as shared and never
+  removes it.
+- **Single instance:** GApplication remote actions (not a socket). Closing quits. Before it quits,
+  Dart is told (`closing`) and cancels every job.
+- **Settings:** Corners is kept. "Several local models at once" is not a setting: it is the
+  per-run GPU dialog.
+- **Parity checklist** (screenshots and the acceptance list per tab):
+  - Chess: the position editor (piece cards to place, Clear, Reset, side to move), both
+    strengths, pause/resume, retry, comments, the separate Games page (search, pages, open the
+    original, auto replay), and replacement of a game from the same source.
+  - Import: reader choice, frame gap, length limit, a cost warning, the fall-back from text to
+    frames, and cancel.
+  - Analyze: all 7 cards and the projector download.
+  - Generate: sizes, cancel, several results, Clear, seed and time shown.
+  - Speed/Duel: local models next to agents, and models unloaded between sequential runs.
+  - Esc/Backspace go back.
+- **Order:** core runner and agents → shell, plus Speed/Duel/Local as an installed vertical slice
+  with the bar on KDE → Chess → Analyze and vision readiness → Vision → video import → Generate →
+  Manager and publish.
+- **Licenses:** before publishing, the plugin's notices are kept and copied assets are audited
+  (icons/Asterism/COPYING).
