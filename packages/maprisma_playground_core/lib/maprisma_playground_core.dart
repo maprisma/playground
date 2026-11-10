@@ -26,3 +26,4 @@ export 'src/automaton.dart';
 export 'src/i18n.dart';
 export 'src/automaton_info.dart';
 export 'src/screenshot.dart';
+export 'src/dictation.dart';

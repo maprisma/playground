@@ -1,5 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:maprisma_playground_core/maprisma_playground_core.dart'
+    show
+        Dictation,
+        dictationDisplayName,
+        dictationNotSetUpTip,
+        dictationSetupButton,
+        dictationSetupText,
+        dictationSetupTitle,
+        dictationTip,
+        tr,
+        trf;
 
 import 'theme.dart';
 
@@ -342,28 +355,165 @@ class Choice<T> extends StatelessWidget {
 }
 
 /// host.prompt_view: a framed, wrapping text field for a question, 72 px high to start with
-/// (three lines of 13 px text).
-class PromptField extends StatelessWidget {
+/// (three lines of 13 px text), with the microphone in its lower right corner on Omarchy
+/// (dictation.with_mic); the text keeps clear of it.
+class PromptField extends StatefulWidget {
   const PromptField({super.key, required this.controller, this.minLines = 3, this.hint, this.onSubmit});
   final TextEditingController controller;
   final int minLines;
   final String? hint;
   final VoidCallback? onSubmit;
   @override
+  State<PromptField> createState() => _PromptFieldState();
+}
+
+class _PromptFieldState extends State<PromptField> {
+  final _focus = FocusNode(debugLabel: 'question');
+  late final bool _mic = Dictation.instance.supported;
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final field = TextField(
-      controller: controller,
-      minLines: minLines,
+    Widget field = TextField(
+      controller: widget.controller,
+      focusNode: _focus,
+      minLines: widget.minLines,
       maxLines: 12,
       style: const TextStyle(fontSize: 13, height: 1.4),
-      decoration: InputDecoration(hintText: hint),
+      decoration: InputDecoration(
+        hintText: widget.hint,
+        contentPadding: _mic ? const EdgeInsets.fromLTRB(8, 9, 40, 9) : null,
+      ),
     );
-    if (onSubmit == null) return field;
-    return CallbackShortcuts(
-      bindings: {const SingleActivator(LogicalKeyboardKey.enter, control: true): onSubmit!},
-      child: field,
+    if (widget.onSubmit != null) {
+      field = CallbackShortcuts(
+        bindings: {const SingleActivator(LogicalKeyboardKey.enter, control: true): widget.onSubmit!},
+        child: field,
+      );
+    }
+    if (!_mic) return field;
+    return Stack(
+      children: [
+        field,
+        Positioned(
+          right: 6,
+          bottom: 6,
+          child: DictateButton(controller: widget.controller, focus: _focus),
+        ),
+      ],
     );
   }
+}
+
+/// dictation.mic_button: the microphone of a question field. With a dictation program set up, a
+/// click puts the cursor at the end of the field and starts it (a second click stops it); lit in
+/// red while it records (Superwhisper's own shortcut is followed too). Without one, a click shows
+/// how to set one up and starts nothing.
+class DictateButton extends StatefulWidget {
+  const DictateButton({super.key, required this.controller, required this.focus});
+  final TextEditingController controller;
+  final FocusNode focus;
+  @override
+  State<DictateButton> createState() => _DictateButtonState();
+}
+
+class _DictateButtonState extends State<DictateButton> {
+  final _dictation = Dictation.instance;
+  String? _name;
+  bool _on = false;
+  Timer? _poll;
+
+  @override
+  void initState() {
+    super.initState();
+    _dictation.backend().then((name) {
+      if (mounted) setState(() => _name = name);
+    });
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  String get _tip => _name == null ? tr(dictationNotSetUpTip) : trf(dictationTip, [dictationDisplayName(_name!)]);
+
+  void _off() {
+    _poll?.cancel();
+    _poll = null;
+    if (mounted) setState(() => _on = false);
+  }
+
+  Future<void> _toggle() async {
+    if (!_on) {
+      final name = await _dictation.backend(fresh: true); // set up meanwhile? ask again
+      if (!mounted) return;
+      setState(() => _name = name);
+      if (name == null) {
+        await showDictationSetup(context, _dictation);
+        return;
+      }
+    }
+    // The words go where the cursor is: at the end of this field.
+    widget.controller.selection = TextSelection.collapsed(offset: widget.controller.text.length);
+    widget.focus.requestFocus();
+    _dictation.act(_on ? 'stop' : 'start');
+    if (_on) {
+      _off();
+      return;
+    }
+    setState(() => _on = true);
+    _poll ??= Timer.periodic(const Duration(seconds: 1), (_) async {
+      // Stopped with its own shortcut: the button goes off too.
+      if (await _dictation.recording(_name) == false && _on) _off();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final look = Look.of(context);
+    final color = _on ? look.red : look.fg;
+    return Tooltip(
+      message: _tip,
+      child: OutlinedButton(
+        key: const ValueKey('dictate'),
+        onPressed: _toggle,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: color,
+          backgroundColor: _on ? look.red.withValues(alpha: .14) : look.bg,
+          side: BorderSide(color: _on ? look.red : look.fg.withValues(alpha: .35)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(cornerSizes(context).control)),
+          padding: EdgeInsets.zero,
+          minimumSize: const Size(26, controlHeight),
+          fixedSize: const Size(26, controlHeight),
+          visualDensity: VisualDensity.standard,
+        ),
+        child: Icon(_on ? Icons.mic : Icons.mic_none, size: 15, color: color),
+      ),
+    );
+  }
+}
+
+/// dictation.setup_dialog: no dictation program yet; Close, or Omarchy's dictation menu.
+Future<void> showDictationSetup(BuildContext context, Dictation dictation) async {
+  final open = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(tr(dictationSetupTitle), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+      content: SizedBox(width: 440, child: AnswerText(tr(dictationSetupText))),
+      actions: [
+        SmallButton(tr("Close"), onPressed: () => Navigator.pop(context, false)),
+        ActionButton(tr(dictationSetupButton), onPressed: () => Navigator.pop(context, true)),
+      ],
+    ),
+  );
+  if (open == true) dictation.openSetup();
 }
 
 /// host.answer_label (.am-chess-said): selectable, wrapping.

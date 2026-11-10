@@ -18,6 +18,7 @@ void main() {
   late Settings settings;
   setUp(() {
     setLanguage('en');
+    Dictation.instance = Dictation(which: (_) => null); // not Omarchy: no microphone, nothing asked
     home = Directory.systemTemp.createTempSync('playground-shell-');
     settings = Settings(Places(config: '${home.path}/config', data: '${home.path}/data', cache: '${home.path}/cache'));
   });

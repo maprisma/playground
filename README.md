@@ -97,6 +97,10 @@ Keys:
 - F12 saves a picture of the window to `~/Pictures/Maprisma Playground/` and asks for an optional
   note about what is wrong (a `.txt` next to it). Settings › F12 saves a screenshot turns it off.
 
+**Dictation** (Omarchy): the microphone in the lower right corner of a question field (Speed and
+cost, Head to head, Vision, Generate, Local LLMs) starts the desktop's own dictation with the cursor
+in the field; a second click stops it, and it is lit while it records.
+
 **Corners** (Settings): like the desktop's windows, slightly rounded (6 px), rounded (12 px) or
 square. Every control follows it in three sizes: cards, dialogs, pop-ups, the chess board and the
 automaton grid take the full radius; buttons, choice boxes and fields at most 8 px; check boxes,
@@ -151,6 +155,14 @@ pictures folder of `user-dirs.dirs`), as new files readable only by you (folder 
 never over an existing file or through a link); a note you type goes next to it as a `.txt`. The
 window draws itself into the picture: no screenshot program is started and nothing is sent
 anywhere.
+
+**Dictation**: the microphone in a question field starts the desktop's own dictation (Omarchy:
+`omarchy-dictation`, the backend set in Setup › Defaults › Dictation, e.g. Superwhisper); that
+program writes what you say at the cursor. Maprisma Playground records nothing itself; whether the
+words are recognised on this PC or by a cloud service is the backend's setting. No backend set up
+yet: a click on the microphone explains how (Setup › Defaults › Dictation) and can open that menu;
+away from Omarchy there is no microphone. The programs are started as argument lists, never through
+a shell.
 
 ## Building and testing
 
