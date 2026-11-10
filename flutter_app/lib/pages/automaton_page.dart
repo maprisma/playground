@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:maprisma_playground_core/src/automaton.dart';
+import 'package:maprisma_playground_core/maprisma_playground_core.dart';
 
 import '../app.dart';
 import '../theme.dart';

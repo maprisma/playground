@@ -52,18 +52,20 @@ class PlaygroundApp extends StatefulWidget {
 
 class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserver {
   Map<String, dynamic> _look = const {};
+  StreamSubscription<bool>? _focus;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _readLook();
-    AppWindow.instance.focus.stream.listen((on) {
+    _focus = AppWindow.instance.focus.stream.listen((on) {
       if (on) _readLook(); // the desktop's colours may have changed meanwhile
     });
   }
 
   void _readLook() {
+    if (!mounted) return;
     final look = desktopLook();
     if (look.toString() != _look.toString()) setState(() => _look = look);
   }
@@ -73,6 +75,7 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
 
   @override
   void dispose() {
+    _focus?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -132,11 +135,16 @@ class _ShellState extends State<Shell> {
     _open(widget.args);
     _subscriptions
       ..add(AppWindow.instance.opened.stream.listen(_open))
-      ..add(AppWindow.instance.closing.stream.listen((_) {
-        _remember();
-        // Nothing started here outlives the app: agents still answering, downloads, held models.
-        widget.playground.backend.shutdown();
-      }));
+      ..add(AppWindow.instance.closing.stream.listen((_) => _close()));
+  }
+
+  /// The window asked to close (or --toggle, or SIGTERM): the state is kept, then the core ends
+  /// every agent, download and held model it started, and only then the app quits.
+  Future<void> _close() async {
+    _remember();
+    ChessSession.disposeAll();
+    await widget.playground.backend.shutdown();
+    await AppWindow.instance.quit();
   }
 
   void _open(List<String> words) {
@@ -214,7 +222,7 @@ class _ShellState extends State<Shell> {
   Widget _tabPage(String key) => switch (key) {
     'automaton' => AutomatonPage(host: _host, active: _page == 'automaton'),
     'analyze' => AnalyzePage(host: _host, playground: widget.playground),
-    'chess' => ChessPage(host: _host, playground: widget.playground),
+    'chess' => ChessPage(host: _host, playground: widget.playground, active: _page == 'chess'),
     'speed' => SpeedPage(host: _host, playground: widget.playground),
     'vision' => VisionPage(host: _host, playground: widget.playground),
     'generate' => GeneratePage(host: _host, playground: widget.playground),
@@ -237,22 +245,41 @@ class _ShellState extends State<Shell> {
           children: [
             _Header(page: _page, onShow: _show),
             Expanded(
-              child: switch (_page) {
-                'settings' => SettingsPage(
-                  host: _host,
-                  rounding: widget.rounding,
-                  onBack: () => _show(_lastTab),
-                  onLookChanged: widget.onLookChanged,
-                ),
-                'info' => InfoPage(onBack: () => _show(_lastTab)),
-                'games' => GamesPage(
-                  host: _host,
-                  session: ChessSession.of(widget.playground, widget.settings),
-                  onBack: () => _show('chess'),
-                ),
-                // Every tab stays built, so a running game or automaton keeps its state.
-                _ => IndexedStack(index: index < 0 ? 0 : index, children: [for (final t in tabs) _tabPage(t.$1)]),
-              },
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Every tab stays built, also under Settings, Information and Games, so answers,
+                  // a running game or the automaton keep their state.
+                  Offstage(
+                    offstage: index < 0,
+                    child: TickerMode(
+                      enabled: index >= 0,
+                      child: IndexedStack(
+                        index: index < 0 ? tabs.indexWhere((t) => t.$1 == _lastTab) : index,
+                        children: [for (final t in tabs) _tabPage(t.$1)],
+                      ),
+                    ),
+                  ),
+                  if (index < 0)
+                    ColoredBox(
+                      color: look.bg,
+                      child: switch (_page) {
+                        'settings' => SettingsPage(
+                          host: _host,
+                          rounding: widget.rounding,
+                          onBack: () => _show(_lastTab),
+                          onLookChanged: widget.onLookChanged,
+                        ),
+                        'games' => GamesPage(
+                          host: _host,
+                          session: ChessSession.of(widget.playground, widget.settings),
+                          onBack: () => _show('chess'),
+                        ),
+                        _ => InfoPage(onBack: () => _show(_lastTab)),
+                      },
+                    ),
+                ],
+              ),
             ),
           ],
         ),

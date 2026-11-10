@@ -49,8 +49,11 @@ class InfoPage extends StatelessWidget {
                     'play chess against it (or let two play each other), watch a cellular automaton, compare speed '
                     'and cost, judge two answers blind, test what they see in a picture, make pictures on your own '
                     'graphics card, and ask your local LLMs.',
-                'For now it works with four agents: Claude Code, Codex, Hermes and Pi. They are asked once per '
-                    'question without tools, in an empty private folder; nothing they answer is run.',
+                'For now it works with four agents: Claude Code, Codex, Hermes and Pi. Each is asked once per '
+                    'question in an empty private folder, Claude Code, Hermes and Pi without any tools, Codex in its '
+                    'read-only sandbox; nothing they answer is run.',
+                'What comes from outside (pictures, a video\'s captions and frames) goes only to the agents without '
+                    'tools: Codex can still read files, so it never gets it.',
                 'A port of AI Playground, the Omarchy plugin, to KDE Plasma and COSMIC.',
               ]),
               vgap,

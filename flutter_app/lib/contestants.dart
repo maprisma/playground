@@ -247,7 +247,7 @@ Future<void> askAll(
       run.error = '$e';
     }
     if (current()) update();
-    if (oneByOne) {
+    if (oneByOne && current()) {
       try {
         await backend.call('local.make_room', {'target': run.contestant.target}); // room for the next one
       } on Object {

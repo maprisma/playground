@@ -104,6 +104,14 @@ final class Settings {
     return d is List ? List.of(d) : d is Map ? Map.of(d) : d;
   }
 
+  /// Whether settings.json holds a valid value of its own for this key (not just the default).
+  bool stored(String key) {
+    final setting = schema[key];
+    if (setting == null) throw ArgumentError('not a declared setting: $key');
+    final v = _load()[key];
+    return v != null && setting.valid(v);
+  }
+
   String text(String key) => get(key) as String;
   bool flag(String key) => get(key) as bool;
   List<String> texts(String key) => (get(key) as List).cast<String>();

@@ -35,6 +35,8 @@ class _VisionPageState extends State<VisionPage> {
   int _run = 0;
   bool _busy = false;
   Timer? _clock;
+  bool _asking = false;
+  int _load = 0; // the newest load; an older one that ends later is dropped
 
   /// A picture may come from the web and carry planted words: only agents without tools see it
   /// (Codex can read files, so not Codex).
@@ -57,7 +59,7 @@ class _VisionPageState extends State<VisionPage> {
     final path = visionInbox.value;
     if (path == null) return;
     visionInbox.value = null;
-    _load(() async => [await _prepare({'path': path})], 'That picture cannot be read.', visionPrompt);
+    _loadPictures(() async => [await _prepare({'path': path})], 'That picture cannot be read.', visionPrompt);
   }
 
   @override
@@ -82,6 +84,8 @@ class _VisionPageState extends State<VisionPage> {
   }
 
   Future<void> _clear() async {
+    _load++;
+    if (!mounted) return;
     setState(() => _images = []);
     try {
       await widget.playground.backend.call('pictures.clear');
@@ -91,8 +95,10 @@ class _VisionPageState extends State<VisionPage> {
   }
 
   /// Prepared pictures replace the ones shown; `failed` is shown when none could be read.
-  Future<void> _load(Future<List<String?>> Function() work, String failed, String prompt) async {
+  Future<void> _loadPictures(Future<List<String?>> Function() work, String failed, String prompt) async {
     await _clear();
+    if (!mounted) return;
+    final mine = _load;
     setState(() => _busy = true);
     List<String> paths;
     try {
@@ -101,7 +107,7 @@ class _VisionPageState extends State<VisionPage> {
       paths = [];
       failed = e.message.isEmpty ? failed : e.message;
     }
-    if (!mounted) return;
+    if (!mounted || mine != _load) return;
     setState(() {
       _busy = false;
       _images = paths;
@@ -116,15 +122,18 @@ class _VisionPageState extends State<VisionPage> {
         XTypeGroup(label: 'A picture', mimeTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif']),
       ],
     );
-    if (file == null) return;
-    await _load(() async => [await _prepare({'path': file.path})], 'That picture cannot be read.', visionPrompt);
+    if (file == null || !mounted) return;
+    await _loadPictures(() async => [await _prepare({'path': file.path})], 'That picture cannot be read.', visionPrompt);
   }
 
   Future<void> _screenshot() async {
     await _clear();
+    if (!mounted) return;
+    final mine = _load;
     widget.host.toast('The screenshot is taken in 3 seconds.');
     await Future<void>.delayed(const Duration(seconds: 3));
-    await _load(() async {
+    if (!mounted || mine != _load) return; // the page went away, or something else was loaded
+    await _loadPictures(() async {
       final r = await widget.playground.backend.call('pictures.screenshot');
       return [r['path'] as String?];
     }, 'The screenshot did not work.', visionPrompt);
@@ -132,9 +141,9 @@ class _VisionPageState extends State<VisionPage> {
 
   Future<void> _pickVideo() async {
     final file = await openFile(acceptedTypeGroups: const [XTypeGroup(label: 'A video', mimeTypes: ['video/*'])]);
-    if (file == null) return;
+    if (file == null || !mounted) return;
     widget.host.toast('Taking frames from the video…');
-    await _load(() async {
+    await _loadPictures(() async {
       final r = await widget.playground.backend.call('pictures.video_frames', {'path': file.path});
       return [for (final p in (r['paths'] as List? ?? const [])) '$p'];
     }, 'No frames could be taken from that video.', videoPrompt);
@@ -163,7 +172,10 @@ class _VisionPageState extends State<VisionPage> {
       r.job?.cancel();
     }
     final run = ++_run;
-    setState(() => _runs = [for (final c in chosen) Run(c)]);
+    setState(() {
+      _runs = [for (final c in chosen) Run(c)];
+      _asking = true;
+    });
     _clock?.cancel();
     _clock = Timer.periodic(const Duration(milliseconds: 500), (_) => mounted ? setState(() {}) : null);
     await askAll(
@@ -176,7 +188,10 @@ class _VisionPageState extends State<VisionPage> {
       current: () => mounted && run == _run,
       update: () => setState(() {}),
     );
-    if (run == _run) _clock?.cancel();
+    if (run == _run) {
+      _clock?.cancel();
+      if (mounted) setState(() => _asking = false);
+    }
   }
 
   @override
@@ -197,16 +212,20 @@ class _VisionPageState extends State<VisionPage> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            SmallButton('Picture…', onPressed: _busy ? null : _pickPicture),
+            SmallButton('Picture…', onPressed: _busy || _asking ? null : _pickPicture),
             SmallButton(
               'Screenshot in 3 s',
-              onPressed: _busy ? null : _screenshot,
+              onPressed: _busy || _asking ? null : _screenshot,
               tooltip: 'The whole screen, three seconds after the click',
             ),
-            SmallButton('Video…', onPressed: _busy ? null : _pickVideo, tooltip: 'Four frames spread over the video'),
+            SmallButton(
+              'Video…',
+              onPressed: _busy || _asking ? null : _pickVideo,
+              tooltip: 'Four frames spread over the video',
+            ),
             SmallButton(
               'Clear',
-              onPressed: _images.isEmpty ? null : _clear,
+              onPressed: _images.isEmpty || _asking ? null : _clear,
               tooltip: 'Remove the pictures (the answers stay)',
             ),
           ],

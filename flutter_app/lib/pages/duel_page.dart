@@ -42,6 +42,7 @@ class _DuelPageState extends State<DuelPage> {
 
   @override
   void dispose() {
+    _run++; // a side still to come does not start any more
     widget.playground.removeListener(_changed);
     for (final j in _jobs) {
       j?.cancel();
@@ -80,7 +81,7 @@ class _DuelPageState extends State<DuelPage> {
     });
     final backend = widget.playground.backend;
     Future<void> side(int s) async {
-      if (run != _run) return;
+      if (run != _run || !mounted) return;
       _jobs[s] = backend.start('ask.run', {'target': pair[s].target, 'prompt': prompt});
       try {
         final answer = await _jobs[s]!.result;
@@ -88,7 +89,7 @@ class _DuelPageState extends State<DuelPage> {
       } on CoreFailure catch (e) {
         if (run == _run && mounted) setState(() => _errors[s] = e.cancelled ? 'Stopped.' : e.message);
       }
-      if (oneByOne) {
+      if (oneByOne && run == _run && mounted) {
         try {
           await backend.call('local.make_room', {'target': pair[s].target});
         } on Object {

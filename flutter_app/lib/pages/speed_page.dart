@@ -44,11 +44,12 @@ class _SpeedPageState extends State<SpeedPage> {
     super.dispose();
   }
 
-  /// Ticked: as saved; before anything is saved, every agent and no local model.
+  /// Ticked: as saved; before anything is saved, every agent and no local model. Unticking the
+  /// last one saves an empty choice, which stays empty.
   Set<String> get _ticked {
-    final saved = widget.host.settings.texts('playground_agents');
-    final all = widget.playground.contestants();
-    return saved.isNotEmpty ? saved.toSet() : {for (final c in all.where((c) => c.isAgent)) c.id};
+    final settings = widget.host.settings;
+    if (settings.stored('playground_agents')) return settings.texts('playground_agents').toSet();
+    return {for (final c in widget.playground.contestants().where((c) => c.isAgent)) c.id};
   }
 
   void _tick(Contestant c, bool on) {

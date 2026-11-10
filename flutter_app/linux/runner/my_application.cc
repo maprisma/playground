@@ -1,6 +1,8 @@
 #include "my_application.h"
 
 #include <flutter_linux/flutter_linux.h>
+#include <glib-unix.h>
+#include <signal.h>
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -15,6 +17,7 @@ struct _MyApplication {
   char** dart_entrypoint_arguments;
   FlMethodChannel* window_channel;
   gboolean hidden_start;
+  gboolean closing;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -148,6 +151,9 @@ static void window_call_cb(FlMethodChannel* channel, FlMethodCall* call,
   } else if (g_strcmp0(name, "maximized") == 0) {
     gboolean m = window != nullptr && gtk_window_is_maximized(window);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(fl_value_new_bool(m)));
+  } else if (g_strcmp0(name, "quit") == 0) {
+    g_application_quit(G_APPLICATION(self));
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (g_strcmp0(name, "present") == 0) {
     if (window != nullptr) {
       gtk_widget_show(GTK_WIDGET(window));
@@ -173,6 +179,34 @@ static void show_window(MyApplication* self, GtkWindow* window) {
   notify_shown(self);
 }
 
+// Quitting: Dart is told ("closing"), keeps its state and has the core end every agent,
+// download and held model, then calls "quit". A core that does not answer is not waited for
+// longer than kCloseGrace.
+static const guint kCloseGraceSeconds = 8;
+
+static gboolean close_grace_cb(gpointer user_data) {
+  g_application_quit(G_APPLICATION(user_data));
+  return G_SOURCE_REMOVE;
+}
+
+static void begin_close(MyApplication* self) {
+  if (self->closing) return;
+  self->closing = TRUE;
+  GtkWindow* window = gtk_application_get_active_window(GTK_APPLICATION(self));
+  if (window != nullptr) gtk_widget_hide(GTK_WIDGET(window));
+  if (self->window_channel == nullptr) {
+    g_application_quit(G_APPLICATION(self));
+    return;
+  }
+  invoke(self, "closing", nullptr);
+  g_timeout_add_seconds(kCloseGraceSeconds, close_grace_cb, self);
+}
+
+static gboolean sigterm_cb(gpointer user_data) {
+  begin_close(MY_APPLICATION(user_data));
+  return G_SOURCE_CONTINUE;
+}
+
 // --toggle: quit when shown and focused, else show and focus.
 static void toggle_activated(GSimpleAction* action, GVariant* parameter,
                              gpointer user_data) {
@@ -183,18 +217,16 @@ static void toggle_activated(GSimpleAction* action, GVariant* parameter,
     return;
   }
   if (gtk_widget_get_visible(GTK_WIDGET(window)) && gtk_window_is_active(window)) {
-    invoke(self, "closing", nullptr);
-    g_application_quit(G_APPLICATION(self));
+    begin_close(self);
     return;
   }
   show_window(self, window);
 }
 
 static gboolean delete_cb(GtkWidget* widget, GdkEvent* event, gpointer user_data) {
-  // Closing quits (as the plugin): Dart is told first, so it can keep the window size
-  // and stop what still runs.
-  invoke(MY_APPLICATION(user_data), "closing", nullptr);
-  return FALSE;
+  // Closing quits (as the plugin), after Dart has stopped what still runs.
+  begin_close(MY_APPLICATION(user_data));
+  return TRUE;
 }
 
 static void my_application_activate(GApplication* application) {
@@ -300,6 +332,8 @@ static void open_activated(GSimpleAction* action, GVariant* parameter, gpointer 
 
 static void my_application_startup(GApplication* application) {
   G_APPLICATION_CLASS(my_application_parent_class)->startup(application);
+  // A TERM (logout, the installer replacing the app) closes as the window's close button does.
+  g_unix_signal_add(SIGTERM, sigterm_cb, application);
   g_autoptr(GSimpleAction) toggle = g_simple_action_new("toggle", nullptr);
   g_signal_connect(toggle, "activate", G_CALLBACK(toggle_activated), application);
   g_action_map_add_action(G_ACTION_MAP(application), G_ACTION(toggle));

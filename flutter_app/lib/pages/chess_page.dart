@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -20,9 +21,12 @@ import '../window.dart';
 /// and Import video…, the drop strip, the board with its piece cards, the Game and Saved games
 /// cards, and the replay bar.
 class ChessPage extends StatefulWidget {
-  const ChessPage({super.key, required this.host, this.playground, this.session});
+  const ChessPage({super.key, required this.host, required this.active, this.playground, this.session});
   final Host host;
   final Playground? playground;
+
+  /// The chess tab is the one in view: only then do drops and Ctrl+V reach it.
+  final bool active;
 
   /// Tests hand in their own (with a fake core); the app uses the one of its Playground.
   final ChessSession? session;
@@ -46,7 +50,8 @@ class _ChessPageState extends State<ChessPage> {
   final _look = MenuController();
   final _subscriptions = <StreamSubscription>[];
   double _side = boardMax;
-  bool _visible = true, _dragOver = false;
+  bool _dragOver = false;
+  bool get _visible => widget.active;
 
   @override
   void initState() {
@@ -60,6 +65,12 @@ class _ChessPageState extends State<ChessPage> {
         if (over != _dragOver && mounted) setState(() => _dragOver = over);
       }))
       ..add(AppWindow.instance.drops.stream.listen(_dropped));
+  }
+
+  @override
+  void didUpdateWidget(ChessPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.active && _dragOver) _dragOver = false;
   }
 
   @override
@@ -97,7 +108,11 @@ class _ChessPageState extends State<ChessPage> {
         if (l.trim().isNotEmpty && !l.startsWith('#')) l.trim(),
     ];
     if (url.isEmpty && lines.isNotEmpty && lines.first.startsWith('file://')) {
-      final path = Uri.tryParse(lines.first)?.toFilePath() ?? '';
+      final path = localPath(lines.first);
+      if (path == null) {
+        widget.host.toast('That is not a video file (MP4, MKV, WebM, MOV, AVI).');
+        return;
+      }
       _importAsk(path: path);
       return;
     }
@@ -109,8 +124,10 @@ class _ChessPageState extends State<ChessPage> {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     var text = (data?.text ?? '').trim();
     if (text.length > _maxDrop) text = '';
-    if (youtubeUrl(text).isNotEmpty || text.startsWith('file://') || text.startsWith('/')) {
-      _droppedText(text.startsWith('/') ? 'file://$text' : text);
+    if (text.startsWith('/') && !text.contains('\n')) {
+      _importAsk(path: Uri.file(text).toFilePath()); // a bare absolute path, taken as it is
+    } else if (youtubeUrl(text).isNotEmpty || text.startsWith('file://')) {
+      _droppedText(text);
     } else {
       widget.host.toast('Copy a YouTube link first, then press Ctrl+V on the chess tab.');
     }
@@ -142,18 +159,23 @@ class _ChessPageState extends State<ChessPage> {
       toast('Drop a video file or a YouTube link.');
       return;
     }
-    List<String> seeingCommands;
+    List<String> seeingCommands, textCommands;
+    Map<String, dynamic>? before;
+    double? seconds;
     try {
-      final r = await s.core('import.readers', const {}).result;
+      final r = await s.core('import.readers', {if (path.isNotEmpty) 'path': path else 'url': url}).result;
       seeingCommands = [for (final c in (r['readers'] as List? ?? const [])) '$c'];
+      textCommands = [for (final c in (r['text_readers'] as List? ?? const [])) '$c'];
+      before = (r['before'] as Map?)?.cast<String, dynamic>();
+      seconds = (r['seconds'] as num?)?.toDouble();
     } on CoreFailure catch (e) {
       toast(e.message);
       return;
     }
-    if (!mounted) return;
+    if (!mounted || !widget.active) return;
     final ready = s.agentsOf().where((a) => a.ready).toList();
     final seeing = ready.where((a) => seeingCommands.contains(a.command)).toList();
-    final everyone = ready.where((a) => a.readsUntrusted).toList();
+    final everyone = ready.where((a) => textCommands.contains(a.command)).toList();
     if ((url.isNotEmpty ? everyone : seeing).isEmpty) {
       final blind = [for (final a in ready) if (a.readsUntrusted) a.name];
       final tools = [for (final a in ready) if (!a.readsUntrusted) a.name];
@@ -180,7 +202,7 @@ class _ChessPageState extends State<ChessPage> {
       );
       return;
     }
-    final before = s.games.where((g) => g.source.isNotEmpty && g.source == (url.isNotEmpty ? url : path)).firstOrNull;
+    final earlier = before == null ? null : SavedGame(before);
     final picked = await showDialog<_ImportChoice>(
       context: context,
       builder: (context) => _ImportDialog(
@@ -189,7 +211,8 @@ class _ChessPageState extends State<ChessPage> {
         seeing: seeing,
         everyone: everyone,
         opponent: s.opponent,
-        before: before,
+        before: earlier,
+        seconds: seconds,
       ),
     );
     if (picked == null) return;
@@ -200,7 +223,7 @@ class _ChessPageState extends State<ChessPage> {
       gap: picked.gap,
       limitSeconds: picked.limitMinutes * 60,
       way: picked.way,
-      replaceId: before?.id ?? '',
+      replaceId: earlier?.id ?? '',
     );
   }
 
@@ -223,7 +246,6 @@ class _ChessPageState extends State<ChessPage> {
 
   @override
   Widget build(BuildContext context) {
-    _visible = Visibility.of(context);
     final look = Look.of(context);
     final radius = corners(context);
     final page = Column(
@@ -947,6 +969,7 @@ final class _ImportChoice {
 
 const _intervals = [2, 4, 8]; // seconds between frames
 const _limits = [0, 5, 15, 30]; // minutes read from the start (0: the whole video)
+const _maxFrames = 600; // chess_video.MAX_FRAMES
 
 /// The import dialog: the way (a link), which agent reads, how often a frame is taken, how much.
 class _ImportDialog extends StatefulWidget {
@@ -957,11 +980,15 @@ class _ImportDialog extends StatefulWidget {
     required this.everyone,
     required this.opponent,
     required this.before,
+    this.seconds,
   });
   final String path, url;
   final List<Agent> seeing, everyone;
   final Agent? opponent;
   final SavedGame? before;
+
+  /// The video's length (a file), when the core could tell.
+  final double? seconds;
   @override
   State<_ImportDialog> createState() => _ImportDialogState();
 }
@@ -986,12 +1013,24 @@ class _ImportDialogState extends State<_ImportDialog> {
     final readers = _readers;
     final chosen = _chosen;
     final blind = widget.opponent != null && !readers.any((a) => a.command == widget.opponent!.command);
-    final note = !_watching
+    final seconds = widget.seconds;
+    String? length;
+    if (seconds != null && seconds > 0) {
+      final gap = _intervals[_every], limit = _limits[_part] * 60;
+      final span = limit > 0 && limit < seconds ? limit.toDouble() : seconds;
+      final most = math.min(_maxFrames, span ~/ gap + 1);
+      final spoken = seconds < 90 ? '${seconds.toStringAsFixed(0)} s' : '${(seconds / 60).toStringAsFixed(0)} min';
+      length =
+          '$spoken of video: at most $most frames. Only frames where the picture changed are sent, each one question '
+          'to the agent (it may count against your plan).';
+    }
+    final note = length ??
+        (!_watching
         ? 'No download: the moves come from the description, or from one question to the agent about the '
               'description and what is said. Only if no game is found there, the video is downloaded and its frames '
               'are watched.'
         : 'The video is downloaded first (at most 480p, 1 GB). Only frames where the picture changed are sent, each '
-              'one question to the agent (it may count against your plan).';
+              'one question to the agent (it may count against your plan).');
     Widget line(Widget w) => Padding(padding: const EdgeInsets.only(bottom: 8), child: w);
     return AlertDialog(
       title: const Text('Read the moves from this video?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
@@ -1129,6 +1168,19 @@ String youtubeUrl(String text) {
   return '';
 }
 
+/// The local path of a dropped or pasted file:// address, or null (another host, or not a path).
+String? localPath(String uri) {
+  final parsed = Uri.tryParse(uri.trim());
+  if (parsed == null || parsed.scheme != 'file') return null;
+  if (parsed.host.isNotEmpty && parsed.host != 'localhost') return null;
+  try {
+    final path = parsed.replace(host: '').toFilePath(); // file://localhost/… is local too
+    return path.startsWith('/') ? path : null;
+  } on Object {
+    return null;
+  }
+}
+
 /// A saved game as games.list gives it (chess_video.played_record):
 /// {id, title, source, kind: played/video, date, start: FEN, moves: [uci], white, black, result}.
 final class SavedGame {
@@ -1183,7 +1235,7 @@ final class ChessSession extends ChangeNotifier {
     syncAgents();
   }
 
-  static final _sessions = Expando<ChessSession>('chess');
+  static final _sessions = <Playground, ChessSession>{};
 
   /// The one session of the app (the chess tab and the Games page share it).
   static ChessSession of(Playground playground, Settings settings) => _sessions[playground] ??= ChessSession(
@@ -1192,6 +1244,16 @@ final class ChessSession extends ChangeNotifier {
     agentsOf: () => playground.agents,
     playground: playground,
   )..refreshGames();
+
+  /// The app closes: every cached session cancels its agent's Job and its import, stops its
+  /// timers, lets go of its listeners, and is dropped.
+  static void disposeAll() {
+    final all = _sessions.values.toList();
+    _sessions.clear();
+    for (final s in all) {
+      s.dispose();
+    }
+  }
 
   final CoreStarter core;
   final Settings settings;
@@ -1269,6 +1331,7 @@ final class ChessSession extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_gone) return;
     _gone = true;
     playground?.removeListener(syncAgents);
     _stopAsking();
@@ -1609,13 +1672,12 @@ final class ChessSession extends ChangeNotifier {
       toast('Choose an opponent first.');
       return;
     }
-    final start = game.startPosition, moves = game.moves, turn = game.position.turn;
     _leaveReplay();
     rival = null;
     game.agent = opponent!.command;
-    game.reset(position: start, player: turn);
-    for (final m in moves) {
-      game.playMove(m);
+    if (!game.playFromHere(player: game.position.turn)) {
+      toast(game.error);
+      game.error = '';
     }
     savedId = '';
     _changed();

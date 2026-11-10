@@ -44,6 +44,7 @@ class _GeneratePageState extends State<GeneratePage> {
   final List<_Picture> _pictures = [];
   Job? _job;
   double _fraction = 0;
+  int _saving = 0; // Save as… copies still running: Clear waits for them
   String _progress = '';
 
   @override
@@ -132,12 +133,15 @@ class _GeneratePageState extends State<GeneratePage> {
       suggestedName: 'picture.png',
       acceptedTypeGroups: const [XTypeGroup(label: 'PNG', extensions: ['png'])],
     );
-    if (to == null) return;
+    if (to == null || !mounted) return;
+    setState(() => _saving++);
     try {
       await File(p.path).copy(to.path);
       widget.host.toast('Saved: ${to.path.split('/').last}');
     } on FileSystemException catch (e) {
       widget.host.toast(e.message);
+    } finally {
+      if (mounted) setState(() => _saving--);
     }
   }
 
@@ -205,7 +209,11 @@ class _GeneratePageState extends State<GeneratePage> {
               label: (k) => sizeChoices.firstWhere((s) => s.$1 == k).$2,
               onChanged: (k) => setState(() => _size = k),
             ),
-            SmallButton('Clear', onPressed: _pictures.isEmpty ? null : _clear, tooltip: 'Remove the pictures'),
+            SmallButton(
+              'Clear',
+              onPressed: _pictures.isEmpty || _saving > 0 || busy ? null : _clear,
+              tooltip: 'Remove the pictures',
+            ),
           ],
         ),
         vgap,

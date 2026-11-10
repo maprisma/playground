@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maprisma_playground/app.dart';
 import 'package:maprisma_playground/chess_board.dart';
@@ -16,6 +17,7 @@ final class FakeCore {
   final calls = <(String, Map<String, dynamic>)>[];
   final asks = <Completer<Map<String, dynamic>>>[];
   var cancelled = 0;
+  Map<String, dynamic> readers = const {'readers': [], 'text_readers': []};
 
   CoreCall start(String method, Map<String, dynamic> params, [void Function(String, Map<String, dynamic>)? onEvent]) {
     calls.add((method, params));
@@ -25,6 +27,7 @@ final class FakeCore {
       return CoreCall(c.future, () => cancelled++);
     }
     if (method == 'games.list') return CoreCall(Future.value({'games': [], 'total': 0}), () {});
+    if (method == 'import.readers') return CoreCall(Future.value(readers), () {});
     return CoreCall(Future.value(<String, dynamic>{}), () {});
   }
 
@@ -43,6 +46,8 @@ void main() {
     'set_up': true,
     'can_ask': true,
     'plays_chess': true,
+    'takes_images': true,
+    'reads_untrusted': true,
   });
 
   setUp(() {
@@ -53,7 +58,7 @@ void main() {
   });
   tearDown(() => home.deleteSync(recursive: true));
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {bool active = true}) async {
     tester.view.physicalSize = const Size(1400, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -61,7 +66,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: appTheme(Brightness.dark, const {}, 8),
-        home: Scaffold(body: ChessPage(host: host, session: session)),
+        home: Scaffold(body: ChessPage(host: host, session: session, active: active)),
       ),
     );
     await tester.pump();
@@ -86,6 +91,16 @@ void main() {
   Future<void> settle(WidgetTester tester) async {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
+  }
+
+  void clipboard(WidgetTester tester, String text) {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.getData') return {'text': text};
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
   }
 
   String at(String name) => session.game.position.at(square(name));
@@ -307,4 +322,55 @@ void main() {
     expect(core.chessAsks.last['strength'], 'beginner'); // Black
     await finish(tester);
   });
+
+  test('file addresses: only local ones, decoded safely', () {
+    expect(localPath('file:///home/me/a%20b.mp4'), '/home/me/a b.mp4');
+    expect(localPath('file://localhost/home/me/c.mp4'), '/home/me/c.mp4');
+    expect(localPath('file://other.host/home/me/c.mp4'), isNull);
+    expect(localPath('file:///home/%E0%A4%A.mp4'), isNull);
+    expect(localPath('https://example.com/x.mp4'), isNull);
+  });
+
+  testWidgets('Ctrl+V with a video file asks the core about it and offers the replacement and the length',
+      (tester) async {
+    final video = File('${home.path}/My game #1 %.mp4')..writeAsStringSync('x');
+    core.readers = {
+      'readers': ['claude'],
+      'text_readers': ['claude'],
+      'before': {'id': 'old', 'title': 'Earlier reading', 'date': '2026-11-01 10:00'},
+      'seconds': 600,
+    };
+    await pump(tester);
+    clipboard(tester, video.path); // a bare path: % and # stay as they are
+    ChessPage.paste();
+    await tester.pump();
+    await tester.pump();
+    final ask = core.calls.firstWhere((c) => c.$1 == 'import.readers').$2;
+    expect(ask, {'path': video.path});
+    expect(find.text('Read the moves from this video?'), findsOneWidget);
+    expect(find.textContaining('Read before: Earlier reading (2026-11-01 10:00)'), findsOneWidget);
+    expect(find.textContaining('10 min of video: at most 151 frames.'), findsOneWidget);
+    await tester.tap(find.text('Read the moves'));
+    await tester.pump();
+    final start = core.calls.firstWhere((c) => c.$1 == 'import.start').$2;
+    expect(start['path'], video.path);
+    expect(start['replace_id'], 'old');
+    expect(start['reader'], 'claude');
+    expect(start['way'], 'frames');
+    expect(start['gap'], 4);
+    await tester.pump();
+    await finish(tester);
+  });
+
+  testWidgets('a tab that is not in view ignores Ctrl+V', (tester) async {
+    await pump(tester, active: false);
+    clipboard(tester, 'https://www.youtube.com/watch?v=abcdefgh');
+    ChessPage.paste();
+    await tester.pump();
+    await tester.pump();
+    expect(core.calls.where((c) => c.$1 == 'import.readers'), isEmpty);
+    await finish(tester);
+  });
+
+  test('disposeAll is safe with no session made', ChessSession.disposeAll);
 }

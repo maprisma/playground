@@ -187,9 +187,10 @@ class SmallButton extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         foregroundColor: look.fg,
         side: BorderSide(color: look.fg.withValues(alpha: .35)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(corners(context))),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        minimumSize: const Size(0, 30),
+        // .am-small-btn: a pill, low, bold.
+        shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        minimumSize: const Size(0, 27),
         textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
       ),
       child: Row(
@@ -247,8 +248,8 @@ class ActionButton extends StatelessWidget {
         disabledBackgroundColor: look.fg.withValues(alpha: .05),
         side: BorderSide(color: onPressed == null ? look.fg.withValues(alpha: .2) : look.accent),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(corners(context))),
-        minimumSize: const Size(140, 36),
-        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 10),
+        minimumSize: const Size(166, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
         textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
       ),
       child: Text(label),

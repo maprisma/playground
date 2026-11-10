@@ -67,6 +67,9 @@ final class AppWindow {
   }
 
   Future<void> present() => _call('present');
+
+  /// After `closing` was handled: the native side quits now (it also does after a grace time).
+  Future<void> quit() => _call('quit');
   Future<void> titlebar(bool dark) => _call('titlebar', dark);
   Future<void> resize(int width, int height) => _call('size', [width, height]);
 }

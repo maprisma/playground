@@ -22,3 +22,4 @@ export 'src/chess_video.dart';
 export 'src/chess_import.dart';
 export 'src/analyze.dart';
 export 'src/frame_check.dart';
+export 'src/automaton.dart';
