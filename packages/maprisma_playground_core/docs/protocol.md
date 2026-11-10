@@ -24,7 +24,7 @@ Picture decoding/preparation failures always use `failed` with an English messag
 | `pictures.prepare` | `{path: string}` | `{path: string}` |
 | `pictures.screenshot` | `{}` | `{path: string}` |
 | `pictures.video_frames` | `{path: string}` | `{paths: [string, string, string, string]}` |
-| `pictures.clear` | `{}` | `{}` |
+| `pictures.clear` | `{paths: string[]}` or `{}` | `{}` |
 | `generate.status` | `{}` | `{ready: bool, program: bool, to_download: int, folder: string}` |
 | `generate.setup` | `{}` | `{}` |
 | `generate.run` | `{prompt: string, size: "square"|"landscape"|"portrait", seed: int}` | `{path: string, seconds: number, seed: int}` |
@@ -102,3 +102,11 @@ process groups before removing output folders.
   queue of three; frame order, safety and maximum concurrency are the same.
 - GTK-specific drop-stream and packaging/translation tests are outside this pure
   Dart package. Their relevant URL/media guards are covered here with fake tools.
+
+Prepared picture ownership: `pictures.prepare`, `pictures.screenshot`, and
+`pictures.video_frames` return paths owned by the calling operation. Release them
+with `pictures.clear` params `{"paths":["/absolute/prepared/path.jpg", "..."]}`.
+Only listed paths belonging to Vision's prepared-picture folder are removed;
+`{"paths":[]}` removes nothing. Omitting `paths` (`{}`) clears all of Vision's
+prepared pictures. Chess imports use a separate private folder per import and
+clean it up themselves, so Vision clear never deletes chess-import frames.

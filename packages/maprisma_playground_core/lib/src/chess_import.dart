@@ -401,6 +401,7 @@ class ChessImport {
     final hold = used == null ? null : LocalHold(serverKey(used.$1), http, runner);
     LocalHold? watcherHold;
     final folder = createPrivateTempDirectory(prefix: 'maprisma-video-');
+    final pictures = Pictures(runner);
     var name = path.isEmpty ? url : p.basenameWithoutExtension(path), how = 'frames';
     final reading = Reading();
     Map<String, dynamic> saveReading() => games.save(
@@ -539,6 +540,7 @@ class ChessImport {
     } finally {
       await watcherHold?.release();
       await hold?.release();
+      pictures.dispose();
       folder.deleteSync(recursive: true);
     }
   }

@@ -9,9 +9,41 @@ typedef ListenerGuard = void Function(int port);
 
 /// Only literal IPv4 loopback HTTP. No proxies, redirects or unbounded reads.
 class LocalHttp {
-  LocalHttp({ListenerGuard? guard, HttpClient Function()? clientFactory})
-    : guard = guard ?? requireOwnListener,
-      clientFactory = clientFactory ?? HttpClient.new;
+  LocalHttp({
+    ListenerGuard? guard,
+    HttpClient Function()? clientFactory,
+    void Function(Socket)? connectionGuard,
+    Future<ConnectionTask<Socket>> Function(int)? connector,
+  }) : guard = guard ?? requireOwnListener,
+       clientFactory = clientFactory ?? HttpClient.new,
+       connectionGuard = connectionGuard ?? requireOwnConnection,
+       connector = connector ?? ((port) => Socket.startConnect(InternetAddress.loopbackIPv4, port));
+  final void Function(Socket) connectionGuard;
+  final Future<ConnectionTask<Socket>> Function(int) connector;
+
+  /// HttpClient receives a socket only after its exact peer has been checked.
+  /// This runs on every new connection, including keep-alive replacements.
+  void secureClient(HttpClient client) {
+    client.connectionFactory = (uri, proxyHost, proxyPort) async {
+      if (uri.host != '127.0.0.1' || uri.scheme != 'http' || proxyHost != null) {
+        throw StateError('not a direct local HTTP connection');
+      }
+      final task = await connector(uri.port);
+      return ConnectionTask.fromSocket(
+        task.socket.then((socket) {
+          try {
+            connectionGuard(socket);
+            return socket;
+          } on Object {
+            socket.destroy();
+            rethrow;
+          }
+        }),
+        task.cancel,
+      );
+    };
+  }
+
   final ListenerGuard guard;
   final HttpClient Function() clientFactory;
   final Map<HttpClient, void Function(Object)> _live = {};
@@ -35,6 +67,7 @@ class LocalHttp {
     final client = clientFactory()
       ..findProxy = ((_) => 'DIRECT')
       ..connectionTimeout = timeout;
+    secureClient(client);
     final stopped = Completer<List<int>>();
     void stop(Object error) {
       if (!stopped.isCompleted) stopped.completeError(error);

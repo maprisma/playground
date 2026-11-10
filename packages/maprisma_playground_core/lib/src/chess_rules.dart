@@ -340,6 +340,7 @@ Iterable<Move> _castles(Position pos, int kingSq) sync* {
 Position apply(Position pos, Move move) {
   final board = pos.board.toList();
   var piece = board[move.start], captured = board[move.end];
+  final pawnMoved = piece.toUpperCase() == 'P';
   board[move.start] = '';
   int? ep;
   if (piece.toUpperCase() == 'P') {
@@ -366,7 +367,7 @@ Position apply(Position pos, Move move) {
       castling = castling.split('').where((c) => !flags.contains(c)).join();
     }
   }
-  final half = piece.toUpperCase() == 'P' || captured.isNotEmpty ? 0 : pos.halfmove + 1;
+  final half = pawnMoved || captured.isNotEmpty ? 0 : pos.halfmove + 1;
   return Position(board, pos.turn == 'w' ? 'b' : 'w', castling, ep, half, pos.fullmove + (pos.turn == 'b' ? 1 : 0));
 }
 

@@ -12,6 +12,13 @@ class FakeClient implements HttpClient {
   String Function(Uri)? proxy;
   Duration? connectTimeout;
   Completer<HttpClientResponse>? waiting;
+  Future<ConnectionTask<Socket>> Function(Uri, String?, int?)? connect;
+  bool simulateConnection = false;
+  @override
+  set connectionFactory(Future<ConnectionTask<Socket>> Function(Uri, String?, int?)? value) {
+    connect = value;
+  }
+
   @override
   set findProxy(String Function(Uri)? value) {
     proxy = value;
@@ -24,6 +31,7 @@ class FakeClient implements HttpClient {
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async {
+    if (simulateConnection) await (await connect!(url, null, null)).socket;
     final request = FakeRequest(this, method, url);
     requests.add(request);
     return request;

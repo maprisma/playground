@@ -7,43 +7,119 @@ import 'agents.dart';
 import 'private_files.dart';
 import 'runner.dart';
 
+const maxPicturePixels = 16 * 1024 * 1024;
 const maxPictureFile = 64 * 1024 * 1024;
 const videoFormats = 'mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,flv,mpegts';
 
 (int, int, int)? declaredSize(Uint8List b) {
   final d = ByteData.sublistView(b);
   bool at(int i, String s) => i + s.length <= b.length && String.fromCharCodes(b.sublist(i, i + s.length)) == s;
-  int count(String s) {
-    var n = 0;
-    for (var i = 0; i <= b.length - s.length; i++) {
-      if (at(i, s)) n++;
-    }
-    return max(1, n);
-  }
-
+  bool fits(int w, int h) => w > 0 && h > 0 && w <= 16384 && h <= 16384 && w * h <= maxPicturePixels;
   if (b.length >= 24 && at(0, '\x89PNG\r\n\x1a\n') && at(12, 'IHDR')) {
-    var frames = 1;
-    for (var i = 0; i + 8 <= b.length; i++) {
-      if (at(i, 'acTL')) {
-        frames = max(1, d.getUint32(i + 4));
-        break;
+    return (d.getUint32(16), d.getUint32(20), 1);
+  }
+  if (b.length >= 13 && (at(0, 'GIF87a') || at(0, 'GIF89a'))) {
+    final w = d.getUint16(6, Endian.little), h = d.getUint16(8, Endian.little);
+    var i = 13 + (b[10] & 128 != 0 ? 3 * (1 << ((b[10] & 7) + 1)) : 0);
+    var frames = 0;
+    bool blocks() {
+      while (i < b.length) {
+        final n = b[i++];
+        if (n == 0) return true;
+        i += n;
+      }
+      return false;
+    }
+
+    while (i < b.length) {
+      final kind = b[i++];
+      if (kind == 0x3b) return frames > 0 && i == b.length ? (w, h, frames) : null;
+      if (kind == 0x21) {
+        if (i >= b.length) return null;
+        i++; // extension label, followed by length-delimited subblocks
+        if (!blocks()) return null;
+      } else if (kind == 0x2c) {
+        if (i + 9 > b.length) return null;
+        final x = d.getUint16(i, Endian.little), y = d.getUint16(i + 2, Endian.little);
+        final fw = d.getUint16(i + 4, Endian.little), fh = d.getUint16(i + 6, Endian.little);
+        if (!fits(fw, fh) || x + fw > w || y + fh > h) return null;
+        final packed = b[i + 8];
+        i += 9 + (packed & 128 != 0 ? 3 * (1 << ((packed & 7) + 1)) : 0);
+        if (i >= b.length || b[i] < 2 || b[i] > 8) return null;
+        i++; // LZW minimum code size
+        if (!blocks()) return null;
+        frames++;
+      } else {
+        return null;
       }
     }
-    return (d.getUint32(16), d.getUint32(20), frames);
+    return null;
   }
-  if (b.length >= 10 && (at(0, 'GIF87a') || at(0, 'GIF89a'))) {
-    return (d.getUint16(6, Endian.little), d.getUint16(8, Endian.little), count('\x00\x2c'));
-  }
-  if (b.length >= 30 && at(0, 'RIFF') && at(8, 'WEBP')) {
+  if (b.length >= 20 && at(0, 'RIFF') && at(8, 'WEBP')) {
+    if (d.getUint32(4, Endian.little) + 8 != b.length) return null;
     int u24(int i) => b[i] | b[i + 1] << 8 | b[i + 2] << 16;
-    if (at(12, 'VP8X')) return (1 + u24(24), 1 + u24(27), count('ANMF'));
-    if (at(12, 'VP8 ') && at(23, '\x9d\x01\x2a')) {
-      return (d.getUint16(26, Endian.little) & 0x3fff, d.getUint16(28, Endian.little) & 0x3fff, 1);
+    (int, int)? imageSize(int i, int n) {
+      final payload = i + 8;
+      if (at(i, 'VP8 ')) {
+        if (n < 10 || !at(payload + 3, '\x9d\x01\x2a')) return null;
+        return (d.getUint16(payload + 6, Endian.little) & 0x3fff, d.getUint16(payload + 8, Endian.little) & 0x3fff);
+      }
+      if (n < 5 || b[payload] != 0x2f) return null;
+      final bits = d.getUint32(payload + 1, Endian.little);
+      if (bits >> 29 != 0) return null; // VP8L version must be zero.
+      return (1 + (bits & 0x3fff), 1 + ((bits >> 14) & 0x3fff));
     }
-    if (at(12, 'VP8L') && b[20] == 0x2f) {
-      final bits = d.getUint32(21, Endian.little);
-      return (1 + (bits & 0x3fff), 1 + ((bits >> 14) & 0x3fff), 1);
+
+    var w = 0, h = 0, frames = 0, images = 0;
+    var animated = false, animationHeader = false;
+    for (var i = 12; i < b.length;) {
+      if (i + 8 > b.length) return null;
+      final n = d.getUint32(i + 4, Endian.little), payload = i + 8;
+      final end = payload + n;
+      if (end + (n & 1) > b.length) return null;
+      if (at(i, 'VP8X')) {
+        if (i != 12 || n != 10) return null;
+        animated = b[payload] & 2 != 0;
+        w = 1 + u24(payload + 4);
+        h = 1 + u24(payload + 7);
+      } else if (at(i, 'ANIM')) {
+        if (!animated || animationHeader || n != 6 || frames != 0) return null;
+        animationHeader = true;
+      } else if (at(i, 'ANMF')) {
+        if (!animationHeader || n < 16) return null;
+        final fw = 1 + u24(payload + 6), fh = 1 + u24(payload + 9);
+        if (!fits(fw, fh) || 2 * u24(payload) + fw > w || 2 * u24(payload + 3) + fh > h) return null;
+        var frameImages = 0;
+        for (var j = payload + 16; j < end;) {
+          if (j + 8 > end) return null;
+          final length = d.getUint32(j + 4, Endian.little);
+          if (j + 8 + length + (length & 1) > end) return null;
+          if (at(j, 'VP8 ') || at(j, 'VP8L')) {
+            if (++frameImages > 1) return null;
+            final size = imageSize(j, length);
+            if (size == null || size.$1 != fw || size.$2 != fh || !fits(size.$1, size.$2)) return null;
+          } else if (!at(j, 'ALPH')) {
+            return null;
+          }
+          j += 8 + length + (length & 1);
+        }
+        if (frameImages != 1) return null;
+        frames++;
+      } else if (at(i, 'VP8 ') || at(i, 'VP8L')) {
+        if (animated || ++images > 1) return null;
+        final size = imageSize(i, n);
+        if (size == null) return null;
+        final (iw, ih) = size;
+        if (!fits(iw, ih)) return null;
+        if (w == 0) {
+          w = iw;
+          h = ih;
+        }
+        if (iw != w || ih != h) return null;
+      }
+      i = end + (n & 1);
     }
+    return (animated ? frames > 0 : images == 1) ? (w, h, max(1, frames)) : null;
   }
   if (b.length >= 2 && b[0] == 255 && b[1] == 216) {
     var i = 2;
@@ -78,7 +154,7 @@ bool acceptableHeader(Uint8List bytes, int fileSize) {
       size.$2 > 0 &&
       size.$1 <= 16384 &&
       size.$2 <= 16384 &&
-      size.$1 * size.$2 * size.$3 <= maxPictureFile;
+      size.$1 * size.$2 <= maxPicturePixels;
 }
 
 List<String> mediaArgv(ProcessRunner runner, String tool, List<String> options, String video, List<String> rest) {
@@ -147,15 +223,24 @@ class Pictures {
     late Uint8List bytes;
     try {
       final size = await handle.length();
-      final head = await handle.read(min(size, 1024 * 1024));
-      if (!acceptableHeader(head, size)) throw StateError('That picture cannot be read.');
-      await handle.setPosition(0);
+      if (size > maxPictureFile) throw StateError('That picture cannot be read.');
       bytes = await handle.read(size);
+      if (!acceptableHeader(bytes, size)) throw StateError('That picture cannot be read.');
     } finally {
       await handle.close();
     }
     token.check();
-    var picture = img.decodeImage(bytes);
+    final img.Decoder decoder;
+    if (bytes[0] == 0x89) {
+      decoder = img.PngDecoder(maxPixels: maxPicturePixels);
+    } else if (bytes[0] == 0xff) {
+      decoder = img.JpegDecoder(maxPixels: maxPicturePixels);
+    } else if (bytes[0] == 0x47) {
+      decoder = (img.GifDecoder()..maxPixels = maxPicturePixels);
+    } else {
+      decoder = (img.WebPDecoder()..maxPixels = maxPicturePixels);
+    }
+    var picture = decoder.decode(bytes, frame: 0);
     if (picture == null) throw StateError('That picture cannot be read.');
     if (max(picture.width, picture.height) > 1600) {
       picture = img.copyResize(
@@ -168,9 +253,14 @@ class Pictures {
     final clean = img.Image(width: picture.width, height: picture.height, numChannels: 3);
     img.compositeImage(clean, picture);
     final out = p.join(folder.path, 'picture-${_next++}.jpg');
-    await File(out).writeAsBytes(img.encodeJpg(clean, quality: 90));
-    token.check();
-    return out;
+    try {
+      await File(out).writeAsBytes(img.encodeJpg(clean, quality: 90));
+      token.check();
+      return out;
+    } on Object {
+      if (File(out).existsSync()) File(out).deleteSync();
+      rethrow;
+    }
   }
 
   Future<String> screenshot(CancelToken token) async {
@@ -202,10 +292,10 @@ class Pictures {
 
   Future<List<String>> videoFrames(String video, CancelToken token) async {
     final raw = createPrivateTempDirectory(prefix: 'maprisma-frames-');
+    final paths = <String>[];
     try {
       final duration = await videoDuration(runner, video, token);
       if (duration <= 0) throw StateError('No frames could be taken from that video.');
-      final paths = <String>[];
       for (var i = 0; i < 4; i++) {
         final out = p.join(raw.path, '$i.png');
         final result = await runner.run(
@@ -224,16 +314,19 @@ class Pictures {
         paths.add(await prepare(out, token));
       }
       return paths;
+    } on Object {
+      clear(paths: paths);
+      rethrow;
     } finally {
       raw.deleteSync(recursive: true);
     }
   }
 
-  void clear() {
-    if (folder.existsSync()) {
-      for (final f in folder.listSync()) {
-        f.deleteSync(recursive: true);
-      }
+  /// Paths are owned by the operation receiving them. Omission clears Vision only.
+  void clear({List<String>? paths}) {
+    final owned = paths ?? (folder.existsSync() ? folder.listSync().map((f) => f.path).toList() : <String>[]);
+    for (final path in owned) {
+      if (contains(path)) File(path).deleteSync();
     }
   }
 

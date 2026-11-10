@@ -96,14 +96,32 @@ bool changed(List<int> a, List<int> b) {
   return false;
 }
 
+const maxDescriptionLength = 20000;
+const maxDescriptionStarts = 8;
+const maxDescriptionMoves = 256;
+
 List<rules.Move> movesInText(String text) {
+  text = text.substring(0, min(text.length, maxDescriptionLength));
   text = text.replaceAll(RegExp(r'\{[^}]*\}|\[[^\]]*\]'), ' ');
+  final tokens = text.split(RegExp(r'\s+'));
+  final starts = <int>[];
+  final start = RegExp(r'(?<!\d)1\.(?!\.)');
+  final number = RegExp(r'^\d+\.(\.\.)?');
+  final punctuation = RegExp(r'^[,;()]+|[,;()]+$');
+  for (var i = 0; i < tokens.length; i++) {
+    final match = start.firstMatch(tokens[i]);
+    if (match != null && starts.length < maxDescriptionStarts) {
+      tokens[i] = tokens[i].substring(match.start);
+      starts.add(i);
+    }
+    tokens[i] = tokens[i].replaceFirst(number, '').replaceAll(punctuation, '');
+  }
   var best = <rules.Move>[];
-  for (final match in RegExp(r'(?<!\d)1\.(?!\.)').allMatches(text)) {
+  for (final index in starts) {
     var pos = rules.start();
     final moves = <rules.Move>[];
-    for (var token in text.substring(match.start).split(RegExp(r'\s+'))) {
-      token = token.replaceFirst(RegExp(r'^\d+\.(\.\.)?'), '').replaceAll(RegExp(r'^[,;()]+|[,;()]+$'), '');
+    for (var i = index; i < tokens.length && moves.length < maxDescriptionMoves; i++) {
+      final token = tokens[i];
       if (token.isEmpty) continue;
       if (['1-0', '0-1', '1/2-1/2', '½-½', '*'].contains(token)) break;
       final move = rules.parse(pos, token);

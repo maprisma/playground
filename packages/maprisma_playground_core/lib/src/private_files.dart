@@ -52,7 +52,7 @@ Directory createPrivateTempDirectory({String prefix = 'maprisma-playground-'}) {
 
 /// Bounded configuration read without following a final symlink. O_NONBLOCK
 /// also prevents a replaced FIFO from blocking the core isolate.
-String readRegularNoFollow(String path, {int maxBytes = 512 * 1024}) {
+String readRegularNoFollow(String path, {int maxBytes = 512 * 1024, bool requireOwner = false}) {
   if (maxBytes < 0) throw ArgumentError('Invalid file size limit.');
   try {
     if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.file) {
@@ -66,6 +66,13 @@ String readRegularNoFollow(String path, {int maxBytes = 512 * 1024}) {
       _free(name.cast());
     }
     if (fd < 0) return '';
+    final identity = fileIdentity('', fd: fd);
+    if (identity == null ||
+        identity.mode & 0xf000 != 0x8000 ||
+        (requireOwner && (identity.uid != fileOwnerUid || identity.links != 1))) {
+      _close(fd);
+      return '';
+    }
     final buffer = _allocate(maxBytes + 1);
     try {
       var total = 0;
@@ -147,6 +154,14 @@ bool ownFolder(String path) {
   return s != null && s.uid == fileOwnerUid && s.mode & 0xf000 == 0x4000 && s.mode & 0x12 == 0;
 }
 
+/// Settings directories must already belong to this account and be exactly 0700.
+void requirePrivateFolder(String path) {
+  final s = fileIdentity(path);
+  if (s == null || s.uid != fileOwnerUid || s.mode & 0xf000 != 0x4000 || s.mode & 0xfff != 0x1c0) {
+    throw FileSystemException('Expected own private 0700 folder', path);
+  }
+}
+
 /// Own regular O_NOFOLLOW descriptor; advisory lock survives until close.
 class StagingFile {
   StagingFile(String path, {bool resume = true, bool exclusive = false, int mode = 0x180}) : path = path {
@@ -224,12 +239,13 @@ class StagingFile {
 }
 
 /// Exclusive no-follow temporary file, 0600 before the first byte, then atomic rename.
-void atomicPrivateWrite(String path, String text) {
+void atomicPrivateWrite(String path, String text, {bool privateFolder = false}) {
   final dir = Directory(File(path).parent.path);
   if (!dir.existsSync()) {
     dir.createSync(recursive: true);
     Process.runSync('/bin/chmod', ['700', dir.path]);
   }
+  if (privateFolder) requirePrivateFolder(dir.path);
   final temp = '${dir.path}/.${File(path).uri.pathSegments.last}.$pid.${DateTime.now().microsecondsSinceEpoch}';
   final output = StagingFile(temp, exclusive: true);
   try {

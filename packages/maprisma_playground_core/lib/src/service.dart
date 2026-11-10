@@ -299,7 +299,11 @@ class CoreService {
       case 'pictures.video_frames':
         return {'paths': await pictures.videoFrames(_string(p, 'path'), token)};
       case 'pictures.clear':
-        pictures.clear();
+        if (p.containsKey('paths')) {
+          pictures.clear(paths: _strings(p['paths']));
+        } else {
+          pictures.clear();
+        }
         return {};
       case 'generate.status':
         return generation.status();
@@ -402,14 +406,22 @@ class CoreService {
 
   Future<void> dispose() => _disposing ??= () async {
     _closing = true;
+    final childrenGone = Completer<void>();
+    // Close holds now, but gate their slower service stops behind child cleanup.
+    final holdsStopped = LocalHold.stopAll(after: childrenGone.future);
     for (final token in _jobs.values) {
       token.cancel();
     }
     http.dispose();
-    await LocalHold.stopAll();
-    await runner.dispose();
+    try {
+      await runner.dispose();
+    } finally {
+      childrenGone.complete();
+    }
+    await holdsStopped;
     // Requests own their temporary folders and remove them before replying.
-    while (_jobs.isNotEmpty) {
+    final cleanup = Stopwatch()..start();
+    while (_jobs.isNotEmpty && cleanup.elapsed < const Duration(milliseconds: 500)) {
       await Future<void>.delayed(const Duration(milliseconds: 1));
     }
     pictures.dispose();

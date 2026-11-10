@@ -3,6 +3,7 @@
 Try out the AI agents on your computer, one test per tab:
 - **Analyze:** see at a glance what an agent and its model can do.
 - **Chess:** play against Claude Code, Codex, Hermes or Pi, or let two of them play each other.
+  An agent that runs on a local LLM plays with that model.
 - **Automaton:** watch a cellular automaton.
 - **Speed and cost:** compare how fast the agents answer and what it costs.
 - **Head to head:** judge two answers blind.
@@ -13,7 +14,8 @@ Try out the AI agents on your computer, one test per tab:
 It is the Flutter port of [AI Playground](https://github.com/uBruckhaus/omarchy-ai-playground), the
 Omarchy plugin, for **KDE Plasma** and **COSMIC**. It goes with
 [Maprisma](https://github.com/maprisma/maprisma), which shows and changes how the agents are set up;
-Maprisma Playground only asks them.
+Maprisma Playground asks them. The one exception is Analyze, which may set up a local model for
+pictures (see "Shared settings Analyze may change" below).
 
 **For now it works with four agents: Claude Code, Codex, Hermes and Pi.**
 
@@ -51,8 +53,8 @@ Optional tools, each only for the feature named:
   pictures, chess videos, thinking time, chess, context, making pictures), with a mark: green ✓
   can, red ✗ cannot, yellow ! only slowly, ? not stated. A few short test questions are asked; the
   rest is read from the agent's own settings and model lists.
-- **Chess:** play against an agent, or let two agents (or two local models) play each other, each
-  with its own strength.
+- **Chess:** play against an agent, or let two agents play each other (also agents that run on local
+  models), each with its own strength.
   - The board checks every move. An agent that answers with an illegal move is asked again.
   - You can set up a position by hand.
   - Games are saved, replayed move by move, renamed and saved as PGN.
@@ -86,11 +88,12 @@ Keys:
 ## How the agents are asked
 
 Each agent is started once per question, the way its own command line offers for one prompt and one
-answer, **without tools**:
-- `claude -p --tools ""`
-- `codex exec --sandbox read-only`
-- `hermes -z`, with only its in-memory task list
-- `pi -p --no-tools --no-mcp --no-skills --no-context-files`
+answer:
+- `claude -p --tools ""`: no tools.
+- `hermes -z`: only its in-memory task list.
+- `pi -p --no-tools --no-mcp --no-skills --no-context-files`: no tools.
+- `codex exec --sandbox read-only`: Codex keeps its tools, inside its read-only sandbox. That is why
+  it is never given anything from outside (see below).
 
 The rules for each run:
 - It runs in an empty private folder (created 0700, deleted afterwards).
@@ -101,6 +104,19 @@ The rules for each run:
 - Nothing an agent answers is run.
 - What comes from the web (a video's captions, pictures) goes only to agents without any tools.
   Codex's read-only sandbox can still read files, so it never gets it.
+
+## Shared settings Analyze may change
+
+When a local model could see pictures but lacks its vision file (a projector), the Pictures card
+offers **Download the vision file**. After you click it, Analyze does the following:
+- It puts the file next to the model.
+- It adds the file to `~/.config/llama.cpp/models.ini`, or to Pi's model entry. The old file is
+  backed up first and the new one is written in one step.
+- It may restart the local LLM server it started for the test.
+
+These settings belong to the local LLM and Pi, so removing Maprisma Playground leaves them in place.
+Nothing else outside `~/.config/maprisma-playground` and `~/.local/share/maprisma-playground` is
+changed.
 
 ## Privacy
 

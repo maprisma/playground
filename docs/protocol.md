@@ -58,7 +58,7 @@ An **answer** is
 | `pictures.prepare` | `{path}` | `{path}`: a checked, scaled and re-saved copy in the session's private folder, or error `failed` |
 | `pictures.screenshot` | – | `{path}` (spectacle on KDE, cosmic-screenshot on COSMIC, else grim) |
 | `pictures.video_frames` | `{path}` | `{paths: [4]}` |
-| `pictures.clear` | – | `{}` |
+| `pictures.clear` | `{paths: string[]}` or `{}` | `{}` |
 
 ### Chess
 The rules (`chess_rules.dart`) and the game controller (`ChessGame`) are plain Dart. The app
@@ -111,3 +111,11 @@ Agent executables are resolved on PATH first, then in `~/.local/bin`,
 `~/.deno/bin`, `~/.volta/bin`, `~/.asdf/shims`, and `/home/linuxbrew/.linuxbrew/bin`.
 Only regular executables owned by this user or root qualify. Runs use the absolute path and
 prepend its directory to the child PATH so shims can find their sibling programs.
+
+Prepared picture ownership: `pictures.prepare`, `pictures.screenshot`, and
+`pictures.video_frames` return paths owned by the calling operation. Release them
+with `pictures.clear` params `{"paths":["/absolute/prepared/path.jpg", "..."]}`.
+Only listed paths belonging to Vision's prepared-picture folder are removed;
+`{"paths":[]}` removes nothing. Omitting `paths` (`{}`) clears all of Vision's
+prepared pictures. Chess imports use a separate private folder per import and
+clean it up themselves, so Vision clear never deletes chess-import frames.

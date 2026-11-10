@@ -180,7 +180,13 @@ void main() {
     final game = await importer.start(
       {'path': '${e.home}/game.mp4', 'reader': 'claude', 'way': 'frames', 'gap': 4},
       c.CancelToken(),
-      (_, _) {},
+      (_, text) {
+        if (text.startsWith('Frame 1 of')) {
+          // Import still owns all its prepared frames; Vision owns none of them.
+          expect(pictures.folder.listSync(), isEmpty);
+          pictures.clear();
+        }
+      },
     );
     expect(game['moves'], ['e2e4', 'e7e5']);
     expect(game['read'], 'frames');

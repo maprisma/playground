@@ -86,9 +86,11 @@ class _VisionPageState extends State<VisionPage> {
   Future<void> _clear() async {
     _load++;
     if (!mounted) return;
+    final mine = _images; // only this tab's pictures: a chess import keeps its frames
     setState(() => _images = []);
+    if (mine.isEmpty) return;
     try {
-      await widget.playground.backend.call('pictures.clear');
+      await widget.playground.backend.call('pictures.clear', {'paths': mine});
     } on Object {
       // nothing to remove
     }

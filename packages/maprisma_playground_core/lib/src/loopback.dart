@@ -60,3 +60,37 @@ int localClients(int port, {String procNet = '/proc/net'}) {
   }
   return count;
 }
+
+/// Verify the server endpoint of this established connection, including the
+/// ephemeral client port. A listener-port check alone permits port substitution.
+void requireOwnConnection(Socket socket, {String procNet = '/proc/net', int? uid}) {
+  requireOwnConnectionPorts(socket.remotePort, socket.port, procNet: procNet, uid: uid);
+}
+
+void requireOwnConnectionPorts(int serverPort, int clientPort, {String procNet = '/proc/net', int? uid}) {
+  final me = uid ?? currentUid();
+  var found = false;
+  for (final name in ['tcp', 'tcp6']) {
+    String table;
+    try {
+      table = File('$procNet/$name').readAsStringSync();
+    } on FileSystemException {
+      continue;
+    }
+    final address = name == 'tcp' ? '0100007F' : '0000000000000000FFFF00000100007F';
+    for (final line in table.split('\n').skip(1)) {
+      final f = line.trim().split(RegExp(r'\s+'));
+      if (f.length < 8 || f[3] != '01') continue;
+      bool endpoint(String value, int port) {
+        final parts = value.split(':');
+        return parts.length == 2 && parts[0] == address && int.tryParse(parts[1], radix: 16) == port;
+      }
+
+      if (endpoint(f[1], serverPort) && endpoint(f[2], clientPort)) {
+        if (int.tryParse(f[7]) != me) throw StateError('connection belongs to another user account');
+        found = true;
+      }
+    }
+  }
+  if (!found) throw StateError('cannot verify local connection owner');
+}

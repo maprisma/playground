@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'private_files.dart';
 
 import 'package:path/path.dart' as p;
 
@@ -48,7 +49,8 @@ bool _bool(Object? v) => v is bool;
 bool _texts(Object? v) => v is List && v.every((x) => x is String);
 bool _map(Object? v) => v is Map;
 bool _size(Object? v) => v is List && v.length == 2 && v.every((x) => x is int && x > 0);
-bool Function(Object?) _oneOf(List<String> choices) => (v) => choices.contains(v);
+bool Function(Object?) _oneOf(List<String> choices) =>
+    (v) => choices.contains(v);
 
 const strengths = ['beginner', 'casual', 'club', 'master', 'max'];
 const thinkingLevels = ['quick', 'normal', 'deep', 'max'];
@@ -57,7 +59,11 @@ const thinkingLevels = ['quick', 'normal', 'deep', 'max'];
 /// or look: Maprisma Playground speaks English and follows the desktop's colours).
 final Map<String, Setting> schema = {
   'choice_text': Setting('bright', _oneOf(['bright', 'dim']), 'Settings › Text in choice boxes'),
-  'corners': Setting('windows', _oneOf(['windows', 'rounded', 'square']), "Settings › Corners: the desktop's, rounded or square"),
+  'corners': Setting(
+    'windows',
+    _oneOf(['windows', 'rounded', 'square']),
+    "Settings › Corners: the desktop's, rounded or square",
+  ),
   'window_size': Setting(null, _size, "the window's size when it was last closed: [width, height]"),
   'automaton_rule': Setting('B3/S23', _text, 'Automaton › Rule'),
   'automaton_speed': Setting(10, (v) => v is int && v >= 1 && v <= 60, 'Automaton › Speed (generations per second)'),
@@ -69,7 +75,11 @@ final Map<String, Setting> schema = {
   'chess_thinking': Setting('normal', _oneOf(thinkingLevels), 'Chess › Thinking time'),
   'chess_strength': Setting('club', _oneOf(strengths), 'Chess › Strength'),
   'chess_rival_strength': Setting('club', _oneOf(strengths), "Chess › agent against agent: White's strength"),
-  'chess_board': Setting('theme', _oneOf(['theme', 'wood', 'green', 'blue', 'grey']), 'Chess › Board and pieces › Board'),
+  'chess_board': Setting(
+    'theme',
+    _oneOf(['theme', 'wood', 'green', 'blue', 'grey']),
+    'Chess › Board and pieces › Board',
+  ),
   'chess_pieces': Setting('classic', _oneOf(['classic', 'flat', 'theme']), 'Chess › Board and pieces › Pieces'),
   'chess_coordinates': Setting(true, _bool, 'Chess › Board and pieces › Coordinates'),
 };
@@ -84,10 +94,8 @@ final class Settings {
   Map<String, Object?> _load() {
     final path = places.settingsFile;
     try {
-      if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.file) return {};
-      final f = File(path);
-      if (f.lengthSync() > _maxBytes) return {};
-      final data = jsonDecode(f.readAsStringSync());
+      requirePrivateFolder(places.config);
+      final data = jsonDecode(readRegularNoFollow(path, maxBytes: _maxBytes, requireOwner: true));
       return data is Map ? data.cast<String, Object?>() : {};
     } on Object {
       return {};
@@ -101,7 +109,11 @@ final class Settings {
     final stored = _load()[key];
     if (stored != null && setting.valid(stored)) return stored;
     final d = setting.fallback;
-    return d is List ? List.of(d) : d is Map ? Map.of(d) : d;
+    return d is List
+        ? List.of(d)
+        : d is Map
+        ? Map.of(d)
+        : d;
   }
 
   /// Whether settings.json holds a valid value of its own for this key (not just the default).
@@ -129,19 +141,5 @@ final class Settings {
 /// Write a file only its owner can read (folder 0700), via a temp file moved over it: a link at the
 /// path is replaced, never followed.
 void writePrivate(String path, String text) {
-  final dir = Directory(p.dirname(path));
-  if (!dir.existsSync()) {
-    dir.createSync(recursive: true);
-    Process.runSync('chmod', ['700', dir.path]);
-  }
-  final tmp = File(p.join(dir.path, '.${p.basename(path)}.$pid.${DateTime.now().microsecondsSinceEpoch}'));
-  try {
-    tmp.createSync(exclusive: true);
-    Process.runSync('chmod', ['600', tmp.path]); // before anything is in it
-    tmp.writeAsStringSync(text, flush: true);
-    tmp.renameSync(path);
-  } on Object {
-    if (tmp.existsSync()) tmp.deleteSync();
-    rethrow;
-  }
+  atomicPrivateWrite(path, text, privateFolder: true);
 }

@@ -107,6 +107,7 @@ class LocalHold {
   bool _started = false, _released = false;
   Timer? _timer;
   Future<void>? _releaseFuture;
+  Future<void>? _stopAfter;
   HttpClient? _connection;
   Future<void>? _pinging;
   static final Set<LocalHold> _holds = {};
@@ -174,8 +175,9 @@ class LocalHold {
       _connection = clientFactory()
         ..findProxy = ((_) => 'DIRECT')
         ..connectionTimeout = const Duration(seconds: 5);
+      http.secureClient(_connection!);
       await _ping();
-      _timer = Timer.periodic(const Duration(seconds: 2), (_) => unawaited(_ping()));
+      if (!_released) _timer = Timer.periodic(const Duration(seconds: 2), (_) => unawaited(_ping()));
     } on Cancelled {
       await release();
       rethrow;
@@ -209,6 +211,7 @@ class LocalHold {
         _connection?.close(force: true);
         if (!_released) {
           _connection = clientFactory()..findProxy = ((_) => 'DIRECT');
+          http.secureClient(_connection!);
         }
       }
     }();
@@ -218,12 +221,25 @@ class LocalHold {
   }
 
   Future<void> _stopOwn() async {
+    await _stopAfter;
     if (_started && clients(portOf(runtime)) == 0) {
       _started = false;
       if (controlService != null) {
-        await controlService!(false);
+        await controlService!(false).timeout(const Duration(seconds: 3), onTimeout: () => false);
       } else {
-        await runner.run(['systemctl', '--user', 'stop', '$service.service'], timeout: const Duration(seconds: 10));
+        // The work runner has already killed its children during app shutdown.
+        // Reserve 200 ms of the three-second stop budget for killing and reaping.
+        final stopper = ProcessRunner(environment: runner.environment);
+        try {
+          await stopper.run([
+            'systemctl',
+            '--user',
+            'stop',
+            '$service.service',
+          ], timeout: const Duration(milliseconds: 2800));
+        } finally {
+          await stopper.dispose();
+        }
       }
     }
   }
@@ -233,12 +249,27 @@ class LocalHold {
     _released = true;
     _timer?.cancel();
     _connection?.close(force: true);
-    if (_pinging != null) await _pinging;
-    await _stopOwn();
-    _holds.remove(this);
+    // Closing the socket cancels the ping; a slow peer must not delay service cleanup.
+    try {
+      await _stopOwn();
+    } finally {
+      _holds.remove(this);
+    }
   }
 
-  static Future<void> stopAll() async {
-    await Future.wait(_holds.toList().map((h) => h.release()));
+  static Future<void> stopAll({Future<void>? after}) async {
+    final holds = _holds.toList();
+    for (final hold in holds) {
+      hold._stopAfter = after;
+    }
+    await Future.wait(
+      holds.map((h) async {
+        try {
+          await h.release();
+        } on Object {
+          /* Shutdown must finish even if a service stop fails. */
+        }
+      }),
+    );
   }
 }

@@ -41,7 +41,7 @@ void main() {
     await expectLater(pictures.prepare(bomb, CancelToken()), throwsStateError);
     expect(pictures.folder.listSync(), isEmpty);
   });
-  test('JPEG SOF after EXIF, GIF, WebP and animated totals', () {
+  test('JPEG SOF and malformed animation structures', () {
     final jpg = Uint8List.fromList([
       255,
       216,
@@ -67,19 +67,19 @@ void main() {
     ByteData.sublistView(gif)
       ..setUint16(6, 300, Endian.little)
       ..setUint16(8, 200, Endian.little);
-    expect(declaredSize(gif), (300, 200, 1));
-    expect(acceptableHeader(gif, 18), true);
+    expect(declaredSize(gif), isNull);
+    expect(acceptableHeader(gif, 18), false);
     final webp = Uint8List(30)
       ..setAll(0, 'RIFF'.codeUnits)
       ..setAll(8, 'WEBPVP8X'.codeUnits)
       ..setAll(24, [128, 62, 0, 128, 62, 0]);
-    expect(declaredSize(webp), (16001, 16001, 1));
+    expect(declaredSize(webp), isNull);
     expect(acceptableHeader(webp, 30), false);
     final apng = Uint8List(32)
       ..setAll(0, pngHeader(1000, 1000))
       ..setAll(24, 'acTL'.codeUnits);
     ByteData.sublistView(apng).setUint32(28, 100);
-    expect(acceptableHeader(apng, 32), false);
+    expect(acceptableHeader(apng, 32), true); // Frame zero only; acTL bytes are not scanned.
   });
   test('unknown or broken formats refused', () {
     for (final b in [
