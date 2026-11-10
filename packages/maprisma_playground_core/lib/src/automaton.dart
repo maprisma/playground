@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 /// The Automaton tab's engine: a grid of cells and a Life-like rule.
 ///
-/// A rule is written B<born>/S<survive>, optionally /C<states> for "Generations" rules (Brian's
+/// A rule is written `B<born>/S<survive>`, optionally `/C<states>` for "Generations" rules (Brian's
 /// Brain is B2/S/C3): a live cell that does not survive starts dying and goes through the
 /// states 2 … C-1 before it is dead; only state 1 counts as a live neighbour.
 

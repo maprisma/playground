@@ -126,7 +126,7 @@ void writePrivate(String path, String text) {
     dir.createSync(recursive: true);
     Process.runSync('chmod', ['700', dir.path]);
   }
-  final tmp = File(p.join(dir.path, '.${p.basename(path)}.${pid}.${DateTime.now().microsecondsSinceEpoch}'));
+  final tmp = File(p.join(dir.path, '.${p.basename(path)}.$pid.${DateTime.now().microsecondsSinceEpoch}'));
   try {
     tmp.createSync(exclusive: true);
     Process.runSync('chmod', ['600', tmp.path]); // before anything is in it
