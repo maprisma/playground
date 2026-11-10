@@ -1,15 +1,11 @@
 import 'package:maprisma_playground_core/maprisma_playground_core.dart' as c;
 import 'package:test/test.dart';
 
-const kiwipete =
-    'r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1';
+const kiwipete = 'r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1';
 const position3 = '8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1';
 
-int perft(c.Position pos, int depth) => depth == 0
-    ? 1
-    : c
-          .legalMoves(pos)
-          .fold(0, (n, m) => n + perft(c.apply(pos, m), depth - 1));
+int perft(c.Position pos, int depth) =>
+    depth == 0 ? 1 : c.legalMoves(pos).fold(0, (n, m) => n + perft(c.apply(pos, m), depth - 1));
 c.Position play(List<String> sans) {
   var pos = c.start();
   for (final text in sans) {
@@ -57,10 +53,7 @@ void main() {
       }
     });
     test('after_moves', () {
-      expect(
-        c.fen(play(['e4'])),
-        'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
-      );
+      expect(c.fen(play(['e4'])), 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1');
     });
     test('bad_fen_is_refused', () {
       for (final bad in [
@@ -81,10 +74,7 @@ void main() {
     });
     test('problems_of_a_position_set_up_by_hand', () {
       expect(c.problems(c.start()), isEmpty);
-      expect(
-        c.problems(c.fromFen('4k3/8/8/8/8/8/8/8 w - - 0 1')),
-        contains('White needs exactly one king'),
-      );
+      expect(c.problems(c.fromFen('4k3/8/8/8/8/8/8/8 w - - 0 1')), contains('White needs exactly one king'));
       expect(
         c.problems(c.fromFen('4k3/8/8/8/8/8/8/P3K3 w - - 0 1')),
         contains('Pawns cannot stand on the first or last rank'),
@@ -102,11 +92,7 @@ void main() {
       expect(c.san(pos, c.parse(pos, 'O-O')!), 'O-O');
       expect(c.parse(pos, '0-0'), c.parse(pos, 'e1g1'));
       expect(c.parse(pos, 'Ke2x'), isNull);
-      expect(
-        c.parse(pos, 'Qd3'),
-        isNull,
-        reason: 'the queen on d1 is blocked by the d2 pawn',
-      );
+      expect(c.parse(pos, 'Qd3'), isNull, reason: 'the queen on d1 is blocked by the d2 pawn');
     });
     test('check_and_mate_marks', () {
       final pos = play(['f3', 'e5', 'g4']);
@@ -153,30 +139,12 @@ void main() {
     test('captures_in_order_with_en_passant', () {
       final start = c.start(), moves = <c.Move>[];
       var pos = c.start();
-      for (final text in [
-        'e4',
-        'd5',
-        'exd5',
-        'Qxd5',
-        'Nc3',
-        'a6',
-        'Nxd5',
-        'c5',
-        'd4',
-        'c4',
-        'b4',
-        'cxb3',
-      ]) {
+      for (final text in ['e4', 'd5', 'exd5', 'Qxd5', 'Nc3', 'a6', 'Nxd5', 'c5', 'd4', 'c4', 'b4', 'cxb3']) {
         final move = c.parse(pos, text)!;
         moves.add(move);
         pos = c.apply(pos, move);
       }
-      expect(c.captured(start, moves), [
-        'p',
-        'P',
-        'q',
-        'P',
-      ]); // The last one en passant.
+      expect(c.captured(start, moves), ['p', 'P', 'q', 'P']); // The last one en passant.
     });
   });
   group('AnswersOfAgents', () {

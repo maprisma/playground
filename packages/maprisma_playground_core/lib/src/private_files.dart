@@ -1,37 +1,20 @@
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:typed_data';
 
 // Linux is the supported desktop platform. libc gives the guarantees dart:io's
 // temp-directory and open APIs cannot express (0700 at creation and O_NOFOLLOW).
 final _libc = DynamicLibrary.open('libc.so.6');
-final _malloc = _libc
-    .lookupFunction<
-      Pointer<Void> Function(IntPtr),
-      Pointer<Void> Function(int)
-    >('malloc');
-final _free = _libc
-    .lookupFunction<Void Function(Pointer<Void>), void Function(Pointer<Void>)>(
-      'free',
-    );
-final _mkdtemp = _libc
-    .lookupFunction<
-      Pointer<Uint8> Function(Pointer<Uint8>),
-      Pointer<Uint8> Function(Pointer<Uint8>)
-    >('mkdtemp');
-final _open = _libc
-    .lookupFunction<
-      Int32 Function(Pointer<Uint8>, Int32),
-      int Function(Pointer<Uint8>, int)
-    >('open');
-final _read = _libc
-    .lookupFunction<
-      IntPtr Function(Int32, Pointer<Uint8>, IntPtr),
-      int Function(int, Pointer<Uint8>, int)
-    >('read');
-final _close = _libc.lookupFunction<Int32 Function(Int32), int Function(int)>(
-  'close',
+final _malloc = _libc.lookupFunction<Pointer<Void> Function(IntPtr), Pointer<Void> Function(int)>('malloc');
+final _free = _libc.lookupFunction<Void Function(Pointer<Void>), void Function(Pointer<Void>)>('free');
+final _mkdtemp = _libc.lookupFunction<Pointer<Uint8> Function(Pointer<Uint8>), Pointer<Uint8> Function(Pointer<Uint8>)>(
+  'mkdtemp',
 );
+final _open = _libc.lookupFunction<Int32 Function(Pointer<Uint8>, Int32), int Function(Pointer<Uint8>, int)>('open');
+final _read = _libc
+    .lookupFunction<IntPtr Function(Int32, Pointer<Uint8>, IntPtr), int Function(int, Pointer<Uint8>, int)>('read');
+final _close = _libc.lookupFunction<Int32 Function(Int32), int Function(int)>('close');
 Pointer<Uint8> _allocate(int bytes) {
   final ptr = _malloc(bytes).cast<Uint8>();
   if (ptr.address == 0) throw StateError('Cannot allocate a file buffer.');
@@ -59,13 +42,9 @@ Directory createPrivateTempDirectory({String prefix = 'maprisma-playground-'}) {
   final ptr = _text(template);
   try {
     if (_mkdtemp(ptr).address == 0) {
-      throw const FileSystemException(
-        'Cannot create a private temporary folder.',
-      );
+      throw const FileSystemException('Cannot create a private temporary folder.');
     }
-    return Directory(
-      utf8.decode(ptr.asTypedList(utf8.encode(template).length)),
-    );
+    return Directory(utf8.decode(ptr.asTypedList(utf8.encode(template).length)));
   } finally {
     _free(ptr.cast());
   }
@@ -76,8 +55,7 @@ Directory createPrivateTempDirectory({String prefix = 'maprisma-playground-'}) {
 String readRegularNoFollow(String path, {int maxBytes = 512 * 1024}) {
   if (maxBytes < 0) throw ArgumentError('Invalid file size limit.');
   try {
-    if (FileSystemEntity.typeSync(path, followLinks: false) !=
-        FileSystemEntityType.file) {
+    if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.file) {
       return '';
     }
     final name = _text(path);
@@ -97,14 +75,156 @@ String readRegularNoFollow(String path, {int maxBytes = 512 * 1024}) {
         if (count == 0) break;
         total += count;
       }
-      return total > maxBytes
-          ? ''
-          : utf8.decode(buffer.asTypedList(total), allowMalformed: true);
+      return total > maxBytes ? '' : utf8.decode(buffer.asTypedList(total), allowMalformed: true);
     } finally {
       _close(fd);
       _free(buffer.cast());
     }
   } on Object {
     return '';
+  }
+}
+
+final _openMode = _libc
+    .lookupFunction<Int32 Function(Pointer<Uint8>, Int32, Int32), int Function(Pointer<Uint8>, int, int)>('open');
+final _statx = _libc
+    .lookupFunction<
+      Int32 Function(Int32, Pointer<Uint8>, Int32, Uint32, Pointer<Uint8>),
+      int Function(int, Pointer<Uint8>, int, int, Pointer<Uint8>)
+    >('statx');
+final _getuid = _libc.lookupFunction<Uint32 Function(), int Function()>('getuid');
+final _flock = _libc.lookupFunction<Int32 Function(Int32, Int32), int Function(int, int)>('flock');
+final _writeFd = _libc
+    .lookupFunction<IntPtr Function(Int32, Pointer<Uint8>, IntPtr), int Function(int, Pointer<Uint8>, int)>('write');
+final _truncate = _libc.lookupFunction<Int32 Function(Int32, Int64), int Function(int, int)>('ftruncate');
+final _fchmod = _libc.lookupFunction<Int32 Function(Int32, Uint32), int Function(int, int)>('fchmod');
+final _fsync = _libc.lookupFunction<Int32 Function(Int32), int Function(int)>('fsync');
+
+/// Linux statx has a stable layout on every supported Linux architecture.
+({int uid, int links, int mode, int inode, int device, int size})? fileIdentity(
+  String path, {
+  int fd = -100,
+  bool noFollow = true,
+}) {
+  final name = _text(path), buffer = _allocate(256);
+  try {
+    if (_statx(fd, name, (path.isEmpty ? 0x1000 : 0) | (noFollow ? 0x100 : 0), 0x7ff, buffer) != 0) return null;
+    final b = buffer.asTypedList(256).buffer.asByteData();
+    return (
+      uid: b.getUint32(20, Endian.host),
+      links: b.getUint32(16, Endian.host),
+      mode: b.getUint16(28, Endian.host),
+      inode: b.getUint64(32, Endian.host),
+      device: b.getUint32(136, Endian.host) << 32 | b.getUint32(140, Endian.host),
+      size: b.getUint64(40, Endian.host),
+    );
+  } finally {
+    _free(name.cast());
+    _free(buffer.cast());
+  }
+}
+
+int get fileOwnerUid => _getuid();
+bool ownRegularFile(String path) {
+  final s = fileIdentity(path);
+  return s != null && s.uid == fileOwnerUid && s.links == 1 && s.mode & 0xf000 == 0x8000;
+}
+
+bool ownFolder(String path) {
+  final s = fileIdentity(path, noFollow: false);
+  return s != null && s.uid == fileOwnerUid && s.mode & 0xf000 == 0x4000 && s.mode & 0x12 == 0;
+}
+
+/// Own regular O_NOFOLLOW descriptor; advisory lock survives until close.
+class StagingFile {
+  StagingFile(String path, {bool resume = true, bool exclusive = false, int mode = 0x180}) : path = path {
+    final name = _text(path);
+    try {
+      fd = _openMode(name, 2 | 0x20000 | 0x80000 | 0x800 | 0x40 | 0x80, mode);
+      if (fd < 0 && !exclusive) fd = _openMode(name, 2 | 0x20000 | 0x80000 | 0x800, mode);
+    } finally {
+      _free(name.cast());
+    }
+    if (fd < 0) throw FileSystemException('Cannot open own download', path);
+    final info = fileIdentity('', fd: fd);
+    if (info == null || info.uid != fileOwnerUid || info.links != 1 || info.mode & 0xf000 != 0x8000) {
+      close();
+      throw FileSystemException(
+        "${File(path).uri.pathSegments.last} is not this account's own download; remove it and try again",
+      );
+    }
+    if (_fchmod(fd, info.mode & mode & 0x1ff) != 0) {
+      close();
+      throw FileSystemException('Cannot set private file permissions', path);
+    }
+    inode = info.inode;
+    device = info.device;
+    if (_flock(fd, 2 | 4) != 0) {
+      close();
+      throw StateError('${File(path).uri.pathSegments.last} is being downloaded already');
+    }
+    if (!resume) truncate();
+  }
+  final String path;
+  late int fd;
+  late int inode, device;
+  int get size => fileIdentity('', fd: fd)!.size;
+  void truncate() {
+    if (_truncate(fd, 0) != 0) throw FileSystemException('Cannot empty staging file', path);
+  }
+
+  void add(List<int> bytes) {
+    final buffer = _allocate(bytes.length);
+    try {
+      buffer.asTypedList(bytes.length).setAll(0, bytes);
+      var offset = 0;
+      // pwrite is unnecessary: a fresh descriptor starts at 0; resumed data uses
+      // append mode set by lseek before the first chunk.
+      while (offset < bytes.length) {
+        final n = _writeFd(fd, buffer + offset, bytes.length - offset);
+        if (n <= 0) throw FileSystemException('Cannot write staging file', path);
+        offset += n;
+      }
+    } finally {
+      _free(buffer.cast());
+    }
+  }
+
+  void seekEnd() {
+    final seek = _libc.lookupFunction<Int64 Function(Int32, Int64, Int32), int Function(int, int, int)>('lseek');
+    if (seek(fd, 0, 2) < 0) throw FileSystemException('Cannot resume staging file', path);
+  }
+
+  void publish(String target) {
+    final now = fileIdentity(path);
+    if (_fsync(fd) != 0 || now?.inode != inode || now?.device != device) {
+      throw StateError('$path was replaced while downloading; nothing was kept');
+    }
+    File(path).renameSync(target);
+  }
+
+  void close() {
+    if (fd >= 0) {
+      _close(fd);
+      fd = -1;
+    }
+  }
+}
+
+/// Exclusive no-follow temporary file, 0600 before the first byte, then atomic rename.
+void atomicPrivateWrite(String path, String text) {
+  final dir = Directory(File(path).parent.path);
+  if (!dir.existsSync()) {
+    dir.createSync(recursive: true);
+    Process.runSync('/bin/chmod', ['700', dir.path]);
+  }
+  final temp = '${dir.path}/.${File(path).uri.pathSegments.last}.$pid.${DateTime.now().microsecondsSinceEpoch}';
+  final output = StagingFile(temp, exclusive: true);
+  try {
+    output.add(utf8.encode(text));
+    output.publish(path);
+  } finally {
+    output.close();
+    if (File(temp).existsSync()) File(temp).deleteSync();
   }
 }

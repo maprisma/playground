@@ -8,18 +8,11 @@ import 'runner.dart';
 const gib = 1024 * 1024 * 1024;
 
 class ModelNeed {
-  ModelNeed(
-    this.label,
-    this.runtime,
-    this.model, {
-    this.size,
-    this.loaded = false,
-  });
+  ModelNeed(this.label, this.runtime, this.model, {this.size, this.loaded = false});
   final String label, runtime, model;
   final int? size;
   final bool loaded;
-  int get bytesNeeded =>
-      loaded || size == null ? 0 : (size! * 1.1).toInt() + gib ~/ 2;
+  int get bytesNeeded => loaded || size == null ? 0 : (size! * 1.1).toInt() + gib ~/ 2;
 }
 
 class GpuCheck {
@@ -49,14 +42,27 @@ class GpuCheck {
         'Together about ${gb(needed)} GB more are needed; ${gb(free)} GB of ${gb(total)} GB GPU memory are free.',
       );
     } else if (fits == null) {
-      lines.add(
-        '${gb(free)} GB of ${gb(total)} GB GPU memory are free; not every size was found.',
-      );
+      lines.add('${gb(free)} GB of ${gb(total)} GB GPU memory are free; not every size was found.');
     }
     return {
-      'fits': fits == true,
-      'message': fits == true ? '' : lines.join('\n'),
-      'alternating_ok': true,
+      'fits': total == 0 ? true : fits,
+      'needs': [
+        for (final n in needs)
+          {
+            'label': n.label,
+            'loaded': n.loaded,
+            'size': n.size,
+            'bytes_needed': n.loaded
+                ? 0
+                : n.size == null
+                ? null
+                : n.bytesNeeded,
+          },
+      ],
+      'needed': needed,
+      'free': total == 0 ? null : free,
+      'total': total == 0 ? null : total,
+      'message': total == 0 || fits == true ? '' : lines.join('\n'),
     };
   }
 }
@@ -82,11 +88,8 @@ Map<String, int> ggufSizes(List<String> roots, {int maxFiles = 20000}) {
           final name = entity.path.split('/').last.toLowerCase();
           if (!name.endsWith('.gguf') || name.startsWith('mmproj')) continue;
           try {
-            final real = entity.resolveSymbolicLinksSync(),
-                size = File(entity.path).lengthSync();
-            final stem = name
-                .substring(0, name.length - 5)
-                .replaceFirst(RegExp(r'-\d{5}-of-\d{5}$'), '');
+            final real = entity.resolveSymbolicLinksSync(), size = File(entity.path).lengthSync();
+            final stem = name.substring(0, name.length - 5).replaceFirst(RegExp(r'-\d{5}-of-\d{5}$'), '');
             parts.putIfAbsent(stem, () => {})[real] = size;
           } on FileSystemException {
             /* unavailable */
@@ -112,10 +115,8 @@ class GpuGuard {
       for (final dir in Directory('/sys/class/drm').listSync()) {
         if (!RegExp(r'^card\d+$').hasMatch(dir.path.split('/').last)) continue;
         final path = '${dir.path}/device';
-        final t =
-            int.tryParse(readConfig('$path/mem_info_vram_total').trim()) ?? 0;
-        final u =
-            int.tryParse(readConfig('$path/mem_info_vram_used').trim()) ?? 0;
+        final t = int.tryParse(readConfig('$path/mem_info_vram_total').trim()) ?? 0;
+        final u = int.tryParse(readConfig('$path/mem_info_vram_used').trim()) ?? 0;
         total += t;
         used += u;
       }
@@ -132,10 +133,7 @@ class GpuGuard {
     ], cancel: cancel);
     if (result.ok) {
       for (final line in result.text.split('\n')) {
-        final cols = line
-            .split(',')
-            .map((s) => int.tryParse(s.trim()))
-            .toList();
+        final cols = line.split(',').map((s) => int.tryParse(s.trim())).toList();
         if (cols.length == 2 && cols.every((n) => n != null)) {
           used += cols[0]! * 1024 * 1024;
           total += cols[1]! * 1024 * 1024;
@@ -148,10 +146,7 @@ class GpuGuard {
   List<String> modelRoots() {
     final home = runner.environment['HOME'] ?? '/';
     final roots = <String>[];
-    for (final path in [
-      '$home/.config/omarchy/ai-agents-map/settings.json',
-      '$home/.config/asterism/settings.json',
-    ]) {
+    for (final path in ['$home/.config/omarchy/ai-agents-map/settings.json', '$home/.config/asterism/settings.json']) {
       final v = readConfigJson(path)['models_root'];
       if (v is String && (v.startsWith('/') || v.startsWith('~/'))) {
         roots.add(v.startsWith('~/') ? '$home/${v.substring(2)}' : v);
@@ -175,24 +170,16 @@ class GpuGuard {
     final home = runner.environment['HOME'] ?? '/';
     final binary =
         executableOnPath('lms', runner.environment) ??
-        (File('$home/.lmstudio/bin/lms').statSync().mode & 73 != 0
-            ? '$home/.lmstudio/bin/lms'
-            : null);
+        (File('$home/.lmstudio/bin/lms').statSync().mode & 73 != 0 ? '$home/.lmstudio/bin/lms' : null);
     if (binary == null) return {};
-    final out = await runner.run(
-      [binary, 'ps', '--json'],
-      maxBytes: 1024 * 1024,
-      cancel: cancel,
-    );
+    final out = await runner.run([binary, 'ps', '--json'], maxBytes: 1024 * 1024, cancel: cancel);
     if (!out.ok) return {};
     try {
       final rows = jsonDecode(out.text);
       return rows is List
           ? {
               for (final row in rows.take(100))
-                if (row is Map &&
-                    row['type'] == 'llm' &&
-                    row['identifier'] is String)
+                if (row is Map && row['type'] == 'llm' && row['identifier'] is String)
                   (row['identifier'] as String).toLowerCase().substring(
                     0,
                     (row['identifier'] as String).length.clamp(0, 200),
@@ -204,11 +191,7 @@ class GpuGuard {
     }
   }
 
-  Future<Set<String>> loaded(
-    String runtime,
-    int port, {
-    CancelToken? cancel,
-  }) async {
+  Future<Set<String>> loaded(String runtime, int port, {CancelToken? cancel}) async {
     try {
       final path = switch (runtime) {
         'ollama' => '/api/ps',
@@ -217,17 +200,11 @@ class GpuGuard {
         _ => '/v1/models',
       };
       final reply = await http.json(port, path, cancel: cancel);
-      final rows = reply is Map
-          ? reply[runtime == 'ollama' ? 'models' : 'data']
-          : null;
+      final rows = reply is Map ? reply[runtime == 'ollama' ? 'models' : 'data'] : null;
       if (rows is! List) return {};
       if (runtime == 'koboldcpp') {
-        final first = rows.isNotEmpty && rows.first is Map
-            ? rows.first['id']
-            : null;
-        return first is String && first.startsWith('koboldcpp/')
-            ? {'${first.substring(10).toLowerCase()}.kcpps'}
-            : {};
+        final first = rows.isNotEmpty && rows.first is Map ? rows.first['id'] : null;
+        return first is String && first.startsWith('koboldcpp/') ? {'${first.substring(10).toLowerCase()}.kcpps'} : {};
       }
       return {
         for (final row in rows.take(500))
@@ -236,15 +213,9 @@ class GpuGuard {
                   runtime == 'vllm' ||
                   ((runtime == 'llamacpp' || runtime == 'jan') &&
                       row['status'] is Map &&
-                      const [
-                        'loaded',
-                        'loading',
-                        'sleeping',
-                      ].contains(row['status']['value'])) ||
+                      const ['loaded', 'loading', 'sleeping'].contains(row['status']['value'])) ||
                   (runtime == 'lmstudio' && row['state'] == 'loaded')))
-            (row[runtime == 'ollama' ? 'name' : 'id'] ?? '')
-                .toString()
-                .toLowerCase(),
+            (row[runtime == 'ollama' ? 'name' : 'id'] ?? '').toString().toLowerCase(),
       };
     } on Cancelled {
       rethrow;
@@ -259,25 +230,17 @@ class GpuGuard {
     Map<String, int>? files,
     CancelToken? cancel,
   }) async {
-    final distinct = <String, (String, String, String)>{
-      for (final v in wanted) '${v.$2}|${v.$3.toLowerCase()}': v,
-    };
+    final distinct = <String, (String, String, String)>{for (final v in wanted) '${v.$2}|${v.$3.toLowerCase()}': v};
     if (distinct.length < 2) return null;
     final (used, total) = memory ?? await totals(cancel: cancel);
     final sizes = files ?? ggufSizes(modelRoots());
     final loadedByServer = <String, Set<String>>{}, ollama = <String, int>{};
     final needs = <ModelNeed>[];
     for (final (label, runtime, model) in distinct.values) {
-      loadedByServer[runtime] ??= files != null
-          ? {}
-          : await loaded(runtime, portOf(runtime), cancel: cancel);
+      loadedByServer[runtime] ??= files != null ? {} : await loaded(runtime, portOf(runtime), cancel: cancel);
       if (runtime == 'ollama' && files == null && ollama.isEmpty) {
         try {
-          final reply = await http.json(
-            portOf(runtime),
-            '/api/tags',
-            cancel: cancel,
-          );
+          final reply = await http.json(portOf(runtime), '/api/tags', cancel: cancel);
           if (reply is Map && reply['models'] is List) {
             for (final row in reply['models']) {
               if (row is Map && row['name'] is String && row['size'] is int) {
@@ -297,10 +260,7 @@ class GpuGuard {
           label,
           runtime,
           model,
-          size:
-              ollama[name] ??
-              sizes[name] ??
-              sizes[name.replaceFirst(RegExp(r'\.gguf$'), '')],
+          size: ollama[name] ?? sizes[name] ?? sizes[name.replaceFirst(RegExp(r'\.gguf$'), '')],
           loaded: loadedByServer[runtime]!.contains(name),
         ),
       );
@@ -308,12 +268,7 @@ class GpuGuard {
     return GpuCheck(needs, free: (total - used).clamp(0, total), total: total);
   }
 
-  Future<void> unload(
-    String runtime,
-    String model, {
-    int? port,
-    CancelToken? cancel,
-  }) async {
+  Future<void> unload(String runtime, String model, {int? port, CancelToken? cancel}) async {
     if (runtime != 'ollama') return;
     try {
       await http.json(

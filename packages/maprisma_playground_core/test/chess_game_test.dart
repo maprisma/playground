@@ -11,10 +11,7 @@ void main() {
     final token = g.beginAgentMove();
     expect(g.thinking, isTrue);
     expect(g.needsAgentMove, isFalse);
-    expect(
-      g.applyAgentMove('d5', expectedRevision: token, comment: 'Centre.'),
-      isTrue,
-    );
+    expect(g.applyAgentMove('d5', expectedRevision: token, comment: 'Centre.'), isTrue);
     expect(g.comment, 'Centre.');
     expect(g.commentBy, 'claude');
     expect(g.play('exd5'), isTrue);
@@ -36,11 +33,7 @@ void main() {
     expect(g.position, start());
   });
   test('agent against agent has independent strengths and pause/resume', () {
-    final g = ChessGame(
-      rival: 'pi',
-      strength: 'master',
-      rivalStrength: 'beginner',
-    );
+    final g = ChessGame(rival: 'pi', strength: 'master', rivalStrength: 'beginner');
     expect(g.currentStrength, 'beginner');
     expect(g.agentFor('w'), 'pi');
     expect(g.agentFor('b'), 'claude');

@@ -10,26 +10,8 @@ import 'dart:collection';
 
 const files = 'abcdefgh';
 const startFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-const knight = [
-  (1, 2),
-  (2, 1),
-  (2, -1),
-  (1, -2),
-  (-1, -2),
-  (-2, -1),
-  (-2, 1),
-  (-1, 2),
-];
-const king = [
-  (1, 0),
-  (1, 1),
-  (0, 1),
-  (-1, 1),
-  (-1, 0),
-  (-1, -1),
-  (0, -1),
-  (1, -1),
-];
+const knight = [(1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2)];
+const king = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)];
 const rookDirs = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 const bishopDirs = [(1, 1), (1, -1), (-1, 1), (-1, -1)];
 const maxText = 4000; // How much of an answer is searched for a move.
@@ -45,8 +27,7 @@ int square(String name) {
 }
 
 String name(int sq) => files[sq % 8] + ((sq / 8).floor() + 1).toString();
-bool white(String piece) =>
-    piece.toUpperCase() == piece && piece.toLowerCase() != piece;
+bool white(String piece) => piece.toUpperCase() == piece && piece.toLowerCase() != piece;
 String colorOf(String piece) => white(piece) ? 'w' : 'b';
 
 class Move {
@@ -57,10 +38,7 @@ class Move {
   String uci() => name(start) + name(end) + promotion;
   @override
   bool operator ==(Object other) =>
-      other is Move &&
-      start == other.start &&
-      end == other.end &&
-      promotion == other.promotion;
+      other is Move && start == other.start && end == other.end && promotion == other.promotion;
   @override
   int get hashCode => Object.hash(start, end, promotion);
 }
@@ -76,13 +54,10 @@ class _Board extends ListBase<String> {
   @override
   String operator [](int index) => _pieces[index < 0 ? length + index : index];
   @override
-  void operator []=(int index, String value) =>
-      throw UnsupportedError('Immutable board');
+  void operator []=(int index, String value) => throw UnsupportedError('Immutable board');
   @override
   bool operator ==(Object other) =>
-      other is _Board &&
-      length == other.length &&
-      Iterable<int>.generate(length).every((i) => this[i] == other[i]);
+      other is _Board && length == other.length && Iterable<int>.generate(length).every((i) => this[i] == other[i]);
   @override
   int get hashCode => Object.hashAll(_pieces);
 }
@@ -113,12 +88,10 @@ class Position {
       halfmove == other.halfmove &&
       fullmove == other.fullmove;
   @override
-  int get hashCode =>
-      Object.hash(board, turn, castling, enPassant, halfmove, fullmove);
+  int get hashCode => Object.hash(board, turn, castling, enPassant, halfmove, fullmove);
 }
 
-bool _fullMatch(String pattern, String text) =>
-    RegExp('^(?:$pattern)\$').firstMatch(text)?.group(0) == text;
+bool _fullMatch(String pattern, String text) => RegExp('^(?:$pattern)\$').firstMatch(text)?.group(0) == text;
 
 /// A position from FEN; a malformed one raises FenError. Only the placement is required.
 Position fromFen(String? fen) {
@@ -171,22 +144,8 @@ Position fromFen(String? fen) {
   final half = parts.length > 4 ? counter(parts[4]) : 0;
   final full = parts.length > 5 ? counter(parts[5]) : 1;
   if (full < 1) throw const FenError('move counters out of range');
-  final pos = Position(
-    board,
-    turn,
-    castling == '-' ? '' : castling,
-    ep == '-' ? null : square(ep),
-    half,
-    full,
-  );
-  return Position(
-    board,
-    turn,
-    _possibleCastling(pos),
-    pos.enPassant,
-    half,
-    full,
-  );
+  final pos = Position(board, turn, castling == '-' ? '' : castling, ep == '-' ? null : square(ep), half, full);
+  return Position(board, turn, _possibleCastling(pos), pos.enPassant, half, full);
 }
 
 String fen(Position pos) {
@@ -219,9 +178,7 @@ String _possibleCastling(Position pos) {
     ('k', 60, 63, 'k', 'r'),
     ('q', 60, 56, 'k', 'r'),
   ]) {
-    if (pos.castling.contains(flag) &&
-        pos.board[k] == king &&
-        pos.board[r] == rook) {
+    if (pos.castling.contains(flag) && pos.board[k] == king && pos.board[r] == rook) {
       keep += flag;
     }
   }
@@ -261,12 +218,8 @@ int? _step(int sq, int df, int dr) {
 /// Is the square attacked by side `by` ("w" or "b")?
 bool attacked(Position pos, int sq, String by) {
   bool mine(String piece, String kinds) =>
-      piece.isNotEmpty &&
-      colorOf(piece) == by &&
-      kinds.contains(piece.toUpperCase());
-  final pawnDr = by == 'w'
-      ? -1
-      : 1; // A white pawn attacks from one rank below.
+      piece.isNotEmpty && colorOf(piece) == by && kinds.contains(piece.toUpperCase());
+  final pawnDr = by == 'w' ? -1 : 1; // A white pawn attacks from one rank below.
   for (final df in [-1, 1]) {
     final t = _step(sq, df, pawnDr);
     if (t != null && mine(pos.board[t], 'P')) return true;
@@ -304,9 +257,7 @@ Iterable<Move> _pseudo(Position pos) sync* {
     if (piece.isEmpty || colorOf(piece) != side) continue;
     final kind = piece.toUpperCase();
     if (kind == 'P') {
-      final dr = side == 'w' ? 1 : -1,
-          last = side == 'w' ? 7 : 0,
-          home = side == 'w' ? 1 : 6;
+      final dr = side == 'w' ? 1 : -1, last = side == 'w' ? 7 : 0, home = side == 'w' ? 1 : 6;
       final one = _step(sq, 0, dr);
       if (one != null && board[one].isEmpty) {
         yield* _pawn(sq, one, last);
@@ -410,33 +361,16 @@ Position apply(Position pos, Move move) {
   }
   board[move.end] = piece;
   var castling = pos.castling;
-  for (final (sq, flags) in [
-    (4, 'KQ'),
-    (60, 'kq'),
-    (0, 'Q'),
-    (7, 'K'),
-    (56, 'q'),
-    (63, 'k'),
-  ]) {
+  for (final (sq, flags) in [(4, 'KQ'), (60, 'kq'), (0, 'Q'), (7, 'K'), (56, 'q'), (63, 'k')]) {
     if (move.start == sq || move.end == sq) {
       castling = castling.split('').where((c) => !flags.contains(c)).join();
     }
   }
-  final half = piece.toUpperCase() == 'P' || captured.isNotEmpty
-      ? 0
-      : pos.halfmove + 1;
-  return Position(
-    board,
-    pos.turn == 'w' ? 'b' : 'w',
-    castling,
-    ep,
-    half,
-    pos.fullmove + (pos.turn == 'b' ? 1 : 0),
-  );
+  final half = piece.toUpperCase() == 'P' || captured.isNotEmpty ? 0 : pos.halfmove + 1;
+  return Position(board, pos.turn == 'w' ? 'b' : 'w', castling, ep, half, pos.fullmove + (pos.turn == 'b' ? 1 : 0));
 }
 
-List<Move> legalMoves(Position pos) =>
-    _pseudo(pos).where((move) => !inCheck(apply(pos, move), pos.turn)).toList();
+List<Move> legalMoves(Position pos) => _pseudo(pos).where((move) => !inCheck(apply(pos, move), pos.turn)).toList();
 
 /// "checkmate", "stalemate", "fifty" (fifty-move rule), "material" (no mate possible) or "ongoing".
 String status(Position pos) {
@@ -444,12 +378,8 @@ String status(Position pos) {
     return inCheck(pos, pos.turn) ? 'checkmate' : 'stalemate';
   }
   if (pos.halfmove >= 100) return 'fifty';
-  final rest =
-      pos.board
-          .where((p) => p.isNotEmpty && p.toUpperCase() != 'K')
-          .map((p) => p.toUpperCase())
-          .toList()
-        ..sort();
+  final rest = pos.board.where((p) => p.isNotEmpty && p.toUpperCase() != 'K').map((p) => p.toUpperCase()).toList()
+    ..sort();
   if (rest.isEmpty || (rest.length == 1 && ['B', 'N'].contains(rest[0]))) {
     return 'material';
   }
@@ -463,21 +393,14 @@ String san(Position pos, Move move) {
   if (kind == 'K' && (move.end - move.start).abs() == 2) {
     text = move.end > move.start ? 'O-O' : 'O-O-O';
   } else {
-    final capture =
-        pos.at(move.end).isNotEmpty ||
-        (kind == 'P' && move.end == pos.enPassant);
+    final capture = pos.at(move.end).isNotEmpty || (kind == 'P' && move.end == pos.enPassant);
     if (kind == 'P') {
       text = (capture ? '${files[move.start % 8]}x' : '') + name(move.end);
       if (move.promotion.isNotEmpty) text += '=${move.promotion.toUpperCase()}';
     } else {
-      final others = legalMoves(pos)
-          .where(
-            (m) =>
-                m.end == move.end &&
-                m.start != move.start &&
-                pos.at(m.start) == piece,
-          )
-          .toList();
+      final others = legalMoves(
+        pos,
+      ).where((m) => m.end == move.end && m.start != move.start && pos.at(m.start) == piece).toList();
       var hint = '';
       if (others.isNotEmpty) {
         if (others.every((m) => m.start % 8 != move.start % 8)) {
@@ -496,11 +419,8 @@ String san(Position pos, Move move) {
   return text;
 }
 
-String _plain(String text) => text
-    .trim()
-    .replaceFirst(RegExp(r'[+#!?]+$'), '')
-    .replaceAll('0-0-0', 'O-O-O')
-    .replaceAll('0-0', 'O-O');
+String _plain(String text) =>
+    text.trim().replaceFirst(RegExp(r'[+#!?]+$'), '').replaceAll('0-0-0', 'O-O-O').replaceAll('0-0', 'O-O');
 
 /// A legal move from SAN ("Nf3", "exd5", "e8=Q", "O-O") or UCI ("g1f3", "e7e8q"); null otherwise.
 Move? parse(Position pos, String? text) {
@@ -517,10 +437,7 @@ Move? parse(Position pos, String? text) {
   }
   // A promotion written without "=" ("e8Q") or a pawn capture with a lower-case piece letter.
   if (_fullMatch(r'[a-h](x[a-h])?[18][QRBN]', word)) {
-    return parse(
-      pos,
-      '${word.substring(0, word.length - 1)}=${word[word.length - 1]}',
-    );
+    return parse(pos, '${word.substring(0, word.length - 1)}=${word[word.length - 1]}');
   }
   return null;
 }
@@ -533,9 +450,7 @@ final token = RegExp(
 /// Returns (move, the text it was written as); (null, "") when the answer names none.
 (Move?, String) findMove(Position pos, String? answer) {
   final text = String.fromCharCodes((answer ?? '').runes.take(maxText));
-  final lines = text
-      .split(RegExp(r'\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]'))
-      .where((line) => line.trim().isNotEmpty);
+  final lines = text.split(RegExp(r'\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]')).where((line) => line.trim().isNotEmpty);
   for (final line in lines) {
     // Move numbers ("12." or "12...") go; a square before a full stop ("e4.") stays.
     final cleaned = line

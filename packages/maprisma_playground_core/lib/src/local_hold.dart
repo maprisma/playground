@@ -7,26 +7,17 @@ import 'netfetch.dart';
 import 'runner.dart';
 
 Map<String, List<String>> iniSections(String text) {
-  final headers = RegExp(
-    r'^\[([^\]\n]{1,120})\][ \t]*\r?$',
-    multiLine: true,
-  ).allMatches(text).toList();
+  final headers = RegExp(r'^\[([^\]\n]{1,120})\][ \t]*\r?$', multiLine: true).allMatches(text).toList();
   final result = <String, List<String>>{};
   for (var i = 0; i < headers.length; i++) {
     result
         .putIfAbsent(headers[i][1]!.trim().toLowerCase(), () => [])
-        .add(
-          text.substring(
-            headers[i].end,
-            i + 1 < headers.length ? headers[i + 1].start : text.length,
-          ),
-        );
+        .add(text.substring(headers[i].end, i + 1 < headers.length ? headers[i + 1].start : text.length));
   }
   return result;
 }
 
-bool hasMmproj(String body) =>
-    RegExp(r'^\s*mmproj\s*=\s*\S', multiLine: true).hasMatch(body);
+bool hasMmproj(String body) => RegExp(r'^\s*mmproj\s*=\s*\S', multiLine: true).hasMatch(body);
 const localServices = {
   'llamacpp': 'llama-server',
   'ollama': 'ollama',
@@ -35,12 +26,7 @@ const localServices = {
   'koboldcpp': 'koboldcpp',
 };
 String readyPath(String runtime) =>
-    const {
-      'llamacpp': '/health',
-      'ollama': '/api/version',
-      'koboldcpp': '/api/v1/model',
-    }[runtime] ??
-    '/v1/models';
+    const {'llamacpp': '/health', 'ollama': '/api/version', 'koboldcpp': '/api/v1/model'}[runtime] ?? '/v1/models';
 Future<bool?> seesPictures(
   LocalHttp http,
   String runtime,
@@ -51,10 +37,7 @@ Future<bool?> seesPictures(
 }) async {
   try {
     if (runtime == 'llamacpp' || runtime == 'llama.cpp') {
-      final text = readConfig(
-        '${environment['HOME'] ?? '/'}/.config/llama.cpp/models.ini',
-        maxBytes: 1024 * 1024,
-      );
+      final text = readConfig('${environment['HOME'] ?? '/'}/.config/llama.cpp/models.ini', maxBytes: 1024 * 1024);
       var name = model.trim().toLowerCase();
       if (name.endsWith('.gguf')) name = name.substring(0, name.length - 5);
       final bodies = iniSections(text)[name];
@@ -80,8 +63,7 @@ Future<bool?> seesPictures(
       );
       if (reply is Map && reply['data'] is List) {
         for (final row in reply['data']) {
-          if (row is Map &&
-              row['id'].toString().toLowerCase() == model.toLowerCase()) {
+          if (row is Map && row['id'].toString().toLowerCase() == model.toLowerCase()) {
             if (row['type'] == 'vlm') return true;
             if (row['type'] == 'llm') return false;
           }
@@ -137,10 +119,7 @@ class LocalHold {
             '/etc/systemd/user',
             '/usr/lib/systemd/user',
           ].any((d) => File('$d/$service.service').existsSync()));
-  Future<void> open({
-    Duration wait = const Duration(seconds: 120),
-    CancelToken? cancel,
-  }) async {
+  Future<void> open({Duration wait = const Duration(seconds: 120), CancelToken? cancel}) async {
     _holds.add(this);
     final port = portOf(runtime);
     if (port == 0) {
@@ -175,12 +154,7 @@ class LocalHold {
       while (!_released) {
         cancel?.check();
         try {
-          await http.json(
-            port,
-            readyPath(runtime),
-            timeout: const Duration(seconds: 2),
-            cancel: cancel,
-          );
+          await http.json(port, readyPath(runtime), timeout: const Duration(seconds: 2), cancel: cancel);
           break;
         } on Cancelled {
           rethrow;
@@ -201,10 +175,7 @@ class LocalHold {
         ..findProxy = ((_) => 'DIRECT')
         ..connectionTimeout = const Duration(seconds: 5);
       await _ping();
-      _timer = Timer.periodic(
-        const Duration(seconds: 2),
-        (_) => unawaited(_ping()),
-      );
+      _timer = Timer.periodic(const Duration(seconds: 2), (_) => unawaited(_ping()));
     } on Cancelled {
       await release();
       rethrow;
@@ -222,11 +193,7 @@ class LocalHold {
       try {
         http.guard(portOf(runtime));
         await (() async {
-          final req = await _connection!.getUrl(
-            Uri.parse(
-              'http://127.0.0.1:${portOf(runtime)}${readyPath(runtime)}',
-            ),
-          );
+          final req = await _connection!.getUrl(Uri.parse('http://127.0.0.1:${portOf(runtime)}${readyPath(runtime)}'));
           req.followRedirects = false;
           final res = await req.close();
           if (res.statusCode < 200 || res.statusCode >= 300) {
@@ -256,12 +223,7 @@ class LocalHold {
       if (controlService != null) {
         await controlService!(false);
       } else {
-        await runner.run([
-          'systemctl',
-          '--user',
-          'stop',
-          '$service.service',
-        ], timeout: const Duration(seconds: 10));
+        await runner.run(['systemctl', '--user', 'stop', '$service.service'], timeout: const Duration(seconds: 10));
       }
     }
   }

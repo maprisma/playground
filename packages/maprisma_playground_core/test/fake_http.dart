@@ -73,9 +73,8 @@ class FakeRequest implements HttpClientRequest {
   }
 
   @override
-  Future<HttpClientResponse> close() async => client.waiting == null
-      ? FakeResponse(client)
-      : await client.waiting!.future;
+  Future<HttpClientResponse> close() async =>
+      client.waiting == null ? FakeResponse(client) : await client.waiting!.future;
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -93,12 +92,8 @@ class FakeResponse extends Stream<List<int>> implements HttpClientResponse {
     Function? onError,
     void Function()? onDone,
     bool? cancelOnError,
-  }) => Stream.fromIterable(client.chunks).listen(
-    onData,
-    onError: onError,
-    onDone: onDone,
-    cancelOnError: cancelOnError,
-  );
+  }) =>
+      Stream.fromIterable(client.chunks).listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -24,20 +24,11 @@ const imageTypes = {
 };
 
 class Answer {
-  Answer({
-    this.text = '',
-    this.seconds = 0,
-    this.tokensIn,
-    this.tokensOut,
-    this.cost,
-    this.error = '',
-  });
+  Answer({this.text = '', this.seconds = 0, this.tokensIn, this.tokensOut, this.cost, this.error = ''});
   String text, error;
   double seconds;
   num? tokensIn, tokensOut, cost;
-  double? get perSecond => tokensOut != null && tokensOut! > 0 && seconds > 0
-      ? tokensOut! / seconds
-      : null;
+  double? get perSecond => tokensOut != null && tokensOut! > 0 && seconds > 0 ? tokensOut! / seconds : null;
   Map<String, Object?> toJson() => {
     'text': text,
     'seconds': seconds,
@@ -49,18 +40,10 @@ class Answer {
   };
 }
 
-List<String> runArgv(
-  String command,
-  String text, {
-  String level = 'normal',
-  List<String>? effort,
-  String model = '',
-}) {
+List<String> runArgv(String command, String text, {String level = 'normal', List<String>? effort, String model = ''}) {
   final a = adapter(command);
   if (a == null) return [];
-  if (model.isNotEmpty &&
-      (!modelFlags.containsKey(command) ||
-          modelName.stringMatch(model) != model)) {
+  if (model.isNotEmpty && (!modelFlags.containsKey(command) || modelName.stringMatch(model) != model)) {
     return [];
   }
   final options = [
@@ -70,13 +53,7 @@ List<String> runArgv(
   final placed = a.argv.contains('{effort}');
   return [
     for (final arg in a.argv)
-      if (arg == '{effort}')
-        ...options
-      else if (arg == '{prompt}') ...[
-        if (!placed) ...options,
-        text,
-      ] else
-        arg,
+      if (arg == '{effort}') ...options else if (arg == '{prompt}') ...[if (!placed) ...options, text] else arg,
   ];
 }
 
@@ -118,13 +95,7 @@ BuiltAsk buildAsk(
           },
         {'type': 'text', 'text': prompt},
       ];
-      argv.replaceRange(at, at + 1, [
-        '--input-format',
-        'stream-json',
-        '--output-format',
-        'stream-json',
-        '--verbose',
-      ]);
+      argv.replaceRange(at, at + 1, ['--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose']);
       return BuiltAsk(
         argv,
         utf8.encode(
@@ -175,9 +146,7 @@ Answer parseAnswer(String command, String out) {
   if (last == null) return Answer(text: out.trim());
   final usage = last['usage'] is Map ? last['usage'] as Map : {};
   num? number(Object? v) => v is num ? v : null;
-  final text = last['result'] is String
-      ? (last['result'] as String).trim()
-      : '';
+  final text = last['result'] is String ? (last['result'] as String).trim() : '';
   return Answer(
     text: text,
     tokensIn: usage.isEmpty
@@ -189,9 +158,7 @@ Answer parseAnswer(String command, String out) {
           ].fold<num>(0, (n, k) => n + (number(usage[k]) ?? 0)),
     tokensOut: number(usage['output_tokens']),
     cost: number(last['total_cost_usd']),
-    error: last['is_error'] == true && text.isEmpty
-        ? 'The agent reported an error.'
-        : '',
+    error: last['is_error'] == true && text.isEmpty ? 'The agent reported an error.' : '',
   );
 }
 
@@ -235,21 +202,11 @@ Future<Answer> askAgent(
     for (final image in images.take(8)) {
       final problem = checkImage(image);
       if (problem.isNotEmpty) return Answer(error: problem);
-      final dest = p.join(
-        folder.path,
-        'picture-${copies.length + 1}${p.extension(image).toLowerCase()}',
-      );
+      final dest = p.join(folder.path, 'picture-${copies.length + 1}${p.extension(image).toLowerCase()}');
       await File(image).copy(dest);
       copies.add(dest);
     }
-    final built = buildAsk(
-      command,
-      prompt,
-      images: copies,
-      level: level,
-      think: think,
-      model: model,
-    );
+    final built = buildAsk(command, prompt, images: copies, level: level, think: think, model: model);
     if (built.argv.isEmpty) return Answer(error: 'This agent cannot be asked.');
     // Resolve against the supplied PATH, not the host process's PATH.
     final exe = executableOnPath(command, runner.environment);
@@ -263,12 +220,9 @@ Future<Answer> askAgent(
       timeout: timeout ?? Duration(seconds: seconds(level) + 15),
       cancel: cancel,
     );
-    final result = parseAnswer(command, out.text)
-      ..seconds = clock.elapsedMicroseconds / 1e6;
+    final result = parseAnswer(command, out.text)..seconds = clock.elapsedMicroseconds / 1e6;
     if (result.text.isEmpty && result.error.isEmpty) {
-      result.error = out.ok
-          ? 'The agent gave an empty answer.'
-          : 'No answer: the agent took too long or stopped.';
+      result.error = out.ok ? 'The agent gave an empty answer.' : 'No answer: the agent took too long or stopped.';
     }
     return result;
   } on Cancelled {

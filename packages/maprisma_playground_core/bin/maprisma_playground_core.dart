@@ -36,13 +36,9 @@ Future<void> main(List<String> args) async {
         }
         params = value;
       default:
-        throw const FormatException(
-          'Usage: agents | servers | ask <command> <prompt> | call <method> <json>',
-        );
+        throw const FormatException('Usage: agents | servers | ask <command> <prompt> | call <method> <json>');
     }
-    final reply = await service.handleAsync(
-      jsonEncode({'protocol': 1, 'id': 1, 'method': method, 'params': params}),
-    );
+    final reply = await service.handleAsync(jsonEncode({'protocol': 1, 'id': 1, 'method': method, 'params': params}));
     stdout.writeln(reply);
     if ((jsonDecode(reply) as Map).containsKey('error')) exitCode = 1;
   } on Object catch (e) {

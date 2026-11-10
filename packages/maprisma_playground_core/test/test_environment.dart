@@ -17,13 +17,8 @@ class TestEnvironment {
   String get home => directory.path;
   late final Map<String, String> env;
   late final ProcessRunner runner;
-  String script(
-    String name,
-    String body, {
-    String interpreter = '/usr/bin/python3',
-  }) {
-    final file = File('$home/bin/$name')
-      ..writeAsStringSync('#!$interpreter\n$body\n');
+  String script(String name, String body, {String interpreter = '/usr/bin/python3'}) {
+    final file = File('$home/bin/$name')..writeAsStringSync('#!$interpreter\n$body\n');
     Process.runSync('/bin/chmod', ['700', file.path]);
     return file.path;
   }

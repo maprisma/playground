@@ -16,8 +16,7 @@ class AgentAdapter {
   String get name => data['name'];
   List<String> get argv => List<String>.from(data['ask']['argv']);
   List<String> get games => List<String>.from(data['ask']['games']);
-  List<String> effort(String level) =>
-      List<String>.from(data['ask']['effort'][level] ?? []);
+  List<String> effort(String level) => List<String>.from(data['ask']['effort'][level] ?? []);
   List<String> get files => List<String>.from(data['access']['files'] ?? []);
   List<String> get env => List<String>.from(data['access']['env'] ?? []);
   bool get localOk => data['access']['local_ok'] == true;
@@ -33,12 +32,9 @@ AgentAdapter? adapter(String command) {
 const modelFlags = {'claude': '--model', 'codex': '-m', 'pi': '--model'};
 final modelName = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._:/@+\-]{0,159}$');
 bool canAsk(String command) => adapter(command) != null;
-bool takesImages(String command) =>
-    const ['claude', 'codex', 'pi'].contains(command);
-bool readsUntrusted(String command) =>
-    const ['claude', 'hermes', 'pi'].contains(command);
-bool plays(String command, [String game = 'chess']) =>
-    adapter(command)?.games.contains(game) ?? false;
+bool takesImages(String command) => const ['claude', 'codex', 'pi'].contains(command);
+bool readsUntrusted(String command) => const ['claude', 'hermes', 'pi'].contains(command);
+bool plays(String command, [String game = 'chess']) => adapter(command)?.games.contains(game) ?? false;
 String? executableOnPath(String command, Map<String, String> environment) {
   for (final dir in (environment['PATH'] ?? '').split(':')) {
     final path = p.join(dir.isEmpty ? '.' : dir, command);
@@ -54,8 +50,7 @@ String? executableOnPath(String command, Map<String, String> environment) {
   return null;
 }
 
-String readConfig(String path, {int maxBytes = 512 * 1024}) =>
-    readRegularNoFollow(path, maxBytes: maxBytes);
+String readConfig(String path, {int maxBytes = 512 * 1024}) => readRegularNoFollow(path, maxBytes: maxBytes);
 String stripJsonComments(String text) {
   final out = StringBuffer();
   var inString = false;
@@ -97,11 +92,7 @@ String stripJsonComments(String text) {
 Map<String, dynamic> readConfigJson(String path) {
   try {
     final text = readConfig(path);
-    final v = jsonDecode(
-      path.endsWith('.jsonc') || text.contains('//')
-          ? stripJsonComments(text)
-          : text,
-    );
+    final v = jsonDecode(path.endsWith('.jsonc') || text.contains('//') ? stripJsonComments(text) : text);
     if (v is Map) return Map<String, dynamic>.from(v);
   } on Object {
     /* unavailable */
@@ -123,8 +114,7 @@ bool localUrl(Object? value) {
     if (uri == null) return false;
     // Accessing port also validates it, as urlparse(...).port does upstream.
     final port = uri.port;
-    return port >= 0 &&
-        const ['localhost', '127.0.0.1', '::1', '0.0.0.0'].contains(uri.host);
+    return port >= 0 && const ['localhost', '127.0.0.1', '::1', '0.0.0.0'].contains(uri.host);
   } on Object {
     return false;
   }
@@ -138,29 +128,14 @@ bool hasLocalProvider(String command, Map<String, String> environment) {
       final env = readConfigJson('$home/.claude/settings.json')['env'];
       return env is Map && localUrl(env['ANTHROPIC_BASE_URL']);
     case 'pi':
-      final providers = readConfigJson(
-        '$home/.pi/agent/models.json',
-      )['providers'];
-      return providers is Map &&
-          providers.values
-              .take(50)
-              .any((v) => v is Map && localUrl(v['baseUrl']));
+      final providers = readConfigJson('$home/.pi/agent/models.json')['providers'];
+      return providers is Map && providers.values.take(50).any((v) => v is Map && localUrl(v['baseUrl']));
     case 'codex':
-      final providers = readConfigToml(
-        '$home/.codex/config.toml',
-      )['model_providers'];
-      return providers is Map &&
-          providers.values
-              .take(50)
-              .any((v) => v is Map && localUrl(v['base_url']));
+      final providers = readConfigToml('$home/.codex/config.toml')['model_providers'];
+      return providers is Map && providers.values.take(50).any((v) => v is Map && localUrl(v['base_url']));
     case 'hermes':
       final text = readConfig('$home/.hermes/config.yaml');
-      final modelBlock =
-          RegExp(
-            r'^model:\s*\n((?:[ \t]+.*\n?)+)',
-            multiLine: true,
-          ).firstMatch(text)?[1] ??
-          '';
+      final modelBlock = RegExp(r'^model:\s*\n((?:[ \t]+.*\n?)+)', multiLine: true).firstMatch(text)?[1] ?? '';
       final values = {
         for (final m in RegExp(
           r'''^[ \t]+(default|provider|base_url):[ \t]*['"]?([^'"\n#]*)''',
@@ -170,27 +145,14 @@ bool hasLocalProvider(String command, Map<String, String> environment) {
       };
       final modelBase = values['base_url'] ?? '';
       if (localUrl(modelBase)) return true;
-      final modelProvider = (values['provider'] ?? '').isEmpty
-          ? 'custom'
-          : values['provider']!;
+      final modelProvider = (values['provider'] ?? '').isEmpty ? 'custom' : values['provider']!;
       final providerBlock =
-          RegExp(
-            r'^providers:[ \t]*\n((?:[ \t]+.*\n?|\n)+)',
-            multiLine: true,
-          ).firstMatch(text)?[1] ??
-          '';
-      final entries = providerBlock.split(
-        RegExp(r'^  (?=[A-Za-z0-9_.-]+:)', multiLine: true),
-      );
+          RegExp(r'^providers:[ \t]*\n((?:[ \t]+.*\n?|\n)+)', multiLine: true).firstMatch(text)?[1] ?? '';
+      final entries = providerBlock.split(RegExp(r'^  (?=[A-Za-z0-9_.-]+:)', multiLine: true));
       for (final entry in entries.take(50)) {
         final name = RegExp(r'^([A-Za-z0-9_.-]{1,64}):').firstMatch(entry)?[1];
-        final api = RegExp(
-          r'''^    (?:api|base_url):[ \t]*['"]?([^'"\s#]+)''',
-          multiLine: true,
-        ).firstMatch(entry)?[1];
-        if (name == null ||
-            api == null ||
-            (modelBase.isNotEmpty && name == modelProvider)) {
+        final api = RegExp(r'''^    (?:api|base_url):[ \t]*['"]?([^'"\s#]+)''', multiLine: true).firstMatch(entry)?[1];
+        if (name == null || api == null || (modelBase.isNotEmpty && name == modelProvider)) {
           continue;
         }
         if (localUrl(api)) return true;
@@ -205,19 +167,14 @@ bool agentSetUp(String command, Map<String, String> environment) {
   if (a == null) return false;
   if (a.env.any((k) => (environment[k] ?? '').isNotEmpty)) return true;
   if (a.files.any(
-    (f) =>
-        FileSystemEntity.typeSync(p.join(environment['HOME'] ?? '/', f)) ==
-        FileSystemEntityType.file,
+    (f) => FileSystemEntity.typeSync(p.join(environment['HOME'] ?? '/', f)) == FileSystemEntityType.file,
   )) {
     return true;
   }
   return a.localOk && hasLocalProvider(command, environment);
 }
 
-Map<String, Object?> agentInfo(
-  AgentAdapter a,
-  Map<String, String> environment,
-) => {
+Map<String, Object?> agentInfo(AgentAdapter a, Map<String, String> environment) => {
   'command': a.command,
   'name': a.name,
   'installed': executableOnPath(a.command, environment) != null,
@@ -233,15 +190,7 @@ const List<Map<String, dynamic>> adapterData = [
     "command": "claude",
     "name": "Claude Code",
     "ask": {
-      "argv": [
-        "claude",
-        "-p",
-        "--tools",
-        "",
-        "--strict-mcp-config",
-        "--no-session-persistence",
-        "{prompt}",
-      ],
+      "argv": ["claude", "-p", "--tools", "", "--strict-mcp-config", "--no-session-persistence", "{prompt}"],
       "games": ["chess"],
       "effort": {
         "quick": ["--effort", "low"],
@@ -252,8 +201,7 @@ const List<Map<String, dynamic>> adapterData = [
       "note": "no tools, no MCP servers, no session kept",
     },
     "access": {
-      "how":
-          "A Claude Pro or Max subscription (claude.ai), or an API key from console.anthropic.com",
+      "how": "A Claude Pro or Max subscription (claude.ai), or an API key from console.anthropic.com",
       "login": "claude auth login",
       "files": [".claude/.credentials.json"],
       "env": ["ANTHROPIC_API_KEY"],
@@ -294,8 +242,7 @@ const List<Map<String, dynamic>> adapterData = [
       "note": "read-only sandbox, no session kept",
     },
     "access": {
-      "how":
-          "A ChatGPT plan (Plus, Pro, Business), or an API key from platform.openai.com",
+      "how": "A ChatGPT plan (Plus, Pro, Business), or an API key from platform.openai.com",
       "login": "codex login",
       "files": [".codex/auth.json"],
       "env": ["OPENAI_API_KEY"],
@@ -317,15 +264,7 @@ const List<Map<String, dynamic>> adapterData = [
     "command": "hermes",
     "name": "Hermes",
     "ask": {
-      "argv": [
-        "hermes",
-        "{effort}",
-        "-t",
-        "todo",
-        "--ignore-rules",
-        "-z",
-        "{prompt}",
-      ],
+      "argv": ["hermes", "{effort}", "-t", "todo", "--ignore-rules", "-z", "{prompt}"],
       "games": ["chess"],
       "effort": {
         "quick": ["--reasoning", "low"],
@@ -333,8 +272,7 @@ const List<Map<String, dynamic>> adapterData = [
         "deep": ["--reasoning", "high"],
         "max": ["--reasoning", "max"],
       },
-      "note":
-          "only its in-memory task list (no files, terminal, web or MCP), no project rules or memory",
+      "note": "only its in-memory task list (no files, terminal, web or MCP), no project rules or memory",
     },
     "access": {
       "how": "A provider key (hermes setup), or a local LLM from the map",
@@ -371,12 +309,10 @@ const List<Map<String, dynamic>> adapterData = [
         "deep": ["--thinking", "high"],
         "max": ["--thinking", "max"],
       },
-      "note":
-          "no tools, no MCP servers, skills or context files, project files ignored",
+      "note": "no tools, no MCP servers, skills or context files, project files ignored",
     },
     "access": {
-      "how":
-          "Sign in inside Pi (/login: Claude, ChatGPT, Copilot \u2026), an API key, or a local LLM from the map",
+      "how": "Sign in inside Pi (/login: Claude, ChatGPT, Copilot \u2026), an API key, or a local LLM from the map",
       "login": "pi  \u2192  /login",
       "files": [".pi/agent/auth.json"],
       "env": ["ANTHROPIC_API_KEY", "OPENAI_API_KEY"],
@@ -393,10 +329,7 @@ const List<Map<String, dynamic>> adapterData = [
 ];
 
 /// The selected local model, for the GPU guard (provider ids from upstream).
-(String, String)? localAgentModel(
-  String command,
-  Map<String, String> environment,
-) {
+(String, String)? localAgentModel(String command, Map<String, String> environment) {
   const keys = {
     'llama-local': 'llamacpp',
     'ollama-local': 'ollama',
@@ -410,43 +343,20 @@ const List<Map<String, dynamic>> adapterData = [
   if (command == 'pi') {
     final config = readConfigJson('$home/.pi/agent/settings.json');
     model = config['defaultModel'] is String ? config['defaultModel'] : '';
-    provider = config['defaultProvider'] is String
-        ? config['defaultProvider']
-        : '';
+    provider = config['defaultProvider'] is String ? config['defaultProvider'] : '';
   } else if (command == 'codex') {
     final config = readConfigToml('$home/.codex/config.toml');
     model = config['model'] is String ? config['model'] : '';
-    provider = config['model_provider'] is String
-        ? config['model_provider']
-        : '';
+    provider = config['model_provider'] is String ? config['model_provider'] : '';
   } else if (command == 'hermes') {
     final config = readConfig('$home/.hermes/config.yaml');
-    final block =
-        RegExp(
-          r'^model:\s*\n((?:[ \t]+.*\n?)+)',
-          multiLine: true,
-        ).firstMatch(config)?[1] ??
-        '';
-    model =
-        RegExp(
-          r'''^\s+default:\s*["']?([^"'\n#]+)''',
-          multiLine: true,
-        ).firstMatch(block)?[1]?.trim() ??
-        '';
-    provider =
-        RegExp(
-          r'''^\s+provider:\s*["']?([^"'\n#]+)''',
-          multiLine: true,
-        ).firstMatch(block)?[1]?.trim() ??
-        '';
+    final block = RegExp(r'^model:\s*\n((?:[ \t]+.*\n?)+)', multiLine: true).firstMatch(config)?[1] ?? '';
+    model = RegExp(r'''^\s+default:\s*["']?([^"'\n#]+)''', multiLine: true).firstMatch(block)?[1]?.trim() ?? '';
+    provider = RegExp(r'''^\s+provider:\s*["']?([^"'\n#]+)''', multiLine: true).firstMatch(block)?[1]?.trim() ?? '';
   }
-  return model.isNotEmpty && keys.containsKey(provider)
-      ? (keys[provider]!, model)
-      : null;
+  return model.isNotEmpty && keys.containsKey(provider) ? (keys[provider]!, model) : null;
 }
 
 /// Ready to be offered as a chess opponent. Capability itself is independent of readiness.
 bool canPlay(String command, Map<String, String> environment) =>
-    plays(command) &&
-    executableOnPath(command, environment) != null &&
-    agentSetUp(command, environment);
+    plays(command) && executableOnPath(command, environment) != null && agentSetUp(command, environment);

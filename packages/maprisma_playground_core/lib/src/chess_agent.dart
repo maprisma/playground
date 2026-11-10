@@ -15,8 +15,7 @@ String chessPrompt(
   for (final move in moves) {
     pos = rules.apply(pos, move);
   }
-  final legal = rules.legalMoves(pos).map((m) => rules.san(pos, m)).toList()
-    ..sort();
+  final legal = rules.legalMoves(pos).map((m) => rules.san(pos, m)).toList()..sort();
   var last = start;
   for (final move in moves.take((moves.length - 1).clamp(0, moves.length))) {
     last = rules.apply(last, move);
@@ -38,11 +37,7 @@ String chessPrompt(
 }
 
 String commentOf(String answer, String written) {
-  final lines = answer
-      .split('\n')
-      .map((s) => s.trim())
-      .where((s) => s.isNotEmpty)
-      .toList();
+  final lines = answer.split('\n').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
   if (lines.isNotEmpty &&
       written.isNotEmpty &&
       lines.first
@@ -57,10 +52,7 @@ String commentOf(String answer, String written) {
 }
 
 String retryPrompt(String first, String writtenAnswer) {
-  var said = writtenAnswer
-      .split(RegExp(r'\s+'))
-      .where((s) => s.isNotEmpty)
-      .join(' ');
+  var said = writtenAnswer.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).join(' ');
   if (said.length > 200) said = said.substring(0, 200);
   return '$first\n\nYour previous answer did not contain one of your legal moves${said.isEmpty ? '' : ' (it began: “$said”)'}. Answer again: one legal move from the list, in SAN, alone on the first line.';
 }
@@ -86,21 +78,9 @@ Future<ChessReply> askChess(
   CancelToken? cancel,
 }) async {
   if (!canAsk(command)) {
-    return const ChessReply(
-      null,
-      '',
-      '',
-      error: 'This agent cannot be asked for a move.',
-    );
+    return const ChessReply(null, '', '', error: 'This agent cannot be asked for a move.');
   }
-  final answer = await askAgent(
-    runner,
-    command,
-    text,
-    level: level,
-    cancel: cancel,
-    maxBytes: 64 * 1024,
-  );
+  final answer = await askAgent(runner, command, text, level: level, cancel: cancel, maxBytes: 64 * 1024);
   if (answer.text.isEmpty) return ChessReply(null, '', '', error: answer.error);
   final (move, written) = rules.findMove(pos, answer.text);
   return ChessReply(move, written, commentOf(answer.text, written));

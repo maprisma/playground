@@ -37,32 +37,19 @@ String runtimeOf(int port) {
 List<String> modelIds(Object? data) {
   if (data is! Map || data['data'] is! List) return [];
   return [
-        for (final row in data['data'])
-          if (row is Map && row['id'] is String) row['id'] as String,
-      ]
-      .where(
-        (s) =>
-            s.isNotEmpty &&
-            s.length <= 300 &&
-            !RegExp(r'[\x00-\x1f\x7f]').hasMatch(s),
-      )
-      .take(200)
-      .toList();
+    for (final row in data['data'])
+      if (row is Map && row['id'] is String) row['id'] as String,
+  ].where((s) => s.isNotEmpty && s.length <= 300 && !RegExp(r'[\x00-\x1f\x7f]').hasMatch(s)).take(200).toList();
 }
 
 Answer chatAnswer(Object? data) {
   if (data is! Map) return Answer(error: 'no answer');
   final choices = data['choices'];
-  final message = choices is List && choices.isNotEmpty && choices.first is Map
-      ? choices.first['message']
-      : null;
+  final message = choices is List && choices.isNotEmpty && choices.first is Map ? choices.first['message'] : null;
   final usage = data['usage'] is Map ? data['usage'] as Map : {};
-  int? count(String key) =>
-      usage[key] is int && usage[key] >= 0 ? usage[key] as int : null;
+  int? count(String key) => usage[key] is int && usage[key] >= 0 ? usage[key] as int : null;
   return Answer(
-    text: message is Map && message['content'] is String
-        ? (message['content'] as String).trim()
-        : '',
+    text: message is Map && message['content'] is String ? (message['content'] as String).trim() : '',
     tokensIn: count('prompt_tokens'),
     tokensOut: count('completion_tokens'),
   );
@@ -79,25 +66,22 @@ class LocalLlm {
     final found = <Map<String, Object?>>[];
     for (final (key, name, port) in localServers) {
       final owners = listeners(port);
-      if (owners.isEmpty || owners.any((v) => v != uid)) continue;
+      if (owners.isEmpty) continue;
+      if (owners.any((v) => v != uid)) {
+        found.add({'port': port, 'runtime': key, 'name': name, 'models': <String>[], 'error': 'another account'});
+        continue;
+      }
       try {
         found.add({
           'port': port,
           'runtime': key,
           'name': name,
-          'models': modelIds(
-            await http.json(port, '/v1/models', cancel: cancel),
-          ),
+          'models': modelIds(await http.json(port, '/v1/models', cancel: cancel)),
         });
       } on Cancelled {
         rethrow;
-      } on Object {
-        found.add({
-          'port': port,
-          'runtime': key,
-          'name': name,
-          'models': <String>[],
-        });
+      } on Object catch (e) {
+        found.add({'port': port, 'runtime': key, 'name': name, 'models': <String>[], 'error': e.toString()});
       }
     }
     return found;
@@ -123,15 +107,10 @@ class LocalLlm {
         for (final path in images) {
           final error = checkImage(path);
           if (error.isNotEmpty) return Answer(error: error);
-          final type = imageTypes.entries
-              .firstWhere((e) => path.toLowerCase().endsWith(e.key))
-              .value;
+          final type = imageTypes.entries.firstWhere((e) => path.toLowerCase().endsWith(e.key)).value;
           blocks.add({
             'type': 'image_url',
-            'image_url': {
-              'url':
-                  'data:$type;base64,${base64Encode(await File(path).readAsBytes())}',
-            },
+            'image_url': {'url': 'data:$type;base64,${base64Encode(await File(path).readAsBytes())}'},
           });
         }
         content = blocks;
@@ -153,10 +132,7 @@ class LocalLlm {
     } on Cancelled {
       rethrow;
     } on Object catch (e) {
-      return Answer(
-        error: e.toString(),
-        seconds: clock.elapsedMicroseconds / 1e6,
-      );
+      return Answer(error: e.toString(), seconds: clock.elapsedMicroseconds / 1e6);
     }
   }
 }

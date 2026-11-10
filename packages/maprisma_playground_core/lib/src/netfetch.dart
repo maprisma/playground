@@ -42,10 +42,7 @@ class LocalHttp {
     }
 
     _live[client] = stop;
-    final timer = Timer(
-      timeout,
-      () => stop(TimeoutException('127.0.0.1 did not answer')),
-    );
+    final timer = Timer(timeout, () => stop(TimeoutException('127.0.0.1 did not answer')));
     if (cancel != null) {
       unawaited(
         cancel.whenCancelled.then((_) {
@@ -57,7 +54,13 @@ class LocalHttp {
       final work = () async {
         final request = await client.openUrl(
           method ?? (data == null ? 'GET' : 'POST'),
-          Uri(scheme: 'http', host: '127.0.0.1', port: port, path: path),
+          Uri(
+            scheme: 'http',
+            host: '127.0.0.1',
+            port: port,
+            path: Uri.parse(path).path,
+            query: Uri.parse(path).hasQuery ? Uri.parse(path).query : null,
+          ),
         );
         request.followRedirects = false;
         if (data != null) {
@@ -98,15 +101,7 @@ class LocalHttp {
     CancelToken? cancel,
   }) async => jsonDecode(
     utf8.decode(
-      await fetch(
-        port,
-        path,
-        data: data,
-        method: method,
-        maxBytes: maxBytes,
-        timeout: timeout,
-        cancel: cancel,
-      ),
+      await fetch(port, path, data: data, method: method, maxBytes: maxBytes, timeout: timeout, cancel: cancel),
       allowMalformed: true,
     ),
   );

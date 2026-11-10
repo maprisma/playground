@@ -44,21 +44,16 @@ class ChessGame {
       ? null
       : agent;
   bool get yourTurn =>
-      mode == ChessMode.game &&
-      !thinking &&
-      agentFor(_position.turn) == null &&
-      rules.status(_position) == 'ongoing';
+      mode == ChessMode.game && !thinking && agentFor(_position.turn) == null && rules.status(_position) == 'ongoing';
   bool get needsAgentMove =>
       mode == ChessMode.game &&
       !thinking &&
       !(rival != null && paused) &&
       agentFor(_position.turn) != null &&
       rules.status(_position) == 'ongoing';
-  String get currentStrength =>
-      rival != null && _position.turn == playerSide ? rivalStrength : strength;
+  String get currentStrength => rival != null && _position.turn == playerSide ? rivalStrength : strength;
   String get statusText => status();
-  String _agentName(String? command) =>
-      command == null ? '' : adapter(command)?.name ?? command;
+  String _agentName(String? command) => command == null ? '' : adapter(command)?.name ?? command;
   String status({Duration elapsed = Duration.zero}) {
     if (mode == ChessMode.define) {
       return 'Pick a piece below or above, then click squares; a right click empties a square.';
@@ -74,9 +69,7 @@ class ChessGame {
     final status = rules.status(_position);
     if (status == 'checkmate') {
       final winner = agentFor(_position.turn == 'w' ? 'b' : 'w');
-      return winner == null
-          ? 'Checkmate: you win.'
-          : 'Checkmate: ${_agentName(winner)} wins.';
+      return winner == null ? 'Checkmate: you win.' : 'Checkmate: ${_agentName(winner)} wins.';
     }
     final over = const {
       'stalemate': 'Stalemate: a draw.',
@@ -87,12 +80,7 @@ class ChessGame {
     return '${mover == null ? 'Your move.' : '${_agentName(mover)} is to move.'}${rules.inCheck(_position, _position.turn) ? ' Check!' : ''}';
   }
 
-  void reset({
-    rules.Position? position,
-    String? player,
-    String? rival,
-    ChessMode mode = ChessMode.game,
-  }) {
+  void reset({rules.Position? position, String? player, String? rival, ChessMode mode = ChessMode.game}) {
     _start = position ?? rules.start();
     _position = _start;
     _moves.clear();
@@ -118,9 +106,7 @@ class ChessGame {
   void pause() => paused = true;
   void resume() => paused = false;
   bool playMove(rules.Move move) {
-    if (mode != ChessMode.game ||
-        thinking ||
-        !rules.legalMoves(_position).contains(move)) {
+    if (mode != ChessMode.game || thinking || !rules.legalMoves(_position).contains(move)) {
       return false;
     }
     _moves.add(move);
@@ -157,12 +143,8 @@ class ChessGame {
         ? rules.parse(_position, move)
         : null;
     thinking = false;
-    if (error.isNotEmpty ||
-        parsed == null ||
-        !rules.legalMoves(_position).contains(parsed)) {
-      this.error = error.isNotEmpty
-          ? error
-          : '${_agentName(mover)} did not name one of its legal moves.';
+    if (error.isNotEmpty || parsed == null || !rules.legalMoves(_position).contains(parsed)) {
+      this.error = error.isNotEmpty ? error : '${_agentName(mover)} did not name one of its legal moves.';
       this.comment = comment;
       commentBy = mover ?? '';
       return false;
@@ -173,14 +155,13 @@ class ChessGame {
     return ok;
   }
 
-  bool applyAgentReply(ChessReply reply, {int? expectedRevision}) =>
-      applyAgentMove(
-        reply.move ?? '',
-        expectedRevision: expectedRevision,
-        comment: reply.comment,
-        written: reply.written,
-        error: reply.error,
-      );
+  bool applyAgentReply(ChessReply reply, {int? expectedRevision}) => applyAgentMove(
+    reply.move ?? '',
+    expectedRevision: expectedRevision,
+    comment: reply.comment,
+    written: reply.written,
+    error: reply.error,
+  );
   void undo() {
     if (mode == ChessMode.replay) {
       seek((_moves.length - 1).clamp(0, _replay.length));
@@ -189,9 +170,7 @@ class ChessGame {
     if (_moves.isEmpty) return;
     _moves.removeLast();
     // Return to the human's turn when the agent had already answered.
-    if (rival == null &&
-        _moves.isNotEmpty &&
-        _positionAt(_moves.length).turn != playerSide) {
+    if (rival == null && _moves.isNotEmpty && _positionAt(_moves.length).turn != playerSide) {
       _moves.removeLast();
     }
     _position = _positionAt(_moves.length);
@@ -212,9 +191,7 @@ class ChessGame {
 
   void setSquare(int square, String piece) {
     if (mode != ChessMode.define) throw StateError('not defining a position');
-    if (square < 0 ||
-        square > 63 ||
-        (piece.isNotEmpty && !'PNBRQKpnbrqk'.split('').contains(piece))) {
+    if (square < 0 || square > 63 || (piece.isNotEmpty && !'PNBRQKpnbrqk'.split('').contains(piece))) {
       throw ArgumentError('not a square or piece');
     }
     final board = List<String>.of(_position.board)..[square] = piece;
@@ -248,9 +225,7 @@ class ChessGame {
   bool playFromHere({String? player, String? rival}) {
     var pos = _position;
     if (mode == ChessMode.define) {
-      pos = rules.fromFen(
-        rules.fen(rules.Position(pos.board, pos.turn, 'KQkq')),
-      );
+      pos = rules.fromFen(rules.fen(rules.Position(pos.board, pos.turn, 'KQkq')));
     }
     final problems = rules.problems(pos);
     if (problems.isNotEmpty) {

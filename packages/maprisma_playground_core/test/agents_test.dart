@@ -28,31 +28,22 @@ void main() {
     expect(executableOnPath('claude', e.env), path);
   });
   for (final command in ['claude', 'codex', 'hermes', 'pi']) {
-    test(
-      '$command credentials are stat-only (invalid and unreadable content)',
-      () {
-        final a = adapter(command)!;
-        expect(agentSetUp(command, e.env), isFalse);
-        e.file(a.files.first, 'not JSON; secret content never parsed');
-        Process.runSync('/bin/chmod', ['000', '${e.home}/${a.files.first}']);
-        expect(agentSetUp(command, e.env), isTrue);
-      },
-    );
+    test('$command credentials are stat-only (invalid and unreadable content)', () {
+      final a = adapter(command)!;
+      expect(agentSetUp(command, e.env), isFalse);
+      e.file(a.files.first, 'not JSON; secret content never parsed');
+      Process.runSync('/bin/chmod', ['000', '${e.home}/${a.files.first}']);
+      expect(agentSetUp(command, e.env), isTrue);
+    });
   }
   test('credential env and missing credential file', () {
-    expect(
-      agentSetUp('claude', {...e.env, 'ANTHROPIC_API_KEY': 'key'}),
-      isTrue,
-    );
+    expect(agentSetUp('claude', {...e.env, 'ANTHROPIC_API_KEY': 'key'}), isTrue);
     expect(agentSetUp('codex', {...e.env, 'OPENAI_API_KEY': ''}), isFalse);
     expect(agentSetUp('unknown', e.env), isFalse);
   });
   test('local provider readiness includes inactive configured entries', () {
     e.file('.pi/agent/settings.json', '{"defaultProvider":"remote"}');
-    e.file(
-      '.pi/agent/models.json',
-      '{"providers":{"unused":{"baseUrl":"http://localhost:8080/v1"}}}',
-    );
+    e.file('.pi/agent/models.json', '{"providers":{"unused":{"baseUrl":"http://localhost:8080/v1"}}}');
     e.file(
       '.codex/config.toml',
       'model_provider="remote"\n[model_providers.local]\nbase_url="http://127.0.0.1:8080/v1"\n',
@@ -65,23 +56,14 @@ void main() {
       expect(agentSetUp(command, e.env), isTrue, reason: command);
     }
     // Claude's adapter has no local_ok, even when its config names a local URL.
-    e.file(
-      '.claude/settings.json',
-      '{"env":{"ANTHROPIC_BASE_URL":"http://localhost:8080"}}',
-    );
+    e.file('.claude/settings.json', '{"env":{"ANTHROPIC_BASE_URL":"http://localhost:8080"}}');
     expect(hasLocalProvider('claude', e.env), isTrue);
     expect(agentSetUp('claude', e.env), isFalse);
   });
   test('remote, malformed and oversized configs are not local providers', () {
-    e.file(
-      '.pi/agent/models.json',
-      '{"providers":{"x":{"baseUrl":"https://localhost.evil.test"}}}',
-    );
+    e.file('.pi/agent/models.json', '{"providers":{"x":{"baseUrl":"https://localhost.evil.test"}}}');
     expect(agentSetUp('pi', e.env), isFalse);
-    e.file(
-      '.codex/config.toml',
-      '[model_providers.x]\nbase_url = "https://example.test"',
-    );
+    e.file('.codex/config.toml', '[model_providers.x]\nbase_url = "https://example.test"');
     expect(agentSetUp('codex', e.env), isFalse);
     e.file('.hermes/config.yaml', 'model:\n  base_url: https://example.test\n');
     expect(agentSetUp('hermes', e.env), isFalse);
@@ -89,27 +71,15 @@ void main() {
     expect(agentSetUp('pi', e.env), isFalse);
   });
   test('selected model for GPU guard', () {
-    e.file(
-      '.pi/agent/settings.json',
-      '{"defaultProvider":"ollama-local","defaultModel":"tiny"}',
-    );
+    e.file('.pi/agent/settings.json', '{"defaultProvider":"ollama-local","defaultModel":"tiny"}');
     expect(localAgentModel('pi', e.env), ('ollama', 'tiny'));
-    e.file(
-      '.codex/config.toml',
-      'model="gemma"\nmodel_provider="llama-local"\n',
-    );
+    e.file('.codex/config.toml', 'model="gemma"\nmodel_provider="llama-local"\n');
     expect(localAgentModel('codex', e.env), ('llamacpp', 'gemma'));
-    e.file(
-      '.hermes/config.yaml',
-      'model:\n  default: gemma\n  provider: llama-local\n',
-    );
+    e.file('.hermes/config.yaml', 'model:\n  default: gemma\n  provider: llama-local\n');
     expect(localAgentModel('hermes', e.env), ('llamacpp', 'gemma'));
   });
   test('TOML inline tables and JSON comments use real configuration readers', () {
-    e.file(
-      '.codex/config.toml',
-      'model_providers = { local = { base_url = "http://localhost:8080/v1" } }',
-    );
+    e.file('.codex/config.toml', 'model_providers = { local = { base_url = "http://localhost:8080/v1" } }');
     expect(agentSetUp('codex', e.env), isTrue);
     e.file(
       '.pi/agent/models.json',
@@ -120,29 +90,20 @@ void main() {
     expect(agentSetUp('codex', e.env), isFalse);
   });
   test('provider config links are not followed', () {
-    e.file(
-      'actual.json',
-      '{"providers":{"x":{"baseUrl":"http://localhost:8080"}}}',
-    );
+    e.file('actual.json', '{"providers":{"x":{"baseUrl":"http://localhost:8080"}}}');
     Directory('${e.home}/.pi/agent').createSync(recursive: true);
     Link('${e.home}/.pi/agent/models.json').createSync('${e.home}/actual.json');
     expect(agentSetUp('pi', e.env), isFalse);
   });
-  test(
-    'Hermes provider parsing uses upstream block depths and duplicate semantics',
-    () {
-      e.file(
-        '.hermes/config.yaml',
-        'model:\n  provider: local\n  base_url: https://remote.test\nproviders:\n  local:\n    api: http://localhost:8080\n',
-      );
-      expect(agentSetUp('hermes', e.env), isFalse);
-      e.file(
-        '.hermes/config.yaml',
-        'providers:\n  local:\n    models:\n      api: http://localhost:8080\n',
-      );
-      expect(agentSetUp('hermes', e.env), isFalse);
-      e.file('.hermes/config.yaml', 'model:\n  api: http://localhost:8080\n');
-      expect(agentSetUp('hermes', e.env), isFalse);
-    },
-  );
+  test('Hermes provider parsing uses upstream block depths and duplicate semantics', () {
+    e.file(
+      '.hermes/config.yaml',
+      'model:\n  provider: local\n  base_url: https://remote.test\nproviders:\n  local:\n    api: http://localhost:8080\n',
+    );
+    expect(agentSetUp('hermes', e.env), isFalse);
+    e.file('.hermes/config.yaml', 'providers:\n  local:\n    models:\n      api: http://localhost:8080\n');
+    expect(agentSetUp('hermes', e.env), isFalse);
+    e.file('.hermes/config.yaml', 'model:\n  api: http://localhost:8080\n');
+    expect(agentSetUp('hermes', e.env), isFalse);
+  });
 }

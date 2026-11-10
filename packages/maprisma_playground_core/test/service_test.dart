@@ -18,26 +18,13 @@ void main() {
     await service.dispose();
     await e.dispose();
   });
-  Future<Map<String, dynamic>> call(
-    String method, [
-    Map<String, Object?> params = const {},
-  ]) async => jsonDecode(
-    await service.handleAsync(
-      jsonEncode({
-        'protocol': 1,
-        'id': ++next,
-        'method': method,
-        'params': params,
-      }),
-    ),
+  Future<Map<String, dynamic>> call(String method, [Map<String, Object?> params = const {}]) async => jsonDecode(
+    await service.handleAsync(jsonEncode({'protocol': 1, 'id': ++next, 'method': method, 'params': params})),
   );
   test('app info and all settings keys defaults/update/reset', () async {
     final info = await call('app.info');
     expect(info['result']['version'], '0.1.0');
-    expect(
-      (await call('settings.get'))['result']['values'].keys,
-      containsAll(schema.keys),
-    );
+    expect((await call('settings.get'))['result']['values'].keys, containsAll(schema.keys));
     expect(
       (await call('settings.set', {
         'values': {'chess_strength': 'master'},
@@ -60,53 +47,34 @@ void main() {
       'club',
     );
   });
-  test(
-    'bad frames, params and unknown methods return protocol errors',
-    () async {
-      for (final frame in ['{', '[]', '{"id":1,"method":"x"}']) {
-        expect(
-          jsonDecode(await service.handleAsync(frame))['error']['code'],
-          'bad_params',
-        );
-      }
-      expect((await call('unknown'))['error']['code'], 'not_found');
-      for (final method in [
-        'analyze.run',
-        'games.list',
-        'pictures.prepare',
-        'generate.run',
-        'import.start',
-      ]) {
-        expect((await call(method))['error']['code'], 'not_found');
-      }
-      for (final params in [
-        {
-          'values': {'unknown': true},
-        },
-        {
-          'values': {'chess_strength': 'bad'},
-        },
-        {'values': 1},
-      ]) {
-        expect(
-          (await call('settings.set', params))['error']['code'],
-          'bad_params',
-        );
-      }
-      expect(
-        (await call('ask.run', {
-          'target': {
-            'kind': 'local',
-            'port': '8080',
-            'model': 'x',
-            'runtime': 'llamacpp',
-          },
-          'prompt': 'p',
-        }))['error']['code'],
-        'bad_params',
-      );
-    },
-  );
+  test('bad frames, params and unknown methods return protocol errors', () async {
+    for (final frame in ['{', '[]', '{"id":1,"method":"x"}']) {
+      expect(jsonDecode(await service.handleAsync(frame))['error']['code'], 'bad_params');
+    }
+    expect((await call('unknown'))['error']['code'], 'not_found');
+    for (final method in ['analyze.run', 'pictures.prepare', 'generate.run', 'import.start']) {
+      expect((await call(method))['error']['code'], 'bad_params');
+    }
+    expect((await call('games.list'))['result'], {'games': [], 'total': 0});
+    for (final params in [
+      {
+        'values': {'unknown': true},
+      },
+      {
+        'values': {'chess_strength': 'bad'},
+      },
+      {'values': 1},
+    ]) {
+      expect((await call('settings.set', params))['error']['code'], 'bad_params');
+    }
+    expect(
+      (await call('ask.run', {
+        'target': {'kind': 'local', 'port': '8080', 'model': 'x', 'runtime': 'llamacpp'},
+        'prompt': 'p',
+      }))['error']['code'],
+      'bad_params',
+    );
+  });
   test('agent inventory uses temp HOME and fake PATH', () async {
     e.script('pi', '');
     e.file('.pi/agent/auth.json', 'secret');
@@ -211,28 +179,22 @@ time.sleep(60)
     expect(Directory(cwd).existsSync(), isFalse);
     expect((await call('app.info'))['error']['code'], 'cancelled');
   });
-  test(
-    'duplicate active request ids do not cancel or replace original',
-    () async {
-      e.script('pi', "import time\ntime.sleep(60)");
-      final frame = jsonEncode({
-        'protocol': 1,
-        'id': 102,
-        'method': 'ask.run',
-        'params': {
-          'target': {'kind': 'agent', 'command': 'pi'},
-          'prompt': 'p',
-        },
-      });
-      final job = service.handleAsync(frame);
-      expect(
-        jsonDecode(await service.handleAsync(frame))['error']['code'],
-        'bad_params',
-      );
-      await service.handleAsync('{"cancel":102}');
-      expect(jsonDecode(await job)['error']['code'], 'cancelled');
-    },
-  );
+  test('duplicate active request ids do not cancel or replace original', () async {
+    e.script('pi', "import time\ntime.sleep(60)");
+    final frame = jsonEncode({
+      'protocol': 1,
+      'id': 102,
+      'method': 'ask.run',
+      'params': {
+        'target': {'kind': 'agent', 'command': 'pi'},
+        'prompt': 'p',
+      },
+    });
+    final job = service.handleAsync(frame);
+    expect(jsonDecode(await service.handleAsync(frame))['error']['code'], 'bad_params');
+    await service.handleAsync('{"cancel":102}');
+    expect(jsonDecode(await job)['error']['code'], 'cancelled');
+  });
   test('chess automatically retries an invalid move once', () async {
     e.script('pi', r'''
 import os,sys
@@ -245,22 +207,11 @@ else:
  assert 'Your previous answer did not contain' in text
  print('e4')
 ''');
-    final reply = await call('chess.ask', {
-      'command': 'pi',
-      'start_fen': startFen,
-      'moves': <String>[],
-    });
+    final reply = await call('chess.ask', {'command': 'pi', 'start_fen': startFen, 'moves': <String>[]});
     expect(reply['result']['move'], 'e2e4');
     expect(File('${e.home}/asked').readAsStringSync(), '2');
     e.script('pi', "print('No move.')");
-    final failed = await call('chess.ask', {
-      'command': 'pi',
-      'start_fen': startFen,
-      'moves': <String>[],
-    });
-    expect(
-      failed['result']['error'],
-      contains('did not name one of its legal moves'),
-    );
+    final failed = await call('chess.ask', {'command': 'pi', 'start_fen': startFen, 'moves': <String>[]});
+    expect(failed['result']['error'], contains('did not name one of its legal moves'));
   });
 }
