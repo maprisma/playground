@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maprisma_playground/theme.dart';
@@ -20,7 +22,7 @@ void main() {
       which: (name) => missing.contains(name) ? null : '/usr/bin/$name',
       run: (argv) async {
         ran.add(argv);
-        if (argv.first == 'omarchy-default-dictation') return backend.isEmpty ? (1, '') : (0, '$backend\n');
+        if (argv.first.endsWith('/omarchy-default-dictation')) return backend.isEmpty ? (1, '') : (0, '$backend\n');
         return (0, status);
       },
       spawn: spawned.add,
@@ -71,7 +73,7 @@ void main() {
     await tester.tap(find.text('Open dictation setup'));
     await tester.pumpAndSettle();
     expect(spawned, [
-      ['omarchy-menu', 'summon', 'setup.default.dictation'],
+      ['/usr/bin/omarchy-menu', 'summon', 'setup.default.dictation'],
     ]);
   });
 
@@ -93,7 +95,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('dictate')));
     await tester.pump();
     expect(spawned, [
-      ['omarchy-dictation', 'start'],
+      ['/usr/bin/omarchy-dictation', 'start'],
     ]);
     expect(controller.selection, const TextSelection.collapsed(offset: 7));
     expect(
@@ -105,7 +107,7 @@ void main() {
     expect(find.byIcon(Icons.mic), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('dictate')));
     await tester.pump();
-    expect(spawned.last, ['omarchy-dictation', 'stop']);
+    expect(spawned.last, ['/usr/bin/omarchy-dictation', 'stop']);
     expect(find.byIcon(Icons.mic_none), findsOneWidget);
   });
 
@@ -113,7 +115,7 @@ void main() {
     var status = '{"phase": "recording"}';
     Dictation.instance = Dictation(
       which: (name) => '/usr/bin/$name',
-      run: (argv) async => argv.first == 'omarchy-default-dictation' ? (0, 'superwhisper\n') : (0, status),
+      run: (argv) async => argv.first.endsWith('/omarchy-default-dictation') ? (0, 'superwhisper\n') : (0, status),
       spawn: spawned.add,
     );
     await pump(tester);
@@ -125,7 +127,72 @@ void main() {
     await tester.pump();
     expect(find.byIcon(Icons.mic_none), findsOneWidget);
     expect(spawned, [
-      ['omarchy-dictation', 'start'],
+      ['/usr/bin/omarchy-dictation', 'start'],
     ]);
+  });
+
+  testWidgets('a second click while the backend is asked starts nothing twice and opens one hint', (tester) async {
+    final asked = <Completer<(int, String)>>[];
+    Dictation.instance = Dictation(
+      which: (name) => '/usr/bin/$name',
+      run: (argv) {
+        final c = Completer<(int, String)>();
+        asked.add(c);
+        return c.future;
+      },
+      spawn: spawned.add,
+    );
+    await pump(tester);
+    asked.single.complete((1, '')); // the first look at start: nothing set up
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('dictate')));
+    await tester.tap(find.byKey(const ValueKey('dictate')));
+    await tester.pump();
+    expect(asked, hasLength(2)); // the second click was not asked again
+    asked.last.complete((1, ''));
+    await tester.pumpAndSettle();
+    expect(find.text('Set up dictation'), findsOneWidget);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    // With a backend: two quick clicks start once.
+    await tester.tap(find.byKey(const ValueKey('dictate')));
+    await tester.tap(find.byKey(const ValueKey('dictate')));
+    await tester.pump();
+    asked.last.complete((0, 'voxtype'));
+    await tester.pump();
+    expect(spawned, [
+      ['/usr/bin/omarchy-dictation', 'start'],
+    ]);
+    expect(find.byIcon(Icons.mic), findsOneWidget);
+  });
+
+  testWidgets('a late status answer of an earlier session does not switch a new one off', (tester) async {
+    final status = <Completer<(int, String)>>[];
+    Dictation.instance = Dictation(
+      which: (name) => '/usr/bin/$name',
+      run: (argv) {
+        if (argv.first.endsWith('/omarchy-default-dictation')) return Future.value((0, 'superwhisper'));
+        final c = Completer<(int, String)>();
+        status.add(c);
+        return c.future;
+      },
+      spawn: spawned.add,
+    );
+    await pump(tester);
+    await tester.tap(find.byKey(const ValueKey('dictate')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1)); // the first session asks for its status …
+    expect(status, hasLength(1));
+    await tester.tap(find.byKey(const ValueKey('dictate'))); // … is stopped …
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('dictate'))); // … and a new one starts
+    await tester.pump();
+    expect(find.byIcon(Icons.mic), findsOneWidget);
+    status.first.complete((0, '{"phase": "idle"}')); // the old answer comes late
+    await tester.pump();
+    expect(find.byIcon(Icons.mic), findsOneWidget);
+    expect(spawned.map((a) => a.last), ['start', 'stop', 'start']);
+    await tester.tap(find.byKey(const ValueKey('dictate')));
+    await tester.pump();
   });
 }

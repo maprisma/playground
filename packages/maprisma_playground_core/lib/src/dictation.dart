@@ -100,7 +100,7 @@ final class Dictation {
     String? found;
     if (supported) {
       try {
-        final (code, out) = await _runner(['omarchy-default-dictation']);
+        final (code, out) = await _runner([_which('omarchy-default-dictation')!]);
         final name = out.trim();
         if (code == 0 &&
             dictationName.hasMatch(name) &&
@@ -117,16 +117,19 @@ final class Dictation {
     return found;
   }
 
-  /// omarchy-dictation start|stop|toggle, without a shell, not waited for.
+  /// omarchy-dictation start|stop|toggle, without a shell, not waited for; nothing away from
+  /// Omarchy. The programs are started by the path found on PATH, not looked up again.
   void act(String action) {
-    if (const ['start', 'stop', 'toggle'].contains(action)) _spawner(['omarchy-dictation', action]);
+    if (!const ['start', 'stop', 'toggle'].contains(action) || !supported) return;
+    _spawner([_which('omarchy-dictation')!, action]);
   }
 
   /// Superwhisper says whether it records; other backends: unknown (null).
   Future<bool?> recording(String? name) async {
-    if (name != 'superwhisper' || _which('superwhisper') == null) return null;
+    final program = _which('superwhisper');
+    if (name != 'superwhisper' || program == null || !supported) return null;
     try {
-      final (_, out) = await _runner(['superwhisper', 'status']);
+      final (_, out) = await _runner([program, 'status']);
       final data = jsonDecode(out);
       return data is Map ? data['phase'] == 'recording' : null;
     } on Object {
@@ -136,6 +139,7 @@ final class Dictation {
 
   /// Omarchy's menu at Setup › Defaults › Dictation (argv, not waited for).
   void openSetup() {
-    if (_which('omarchy-menu') != null) _spawner(['omarchy-menu', 'summon', dictationSetupRoute]);
+    final menu = _which('omarchy-menu');
+    if (menu != null && supported) _spawner([menu, 'summon', dictationSetupRoute]);
   }
 }

@@ -242,6 +242,26 @@ void main() {
       );
     });
 
+    testWidgets('F12 while the note is asked for opens no second dialog; Esc keeps the note', (tester) async {
+      await pump(tester);
+      await press(tester);
+      await tester.enterText(find.byKey(const ValueKey('screenshot-note')), 'Twice?');
+      await tester.runAsync(() async {
+        await tester.sendKeyEvent(LogicalKeyboardKey.f12);
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await tester.pumpAndSettle();
+      expect(find.text('Screenshot saved'), findsOneWidget);
+      expect(files(), hasLength(1));
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+      expect(find.text('Screenshot saved'), findsNothing);
+      expect(files(), hasLength(2));
+      expect(File('${shots()}/${files().last}').readAsStringSync(), 'Twice?\n');
+    });
+
     testWidgets('no note, no .txt; Ctrl+F12 and a switched-off key save nothing', (tester) async {
       await pump(tester);
       await press(tester);
@@ -265,9 +285,9 @@ void main() {
       expect(cornerRadius('windows', 10), 10);
       expect(cornerRadius('nonsense', null), 12);
       const big = Corners(14), square = Corners(0), slight = Corners(6);
-      expect([big.radius, big.control, big.small, big.pill, big.board], [14, 8, 4, 999, 12]);
+      expect([big.radius, big.control, big.small, big.board], [14, 8, 4, 12]);
       expect([slight.control, slight.small], [6, 4]);
-      expect([square.radius, square.control, square.small, square.pill, square.board], [0, 0, 0, 0, 0]);
+      expect([square.radius, square.control, square.small, square.board], [0, 0, 0, 0]);
     });
 
     Future<double> buttonRadius(WidgetTester tester, double radius) async {

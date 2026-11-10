@@ -428,6 +428,12 @@ class _DictateButtonState extends State<DictateButton> {
   bool _on = false;
   Timer? _poll;
 
+  /// A click is being answered (the backend is asked, or the set-up hint is open).
+  bool _busy = false;
+
+  /// Counts the dictation sessions: a status answer of an earlier one cannot switch a new one off.
+  int _session = 0;
+
   @override
   void initState() {
     super.initState();
@@ -445,19 +451,26 @@ class _DictateButtonState extends State<DictateButton> {
   String get _tip => _name == null ? tr(dictationNotSetUpTip) : trf(dictationTip, [dictationDisplayName(_name!)]);
 
   void _off() {
+    _session++;
     _poll?.cancel();
     _poll = null;
     if (mounted) setState(() => _on = false);
   }
 
   Future<void> _toggle() async {
+    if (_busy) return; // a second click while the first is answered: no second start or hint
     if (!_on) {
-      final name = await _dictation.backend(fresh: true); // set up meanwhile? ask again
-      if (!mounted) return;
-      setState(() => _name = name);
-      if (name == null) {
-        await showDictationSetup(context, _dictation);
-        return;
+      _busy = true;
+      try {
+        final name = await _dictation.backend(fresh: true); // set up meanwhile? ask again
+        if (!mounted) return;
+        setState(() => _name = name);
+        if (name == null) {
+          await showDictationSetup(context, _dictation);
+          return;
+        }
+      } finally {
+        _busy = false;
       }
     }
     // The words go where the cursor is: at the end of this field.
@@ -468,10 +481,12 @@ class _DictateButtonState extends State<DictateButton> {
       _off();
       return;
     }
+    final session = ++_session;
     setState(() => _on = true);
     _poll ??= Timer.periodic(const Duration(seconds: 1), (_) async {
-      // Stopped with its own shortcut: the button goes off too.
-      if (await _dictation.recording(_name) == false && _on) _off();
+      // Stopped with its own shortcut: the button goes off too (only for this session's answer).
+      final recording = await _dictation.recording(_name);
+      if (recording == false && _on && session == _session) _off();
     });
   }
 

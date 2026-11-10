@@ -191,4 +191,26 @@ void main() {
     final aboutPattern = tester.getRect(find.byTooltip('About this pattern'));
     expect((aboutPattern.center.dy - draw.center.dy).abs(), lessThan(4));
   });
+
+  testWidgets('the grid paints again for new corners and when the static mixer is left', (tester) async {
+    await pump(tester);
+    GridPainter painter() =>
+        tester.widget<CustomPaint>(find.byWidgetPredicate((w) => w is CustomPaint && w.painter is GridPainter)).painter!
+            as GridPainter;
+    final first = painter();
+    final rounder = GridPainter(first.grid, first.cell, first.look, first.radius + 4, first.ticks, byAge: first.byAge);
+    expect(rounder.shouldRepaint(first), isTrue);
+    await tester.tap(find.textContaining("Conway's Life  B3/S23"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(tr(mixerName)).last);
+    await tester.pumpAndSettle();
+    expect(first.grid.mixing, isTrue);
+    final before = painter().ticks.value;
+    await tester.tap(find.text(tr(mixerName)).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(tr('Own rule…')).last);
+    await tester.pumpAndSettle();
+    expect(first.grid.mixing, isFalse);
+    expect(painter().ticks.value, greaterThan(before));
+  });
 }

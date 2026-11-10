@@ -304,14 +304,22 @@ void writeNewPrivate(String path, List<int> bytes) {
 }
 
 /// A folder of this account's that only it can open (0700 from the start); its parents are made
-/// as usual. An existing folder is left as it is.
+/// as usual. An existing folder is left as it is; a link or a file in its place is refused.
 void makePrivateFolder(String path) {
-  if (FileSystemEntity.isDirectorySync(path)) return;
+  final there = FileSystemEntity.typeSync(path, followLinks: false);
+  if (there == FileSystemEntityType.directory) return;
+  if (there != FileSystemEntityType.notFound) {
+    throw FileSystemException('mkdir', path, const OSError('File exists', 17));
+  }
   Directory(File(path).parent.path).createSync(recursive: true);
   final name = _text(path);
   try {
-    if (_mkdir(name, 0x1c0) != 0 && !FileSystemEntity.isDirectorySync(path)) {
-      throw FileSystemException('mkdir', path, _lastError());
+    if (_mkdir(name, 0x1c0) != 0) {
+      final error = _lastError(); // before any other call can change errno
+      // Made meanwhile by someone else: fine when it is a real folder.
+      if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.directory) {
+        throw FileSystemException('mkdir', path, error);
+      }
     }
   } finally {
     _free(name.cast());

@@ -287,44 +287,20 @@ class _ShellState extends State<Shell> {
       if (mounted) _toast(trf("The screenshot could not be saved: {0}", [_why(e)]));
       return;
     }
-    _shooting = false;
-    if (mounted) await _screenshotNote(path);
+    try {
+      // F12 again while the note is asked for takes no second picture and opens no second dialog.
+      if (mounted) await _screenshotNote(path);
+    } finally {
+      _shooting = false;
+    }
   }
 
   /// "Screenshot saved": where, and an optional note about what is wrong, saved next to it as a
   /// .txt when the dialog closes (Done, Enter, Esc).
   Future<void> _screenshotNote(String path) async {
-    // Not disposed: the field still uses it while the dialog fades out.
-    final note = TextEditingController();
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(tr("Screenshot saved"), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-        content: SizedBox(
-          width: 460,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AnswerText(trf("Saved as {0}", [homeShort(path)])),
-              const SizedBox(height: 12),
-              TextField(
-                key: const ValueKey('screenshot-note'),
-                controller: note,
-                autofocus: true,
-                maxLength: screenshotNoteLimit,
-                style: const TextStyle(fontSize: 13),
-                decoration: InputDecoration(hintText: tr("What is wrong? (optional)"), counterText: ''),
-                onSubmitted: (_) => Navigator.pop(context),
-              ),
-            ],
-          ),
-        ),
-        actions: [ActionButton(tr("Done"), onPressed: () => Navigator.pop(context))],
-      ),
-    );
+    final note = await showDialog<String>(context: context, builder: (_) => ScreenshotNoteDialog(path: path));
     try {
-      saveScreenshotNote(path, note.text);
+      saveScreenshotNote(path, note ?? '');
     } on Object catch (e) {
       if (mounted) _toast(trf("The note could not be saved: {0}", [_why(e)]));
     }
@@ -634,6 +610,59 @@ class HeaderTabs extends StatelessWidget {
       },
     );
   }
+}
+
+/// "Screenshot saved": where, and a field for what is wrong. Done, Enter, Esc and a click beside it
+/// all close it with the text typed (the field's controller lives and goes with the dialog).
+class ScreenshotNoteDialog extends StatefulWidget {
+  const ScreenshotNoteDialog({super.key, required this.path});
+  final String path;
+  @override
+  State<ScreenshotNoteDialog> createState() => _ScreenshotNoteDialogState();
+}
+
+class _ScreenshotNoteDialogState extends State<ScreenshotNoteDialog> {
+  final _note = TextEditingController();
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  void _done() => Navigator.pop(context, _note.text);
+
+  @override
+  Widget build(BuildContext context) => PopScope<String>(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) _done(); // Esc or a click beside it: the note is kept too
+    },
+    child: AlertDialog(
+      title: Text(tr("Screenshot saved"), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AnswerText(trf("Saved as {0}", [homeShort(widget.path)])),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('screenshot-note'),
+              controller: _note,
+              autofocus: true,
+              maxLength: screenshotNoteLimit,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(hintText: tr("What is wrong? (optional)"), counterText: ''),
+              onSubmitted: (_) => _done(),
+            ),
+          ],
+        ),
+      ),
+      actions: [ActionButton(tr("Done"), onPressed: _done)],
+    ),
+  );
 }
 
 final class _NoPicture implements Exception {

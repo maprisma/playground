@@ -29,7 +29,7 @@ void main() {
     final ran = <List<String>>[];
     expect(await make(ran: ran).backend(), 'superwhisper');
     expect(ran, [
-      ['omarchy-default-dictation'],
+      ['/usr/bin/omarchy-default-dictation'],
     ]);
   });
 
@@ -82,8 +82,8 @@ void main() {
     d.act('rm -rf');
     d.act('stop');
     expect(spawned, [
-      ['omarchy-dictation', 'start'],
-      ['omarchy-dictation', 'stop'],
+      ['/usr/bin/omarchy-dictation', 'start'],
+      ['/usr/bin/omarchy-dictation', 'stop'],
     ]);
   });
 
@@ -98,7 +98,7 @@ void main() {
     final spawned = <List<String>>[];
     make(spawned: spawned).openSetup();
     expect(spawned, [
-      ['omarchy-menu', 'summon', 'setup.default.dictation'],
+      ['/usr/bin/omarchy-menu', 'summon', 'setup.default.dictation'],
     ]);
     final nothing = <List<String>>[];
     make(which: none, spawned: nothing).openSetup();
@@ -133,5 +133,33 @@ void main() {
         expect(hasTranslation(code, text), isTrue, reason: '$code: $text');
       }
     }
+  });
+
+  test('away from Omarchy start, stop, status and the setup menu do nothing', () async {
+    final spawned = <List<String>>[], ran = <List<String>>[];
+    // superwhisper and omarchy-menu are there, omarchy-dictation is not.
+    final d = make(which: (n) => n.startsWith('omarchy-dictation') ? null : '/usr/bin/$n', spawned: spawned, ran: ran);
+    d.act('start');
+    d.openSetup();
+    expect(await d.recording('superwhisper'), isNull);
+    expect(spawned, isEmpty);
+    expect(ran, isEmpty);
+  });
+
+  test('the programs run by the path found, not looked up again', () async {
+    final spawned = <List<String>>[], ran = <List<String>>[];
+    final d = make(which: (n) => '/opt/omarchy/bin/$n', spawned: spawned, ran: ran, answer: (0, 'superwhisper'));
+    await d.backend();
+    await d.recording('superwhisper');
+    d.act('stop');
+    d.openSetup();
+    expect(ran, [
+      ['/opt/omarchy/bin/omarchy-default-dictation'],
+      ['/opt/omarchy/bin/superwhisper', 'status'],
+    ]);
+    expect(spawned, [
+      ['/opt/omarchy/bin/omarchy-dictation', 'stop'],
+      ['/opt/omarchy/bin/omarchy-menu', 'summon', 'setup.default.dictation'],
+    ]);
   });
 }

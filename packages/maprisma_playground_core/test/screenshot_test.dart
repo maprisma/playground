@@ -95,4 +95,29 @@ void main() {
       expect(settings.text('corners'), old);
     }
   });
+
+  test('the folder is refused when a link or a file stands in its place', () {
+    final elsewhere = Directory(p.join(folder.path, 'elsewhere'))..createSync();
+    final link = p.join(folder.path, 'linked');
+    Link(link).createSync(elsewhere.path);
+    expect(() => makePrivateFolder(link), throwsA(isA<FileSystemException>()));
+    expect(() => saveScreenshot(link, [1]), throwsA(isA<FileSystemException>()));
+    expect(elsewhere.listSync(), isEmpty);
+    final file = File(p.join(folder.path, 'a file'))..writeAsStringSync('x');
+    expect(() => makePrivateFolder(file.path), throwsA(isA<FileSystemException>()));
+    makePrivateFolder(p.join(folder.path, 'real'));
+    makePrivateFolder(p.join(folder.path, 'real')); // an existing folder is fine
+  });
+
+  test('a folder that cannot be made reports mkdir\'s own reason', () {
+    final locked = Directory(p.join(folder.path, 'locked'))..createSync();
+    Process.runSync('/bin/chmod', ['500', locked.path]);
+    addTearDown(() => Process.runSync('/bin/chmod', ['700', locked.path]));
+    try {
+      makePrivateFolder(p.join(locked.path, 'Maprisma Playground'));
+      fail('made a folder in a read-only one');
+    } on FileSystemException catch (e) {
+      expect(e.osError?.errorCode, 13); // EACCES, not the ENOENT of a later stat
+    }
+  });
 }

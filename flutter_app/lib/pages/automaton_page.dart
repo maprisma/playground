@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -229,6 +230,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
       _repaint.value++;
       return;
     }
+    _repaint.value++; // leaving the static mixer: the cells are drawn as cells again
     if (name == _ownRule) return; // the field below takes it
     _applyRule(namedRules[name]!);
   }
@@ -577,7 +579,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
                         onSecondaryTapDown: (_) {}, // keeps the right button for erasing
                         child: CustomPaint(
                           size: Size(cols * _cell.toDouble(), rows * _cell.toDouble()),
-                          painter: _GridPainter(
+                          painter: GridPainter(
                             _grid,
                             _cell.toDouble(),
                             look,
@@ -687,10 +689,12 @@ class _Legend extends StatelessWidget {
   }
 }
 
-class _GridPainter extends CustomPainter {
-  _GridPainter(this.grid, this.cell, this.look, this.radius, Listenable repaint, {this.byAge = true})
-    : super(repaint: repaint);
+class GridPainter extends CustomPainter {
+  GridPainter(this.grid, this.cell, this.look, this.radius, this.ticks, {this.byAge = true}) : super(repaint: ticks);
   final Automaton grid;
+
+  /// Counts up whenever the cells change: the grid paints again.
+  final ValueListenable<int> ticks;
   final double cell;
   final Look look;
   final double radius;
@@ -770,8 +774,8 @@ class _GridPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_GridPainter old) =>
-      old.cell != cell || old.look != look || old.grid != grid || old.byAge != byAge;
+  bool shouldRepaint(GridPainter old) =>
+      old.cell != cell || old.look != look || old.grid != grid || old.byAge != byAge || old.radius != radius;
 }
 
 /// The population over the last generations.

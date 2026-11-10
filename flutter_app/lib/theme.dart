@@ -13,13 +13,13 @@ Color? hexColor(Map colors, String key) {
 /// The corner radius in effect (Settings › Corners; the desktop's windows), in AI Playground's three
 /// sizes: cards, dialogs, pop-ups, the chess board and the automaton grid take [radius]; buttons,
 /// choice boxes and fields [control] (at most 8); check boxes, slider tracks, progress bars and
-/// colour swatches [small] (at most 4); chips and other pills [pill] (round, or square with Square).
+/// colour swatches [small] (at most 4). (No pills here: the port has no chips, and Square squares
+/// everything else; the slider knob stays small, see [KnobShape].)
 class Corners extends ThemeExtension<Corners> {
   const Corners(this.radius);
   final double radius;
   double get control => min(radius, 8);
   double get small => min(radius, 4);
-  double get pill => radius <= 0 ? 0 : 999;
 
   /// The chess board and the automaton grid: as the cards, up to 12.
   double get board => min(radius, 12);
@@ -222,6 +222,15 @@ ThemeData appTheme(Brightness platform, Map colors, double radius) {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(control),
         borderSide: BorderSide(color: accent, width: 1.5),
+      ),
+      // An invalid entry (the Automaton's rule field) in red, with the same corners.
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(control),
+        borderSide: BorderSide(color: look.red),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(control),
+        borderSide: BorderSide(color: look.red, width: 1.5),
       ),
     ),
     // .tm-undo: the selection colour, accent border, floating over the bottom.
