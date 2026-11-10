@@ -21,7 +21,13 @@ bin="$HOME/.local/bin"
 data="${XDG_DATA_HOME:-$HOME/.local/share}"
 build=1
 [[ ${1:-} == --no-build ]] && build=0
-export PATH="${FLUTTER:-/mnt/Data/flutter/bin}:$PATH"
+# FLUTTER: the folder with flutter (and dart) in it, when they are not on PATH.
+[[ -n ${FLUTTER:-} ]] && export PATH="$FLUTTER:$PATH"
+if (( build )); then
+  for tool in flutter dart cargo; do
+    command -v "$tool" >/dev/null || { echo "$tool not found: put it on PATH or set FLUTTER=<folder with flutter>" >&2; exit 1; }
+  done
+fi
 bundle="$root/flutter_app/build/linux/x64/release/bundle"
 
 if (( build )); then

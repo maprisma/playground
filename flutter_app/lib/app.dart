@@ -133,6 +133,9 @@ class _ShellState extends State<Shell> {
     _page = tabKeys.contains(saved) ? saved : 'analyze';
     _lastTab = _page;
     _open(widget.args);
+    if (widget.settings.get('window_size') case [final int w, final int h]) {
+      AppWindow.instance.resize(w, h); // a tiling desktop may still place it as it likes
+    }
     _subscriptions
       ..add(AppWindow.instance.opened.stream.listen(_open))
       ..add(AppWindow.instance.closing.stream.listen((_) => _close()));
@@ -142,9 +145,24 @@ class _ShellState extends State<Shell> {
   /// every agent, download and held model it started, and only then the app quits.
   Future<void> _close() async {
     _remember();
+    _rememberSize();
     ChessSession.disposeAll();
     await widget.playground.backend.shutdown();
     await AppWindow.instance.quit();
+  }
+
+  /// The window's size when it closes (the plugin's window_size): the next start opens so.
+  void _rememberSize() {
+    final view = View.of(context);
+    final size = view.physicalSize / view.devicePixelRatio;
+    if (size.width < 400 || size.height < 300) return;
+    try {
+      widget.settings.update({
+        'window_size': [size.width.round(), size.height.round()],
+      });
+    } on Object {
+      // not remembered
+    }
   }
 
   void _open(List<String> words) {
