@@ -206,7 +206,8 @@ static void my_application_activate(GApplication* application) {
   }
   GtkWindow* window = GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
   gtk_window_set_title(window, "Maprisma Playground");
-  gtk_window_set_default_size(window, 1100, 920);
+  gtk_window_set_default_size(window, 1240, 920);
+  gtk_widget_set_size_request(GTK_WIDGET(window), 720, 560);
   gtk_window_set_icon_name(window, APPLICATION_ID);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();

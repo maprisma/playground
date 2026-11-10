@@ -159,3 +159,25 @@ ActionButton and the Mark.
   Manager and publish.
 - **Licenses:** before publishing, the plugin's notices are kept and copied assets are audited
   (icons/Asterism/COPYING).
+
+## New tab: Automaton (the user's request, 2026-11-10)
+
+A tab of its own **after Chess**, not in the plugin: an interactive cellular automaton. Tabs:
+Analyze, Chess, Automaton, Speed and cost, Head to head, Vision, Generate, Local LLMs (Ctrl+1…8).
+Its look is the playground's own (tab intro, folding cards, small buttons, the board's colours).
+
+- **The engine** (`automaton.dart` in the core, pure Dart, tested). It is a two-state grid with
+  Life-like rules in B/S notation: Conway's Life B3/S23, HighLife B36/S23, Seeds B2/S,
+  Day & Night B3678/S34678, Maze B3/S12345, Life without Death B3/S012345678, Replicator
+  B1357/S1357, or a rule the user types. It also has Brian's Brain, a 3-state rule (B2/S/C3).
+  Edges either wrap (torus) or are dead.
+- **Interaction:**
+  - Paint with the mouse: click or drag sets cells, the right button erases.
+  - Play/Pause (Space), Step (→), speed from 1 to 60 generations per second, and zoom with
+    Ctrl+wheel.
+  - Random fill with a density setting, Clear, and patterns stamped by clicking: glider, LWSS,
+    pulsar, Gosper glider gun, R-pentomino, acorn, diehard.
+  - The generation, the population and a population sparkline are shown.
+- **The grid** follows the window size (cell size 4–24 px). The cells use the board look's
+  colours.
+- Settings it remembers: rule, speed, wrap, cell size.
