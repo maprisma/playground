@@ -9,10 +9,11 @@ import 'private_files.dart';
 
 /// Speak instead of typing: a microphone in the question fields (AI Playground's dictation.py).
 ///
-/// It uses the desktop's own dictation (Omarchy: `omarchy-dictation`, the backend chosen in
-/// Setup › Defaults › Dictation, e.g. Superwhisper or Voxtype). A click puts the cursor in the field
-/// and starts the dictation; the backend writes what is said at the cursor; a second click stops it.
-/// Maprisma Playground records nothing itself and sends nothing anywhere; where the words are
+/// It works like Omarchy's own dictation key: a click puts the cursor at the end of the field and
+/// runs `omarchy-dictation toggle` (the backend chosen in Setup › Defaults › Dictation, e.g.
+/// Superwhisper or Voxtype), which starts dictation, or stops it when it runs; the backend writes
+/// what is said at the cursor and shows its own recording indicator. Maprisma Playground keeps no
+/// recording state, records nothing itself and sends nothing anywhere; where the words are
 /// recognised (on this PC or a cloud service) is the backend's own setting. With no backend set up
 /// yet, a click explains how to set one up; away from Omarchy there is no microphone.
 
@@ -128,28 +129,6 @@ final class Dictation {
     }
   }
 
-  /// The one microphone that is recording (one recorder for the whole app): how to stop it.
-  void Function()? _active;
-
-  /// A microphone starts: the one recording in another field stops first.
-  void claim(void Function() stop) {
-    final other = _active;
-    if (other != null && other != stop) other(); // == : tear-offs of one button's method are equal
-    _active = stop;
-  }
-
-  /// A microphone stopped (only its own claim is let go).
-  void release(void Function() stop) {
-    if (_active == stop) _active = null;
-  }
-
-  /// The app closes: a dictation it started must not go on writing into another window.
-  void stopAll() {
-    final active = _active;
-    _active = null;
-    active?.call();
-  }
-
   /// The configured backend whose own program is installed (as Omarchy's key bindings check it),
   /// e.g. "superwhisper", or null; asked at most every 30 s unless [fresh].
   Future<String?> backend({bool fresh = false}) async {
@@ -175,24 +154,12 @@ final class Dictation {
     return found;
   }
 
-  /// omarchy-dictation start|stop|toggle, without a shell, not waited for; nothing away from
-  /// Omarchy. The programs are started by the path found on PATH, not looked up again.
-  void act(String action) {
-    if (!const ['start', 'stop', 'toggle'].contains(action) || !supported) return;
-    _spawner([_which('omarchy-dictation')!, action]);
-  }
-
-  /// Superwhisper says whether it records; other backends: unknown (null).
-  Future<bool?> recording(String? name) async {
-    final program = _which('superwhisper');
-    if (name != 'superwhisper' || program == null || !supported) return null;
-    try {
-      final (_, out) = await _runner([program, 'status']);
-      final data = jsonDecode(out);
-      return data is Map ? data['phase'] == 'recording' : null;
-    } on Object {
-      return null;
-    }
+  /// `omarchy-dictation toggle`, as Omarchy's dictation key does: it starts dictation, or stops it
+  /// when it runs (the backend shows its own indicator; nothing here keeps a recording state).
+  /// Argv by the path found on PATH, no shell, not waited for; nothing away from Omarchy.
+  void toggle() {
+    if (!supported) return;
+    _spawner([_which('omarchy-dictation')!, 'toggle']);
   }
 
   /// Omarchy's menu at Setup › Defaults › Dictation (argv, not waited for).

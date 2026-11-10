@@ -86,52 +86,7 @@ void main() {
     expect(spawned, isEmpty);
   });
 
-  testWidgets('with Superwhisper: start with the cursor at the end, lit while it records, a second click stops', (
-    tester,
-  ) async {
-    omarchy(backend: 'superwhisper');
-    final controller = await pump(tester);
-    expect(find.byTooltip(trf(dictationTip, ['Superwhisper'])), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('dictate')));
-    await tester.pump();
-    expect(spawned, [
-      ['/usr/bin/omarchy-dictation', 'start'],
-    ]);
-    expect(controller.selection, const TextSelection.collapsed(offset: 7));
-    expect(
-      tester.widget<Icon>(find.descendant(of: find.byKey(const ValueKey('dictate')), matching: find.byType(Icon))).icon,
-      Icons.mic,
-    );
-    // Still recording after a second (Superwhisper's status); a second click stops it.
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.byIcon(Icons.mic), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('dictate')));
-    await tester.pump();
-    expect(spawned.last, ['/usr/bin/omarchy-dictation', 'stop']);
-    expect(find.byIcon(Icons.mic_none), findsOneWidget);
-  });
-
-  testWidgets('Superwhisper stopped with its own shortcut switches the button off', (tester) async {
-    var status = '{"phase": "recording"}';
-    Dictation.instance = Dictation(
-      which: (name) => '/usr/bin/$name',
-      run: (argv) async => argv.first.endsWith('/omarchy-default-dictation') ? (0, 'superwhisper\n') : (0, status),
-      spawn: spawned.add,
-    );
-    await pump(tester);
-    await tester.tap(find.byKey(const ValueKey('dictate')));
-    await tester.pump();
-    expect(find.byIcon(Icons.mic), findsOneWidget);
-    status = '{"phase": "idle"}';
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pump();
-    expect(find.byIcon(Icons.mic_none), findsOneWidget);
-    expect(spawned, [
-      ['/usr/bin/omarchy-dictation', 'start'],
-    ]);
-  });
-
-  testWidgets('a second click while the backend is asked starts nothing twice and opens one hint', (tester) async {
+  testWidgets('a second click while the program is asked toggles nothing twice and opens one hint', (tester) async {
     final asked = <Completer<(int, String)>>[];
     Dictation.instance = Dictation(
       which: (name) => '/usr/bin/$name',
@@ -154,84 +109,38 @@ void main() {
     expect(find.text('Set up dictation'), findsOneWidget);
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
-    // With a backend: two quick clicks start once.
+    // With a backend: two quick clicks toggle once.
     await tester.tap(find.byKey(const ValueKey('dictate')));
     await tester.tap(find.byKey(const ValueKey('dictate')));
     await tester.pump();
     asked.last.complete((0, 'voxtype'));
     await tester.pump();
     expect(spawned, [
-      ['/usr/bin/omarchy-dictation', 'start'],
+      ['/usr/bin/omarchy-dictation', 'toggle'],
     ]);
-    expect(find.byIcon(Icons.mic), findsOneWidget);
   });
 
-  testWidgets('a late status answer of an earlier session does not switch a new one off', (tester) async {
-    final status = <Completer<(int, String)>>[];
-    Dictation.instance = Dictation(
-      which: (name) => '/usr/bin/$name',
-      run: (argv) {
-        if (argv.first.endsWith('/omarchy-default-dictation')) return Future.value((0, 'superwhisper'));
-        final c = Completer<(int, String)>();
-        status.add(c);
-        return c.future;
-      },
-      spawn: spawned.add,
-    );
-    await pump(tester);
+  testWidgets('a click runs exactly omarchy-dictation toggle once, with the cursor at the end of the field', (
+    tester,
+  ) async {
+    omarchy(backend: 'superwhisper');
+    final controller = await pump(tester);
+    expect(find.byTooltip(trf(dictationTip, ['Superwhisper'])), findsOneWidget);
+    controller.selection = const TextSelection.collapsed(offset: 2);
     await tester.tap(find.byKey(const ValueKey('dictate')));
     await tester.pump();
-    await tester.pump(const Duration(seconds: 1)); // the first session asks for its status …
-    expect(status, hasLength(1));
-    await tester.tap(find.byKey(const ValueKey('dictate'))); // … is stopped …
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('dictate'))); // … and a new one starts
-    await tester.pump();
-    expect(find.byIcon(Icons.mic), findsOneWidget);
-    status.first.complete((0, '{"phase": "idle"}')); // the old answer comes late
-    await tester.pump();
-    expect(find.byIcon(Icons.mic), findsOneWidget);
-    expect(spawned.map((a) => a.last), ['start', 'stop', 'start']);
+    expect(spawned, [
+      ['/usr/bin/omarchy-dictation', 'toggle'],
+    ]);
+    expect(controller.selection, const TextSelection.collapsed(offset: 7));
+    expect(tester.testTextInput.hasAnyClients, isTrue); // the field has the keyboard
+    // No state: the next click is the same toggle (Omarchy's dictation stops it when it runs).
     await tester.tap(find.byKey(const ValueKey('dictate')));
     await tester.pump();
-  });
-
-  testWidgets('one recorder: the microphone of another field stops the first one; stopAll stops it', (tester) async {
-    omarchy(backend: 'voxtype');
-    final a = TextEditingController(), b = TextEditingController();
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: appTheme(Brightness.dark, const {}, 8),
-        home: Scaffold(
-          body: Column(
-            children: [
-              PromptField(key: const ValueKey('a'), controller: a),
-              PromptField(key: const ValueKey('b'), controller: b),
-            ],
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    Finder mic(String field) =>
-        find.descendant(of: find.byKey(ValueKey(field)), matching: find.byKey(const ValueKey('dictate')));
-    Finder lit(String field) => find.descendant(of: find.byKey(ValueKey(field)), matching: find.byIcon(Icons.mic));
-    await tester.tap(mic('a'));
-    await tester.pump();
-    expect(lit('a'), findsOneWidget);
-    await tester.tap(mic('b'));
-    await tester.pump();
-    expect(lit('a'), findsNothing);
-    expect(lit('b'), findsOneWidget);
-    expect(spawned.map((x) => x.last), ['start', 'stop', 'start']);
-    Dictation.instance.stopAll(); // the app closes
-    await tester.pump();
-    expect(lit('b'), findsNothing);
-    expect(spawned.map((x) => x.last), ['start', 'stop', 'start', 'stop']);
-    // A field that goes away stops its dictation too.
-    await tester.tap(mic('a'));
-    await tester.pump();
-    await tester.pumpWidget(const SizedBox());
-    expect(spawned.map((x) => x.last), ['start', 'stop', 'start', 'stop', 'start', 'stop']);
+    expect(spawned, [
+      ['/usr/bin/omarchy-dictation', 'toggle'],
+      ['/usr/bin/omarchy-dictation', 'toggle'],
+    ]);
+    expect(ran.where((a) => a.first.endsWith('/superwhisper')), isEmpty); // no status is polled
   });
 }

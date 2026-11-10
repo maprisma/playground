@@ -410,10 +410,11 @@ class _PromptFieldState extends State<PromptField> {
   }
 }
 
-/// dictation.mic_button: the microphone of a question field. With a dictation program set up, a
-/// click puts the cursor at the end of the field and starts it (a second click stops it); lit in
-/// red while it records (Superwhisper's own shortcut is followed too). Without one, a click shows
-/// how to set one up and starts nothing.
+/// dictation.mic_button: the microphone of a question field, a plain button that works like
+/// Omarchy's dictation key. A click asks for the dictation program afresh; with one set up it puts
+/// the cursor at the end of the field and runs `omarchy-dictation toggle` (which starts dictation,
+/// or stops it when it runs; the program shows its own indicator); without one it shows how to set
+/// one up and runs nothing. No recording state is kept here.
 class DictateButton extends StatefulWidget {
   const DictateButton({super.key, required this.controller, required this.focus});
   final TextEditingController controller;
@@ -425,14 +426,9 @@ class DictateButton extends StatefulWidget {
 class _DictateButtonState extends State<DictateButton> {
   final _dictation = Dictation.instance;
   String? _name;
-  bool _on = false;
-  Timer? _poll;
 
-  /// A click is being answered (the backend is asked, or the set-up hint is open).
+  /// A click is being answered (the program is asked, or the set-up hint is open).
   bool _busy = false;
-
-  /// Counts the dictation sessions: a status answer of an earlier one cannot switch a new one off.
-  int _session = 0;
 
   @override
   void initState() {
@@ -442,89 +438,47 @@ class _DictateButtonState extends State<DictateButton> {
     });
   }
 
-  @override
-  void dispose() {
-    if (_on) {
-      _dictation.act('stop'); // a field that goes away takes its dictation with it
-      _dictation.release(_stopHere);
-    }
-    _poll?.cancel();
-    super.dispose();
-  }
-
-  /// Stop the dictation this button started (the app closes, or another field takes over).
-  void _stopHere() {
-    if (!_on) return;
-    _dictation.act('stop');
-    _off();
-  }
-
   String get _tip => _name == null ? tr(dictationNotSetUpTip) : trf(dictationTip, [dictationDisplayName(_name!)]);
 
-  void _off() {
-    _dictation.release(_stopHere);
-    _session++;
-    _poll?.cancel();
-    _poll = null;
-    _on = false;
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _toggle() async {
-    if (_busy) return; // a second click while the first is answered: no second start or hint
-    if (!_on) {
-      _busy = true;
-      try {
-        final name = await _dictation.backend(fresh: true); // set up meanwhile? ask again
-        if (!mounted) return;
-        setState(() => _name = name);
-        if (name == null) {
-          await showDictationSetup(context, _dictation);
-          return;
-        }
-      } finally {
-        _busy = false;
+  Future<void> _click() async {
+    if (_busy) return;
+    _busy = true;
+    try {
+      final name = await _dictation.backend(fresh: true); // set up meanwhile? ask again
+      if (!mounted) return;
+      setState(() => _name = name);
+      if (name == null) {
+        await showDictationSetup(context, _dictation);
+        return;
       }
+      // The words go where the cursor is: at the end of this field.
+      widget.controller.selection = TextSelection.collapsed(offset: widget.controller.text.length);
+      widget.focus.requestFocus();
+      _dictation.toggle();
+    } finally {
+      _busy = false;
     }
-    // The words go where the cursor is: at the end of this field.
-    widget.controller.selection = TextSelection.collapsed(offset: widget.controller.text.length);
-    widget.focus.requestFocus();
-    if (_on) {
-      _dictation.act('stop');
-      _off();
-      return;
-    }
-    _dictation.claim(_stopHere); // one recorder: a microphone in another field stops first
-    _dictation.act('start');
-    final session = ++_session;
-    setState(() => _on = true);
-    _poll ??= Timer.periodic(const Duration(seconds: 1), (_) async {
-      // Stopped with its own shortcut: the button goes off too (only for this session's answer).
-      final recording = await _dictation.recording(_name);
-      if (recording == false && _on && session == _session) _off();
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     final look = Look.of(context);
-    final color = _on ? look.red : look.fg;
     return Tooltip(
       message: _tip,
       child: OutlinedButton(
         key: const ValueKey('dictate'),
-        onPressed: _toggle,
+        onPressed: _click,
         style: OutlinedButton.styleFrom(
-          foregroundColor: color,
-          backgroundColor: _on ? look.red.withValues(alpha: .14) : look.bg,
-          side: BorderSide(color: _on ? look.red : look.fg.withValues(alpha: .35)),
+          foregroundColor: look.fg,
+          backgroundColor: look.bg,
+          side: BorderSide(color: look.fg.withValues(alpha: .35)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(cornerSizes(context).control)),
           padding: EdgeInsets.zero,
           minimumSize: const Size(26, controlHeight),
           fixedSize: const Size(26, controlHeight),
           visualDensity: VisualDensity.standard,
         ),
-        child: Icon(_on ? Icons.mic : Icons.mic_none, size: 15, color: color),
+        child: Icon(Icons.mic_none, size: 15, color: look.fg),
       ),
     );
   }

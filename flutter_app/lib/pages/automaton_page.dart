@@ -16,8 +16,18 @@ const _ownRule = 'Own rule…';
 const _paint = 'Draw cells';
 const _densities = [.1, .2, .3, .4, .5];
 
-/// The grid's size limit, whatever the window's size (AI Playground's MAX_COLS, MAX_ROWS).
-const maxCols = 600, maxRows = 400;
+/// The grid's size limit, whatever the window's size (AI Playground's MAX_COLS, MAX_ROWS): at most
+/// 60 000 cells, so a generation stays quick.
+const maxCols = 300, maxRows = 200;
+
+/// au_next: the wait before the next generation: at the chosen speed, but never sooner than twice
+/// the time the last one took (and at least 16 ms), so the window always has the main loop at
+/// least half the time.
+Duration nextGenerationDelay(int speed, Duration spent) {
+  final ms = [16, 1000 ~/ speed, spent.inMicroseconds * 2 ~/ 1000].reduce(max);
+  return Duration(milliseconds: ms);
+}
+
 const _intro =
     "A cellular automaton: each cell lives or dies by how many of its eight neighbours are alive. Draw cells with the mouse (the right button erases), place a pattern, or fill at random, then Play. The rule can be changed while it runs: B is how many neighbours bring a cell to life, S how many keep it alive.";
 
@@ -106,20 +116,23 @@ class _AutomatonPageState extends State<AutomatonPage> {
     _timer?.cancel();
     _timer = null;
     if (_playing && widget.active) {
-      _timer = Timer.periodic(Duration(microseconds: 1000000 ~/ _speed), (_) => _tick());
+      _timer = Timer(nextGenerationDelay(_speed, Duration.zero), _tick);
     }
   }
 
   void _tick() {
+    final watch = Stopwatch()..start();
     final changed = _grid.step();
+    watch.stop();
     _repaint.value++;
     if (!changed || _grid.empty) {
       // Nothing moves any more: stop, so a still life does not burn CPU.
       setState(() => _playing = false);
       _schedule();
-    } else if (_grid.generation % 5 == 0) {
-      setState(() {}); // the counters; the grid repaints on its own every tick
+      return;
     }
+    if (_grid.generation % 5 == 0) setState(() {}); // the counters; the grid repaints on its own every tick
+    if (_playing && widget.active) _timer = Timer(nextGenerationDelay(_speed, watch.elapsed), _tick);
   }
 
   void _playPause() {

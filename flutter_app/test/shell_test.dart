@@ -9,7 +9,6 @@ import 'package:maprisma_playground/contestants.dart';
 import 'package:maprisma_playground/pages/chess_page.dart';
 import 'package:maprisma_playground/theme.dart';
 import 'package:maprisma_playground/widgets.dart';
-import 'package:maprisma_playground/window.dart';
 import 'package:maprisma_playground_core/maprisma_playground_core.dart';
 
 /// The window as a whole (app.dart): the header with its tabs and symbols, the Analyze page,
@@ -158,26 +157,6 @@ void main() {
       expect(settingsBox.width, settingsBox.height); // square
       expect(tester.takeException(), isNull);
     });
-  });
-
-  testWidgets('closing the window stops a dictation it started', (tester) async {
-    final spawned = <List<String>>[];
-    Dictation.instance = Dictation(
-      which: (name) => '/usr/bin/$name',
-      run: (argv) async => (0, 'voxtype\n'),
-      spawn: spawned.add,
-    );
-    await pump(tester);
-    await tester.tap(find.byKey(const ValueKey('tab-speed')));
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('dictate')));
-    await tester.pump();
-    expect(spawned.map((a) => a.last), ['start']);
-    AppWindow.instance.closing.add(null);
-    await tester.pump();
-    expect(spawned.map((a) => a.last), ['start', 'stop']);
-    await tester.pump(const Duration(seconds: 5)); // the (idle) core's shutdown wait
-    Dictation.instance = Dictation(which: (_) => null);
   });
 
   testWidgets('every tab and page fits the smallest window (720 px)', (tester) async {

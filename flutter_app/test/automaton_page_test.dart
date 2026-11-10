@@ -214,7 +214,7 @@ void main() {
     expect(painter().ticks.value, greaterThan(before));
   });
 
-  testWidgets('a giant window still gets a bounded grid (600 × 400 cells)', (tester) async {
+  testWidgets('a giant window still gets a bounded grid (300 × 200 cells)', (tester) async {
     settings.update({'automaton_cell': 4});
     tester.view.physicalSize = const Size(4000, 2400);
     tester.view.devicePixelRatio = 1;
@@ -228,7 +228,15 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    expect([maxCols, maxRows], [300, 200]);
     expect(find.textContaining('$maxCols × $maxRows cells'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  test('the next generation waits for the speed, and at least twice what the last one took', () {
+    expect(nextGenerationDelay(10, Duration.zero), const Duration(milliseconds: 100));
+    expect(nextGenerationDelay(60, Duration.zero), const Duration(milliseconds: 16));
+    expect(nextGenerationDelay(60, const Duration(milliseconds: 40)), const Duration(milliseconds: 80));
+    expect(nextGenerationDelay(1, const Duration(milliseconds: 40)), const Duration(seconds: 1));
   });
 }

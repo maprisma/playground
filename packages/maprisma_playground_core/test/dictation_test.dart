@@ -75,25 +75,6 @@ void main() {
     expect(ran, hasLength(3));
   });
 
-  test('start and stop are argv, only known actions', () {
-    final spawned = <List<String>>[];
-    final d = make(spawned: spawned);
-    d.act('start');
-    d.act('rm -rf');
-    d.act('stop');
-    expect(spawned, [
-      ['/usr/bin/omarchy-dictation', 'start'],
-      ['/usr/bin/omarchy-dictation', 'stop'],
-    ]);
-  });
-
-  test('recording from Superwhisper\'s status; other backends unknown', () async {
-    expect(await make(answer: (0, '{"phase": "recording"}')).recording('superwhisper'), isTrue);
-    expect(await make(answer: (0, '{"phase": "idle"}')).recording('superwhisper'), isFalse);
-    expect(await make(answer: (0, 'not json')).recording('superwhisper'), isNull);
-    expect(await make().recording('voxtype'), isNull);
-  });
-
   test('open setup summons Omarchy\'s dictation menu', () {
     final spawned = <List<String>>[];
     make(spawned: spawned).openSetup();
@@ -133,34 +114,6 @@ void main() {
         expect(hasTranslation(code, text), isTrue, reason: '$code: $text');
       }
     }
-  });
-
-  test('away from Omarchy start, stop, status and the setup menu do nothing', () async {
-    final spawned = <List<String>>[], ran = <List<String>>[];
-    // superwhisper and omarchy-menu are there, omarchy-dictation is not.
-    final d = make(which: (n) => n.startsWith('omarchy-dictation') ? null : '/usr/bin/$n', spawned: spawned, ran: ran);
-    d.act('start');
-    d.openSetup();
-    expect(await d.recording('superwhisper'), isNull);
-    expect(spawned, isEmpty);
-    expect(ran, isEmpty);
-  });
-
-  test('the programs run by the path found, not looked up again', () async {
-    final spawned = <List<String>>[], ran = <List<String>>[];
-    final d = make(which: (n) => '/opt/omarchy/bin/$n', spawned: spawned, ran: ran, answer: (0, 'superwhisper'));
-    await d.backend();
-    await d.recording('superwhisper');
-    d.act('stop');
-    d.openSetup();
-    expect(ran, [
-      ['/opt/omarchy/bin/omarchy-default-dictation'],
-      ['/opt/omarchy/bin/superwhisper', 'status'],
-    ]);
-    expect(spawned, [
-      ['/opt/omarchy/bin/omarchy-dictation', 'stop'],
-      ['/opt/omarchy/bin/omarchy-menu', 'summon', 'setup.default.dictation'],
-    ]);
   });
 
   group('helper output is read bounded', () {
@@ -208,30 +161,29 @@ void main() {
     });
   });
 
-  test('a status that is not a JSON object is unknown', () async {
-    for (final text in ['[1, 2]', '"recording"', 'null', '\u0000ÿ']) {
-      expect(await make(answer: (0, text)).recording('superwhisper'), isNull, reason: text);
-    }
-  });
-
   test('a broken PATH lookup means no microphone, not an error', () {
     expect(make(which: (_) => throw const FileSystemException('broken')).supported, isFalse);
   });
 
-  test('one recorder: a new claim stops the other, stopAll stops the active one once', () {
-    final stopped = <String>[];
-    final d = make();
-    void a() => stopped.add('a');
-    void b() => stopped.add('b');
-    d.claim(a);
-    d.claim(a); // the same one again: nothing to stop
-    expect(stopped, isEmpty);
-    d.claim(b);
-    expect(stopped, ['a']);
-    d.release(a); // not the active one: b stays
-    d.stopAll();
-    expect(stopped, ['a', 'b']);
-    d.stopAll();
-    expect(stopped, ['a', 'b']);
+  test('toggle runs exactly omarchy-dictation toggle (argv, the path found) once; nothing away from Omarchy', () {
+    final spawned = <List<String>>[];
+    make(which: (n) => '/opt/omarchy/bin/$n', spawned: spawned).toggle();
+    expect(spawned, [
+      ['/opt/omarchy/bin/omarchy-dictation', 'toggle'],
+    ]);
+    final nothing = <List<String>>[];
+    // omarchy-menu is there, omarchy-dictation is not: not Omarchy's dictation.
+    final away = make(which: (n) => n.startsWith('omarchy-dictation') ? null : '/usr/bin/$n', spawned: nothing);
+    away.toggle();
+    away.openSetup();
+    expect(nothing, isEmpty);
+  });
+
+  test('the backend is asked by the path found', () async {
+    final ran = <List<String>>[];
+    await make(which: (n) => '/opt/omarchy/bin/$n', ran: ran).backend();
+    expect(ran, [
+      ['/opt/omarchy/bin/omarchy-default-dictation'],
+    ]);
   });
 }

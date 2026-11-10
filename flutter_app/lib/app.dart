@@ -176,7 +176,6 @@ class _ShellState extends State<Shell> {
   /// The window asked to close (or --toggle, or SIGTERM): the state is kept, then the core ends
   /// every agent, download and held model it started, and only then the app quits.
   Future<void> _close() async {
-    Dictation.instance.stopAll(); // no dictation goes on into another window
     _remember();
     _rememberSize();
     ChessSession.disposeAll();

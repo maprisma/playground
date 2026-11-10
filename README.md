@@ -98,8 +98,8 @@ Keys:
   note about what is wrong (a `.txt` next to it). Settings › F12 saves a screenshot turns it off.
 
 **Dictation** (Omarchy): the microphone in the lower right corner of a question field (Speed and
-cost, Head to head, Vision, Generate, Local LLMs) starts the desktop's own dictation with the cursor
-in the field; a second click stops it, and it is lit while it records.
+cost, Head to head, Vision, Generate, Local LLMs) works like Omarchy's dictation key: it starts
+dictation with the cursor at the end of the field, or stops it when it runs.
 
 **Corners** (Settings): like the desktop's windows, slightly rounded (6 px), rounded (12 px) or
 square. Every control follows it in three sizes: cards, dialogs, pop-ups, the chess board and the
@@ -158,14 +158,18 @@ cannot write to; a file is written completely or not at all. A note you type goe
 window draws itself into the picture: no screenshot program is started and nothing is sent
 anywhere.
 
-**Dictation**: the microphone in a question field starts the desktop's own dictation (Omarchy:
-`omarchy-dictation`, the backend set in Setup › Defaults › Dictation, e.g. Superwhisper); that
-program writes what you say at the cursor. Maprisma Playground records nothing itself; whether the
-words are recognised on this PC or by a cloud service is the backend's setting. No backend set up
-yet: a click on the microphone explains how (Setup › Defaults › Dictation) and can open that menu;
-away from Omarchy there is no microphone. The programs are started as argument lists, never through
-a shell, and their answers are read bounded (64 KiB, 3 s). One microphone records at a time, and
-closing Maprisma Playground stops a dictation it started.
+**Dictation**: the microphone beside a question field works like Omarchy's dictation key: it puts
+the cursor at the end of the field and runs `omarchy-dictation toggle` (the backend set in Setup ›
+Defaults › Dictation, e.g. Superwhisper), which starts dictation or stops it when it runs; that
+program writes what you say at the cursor and shows its own recording indicator. Maprisma
+Playground keeps no recording state and records nothing itself; whether the words are recognised on
+this PC or by a cloud service is the backend's setting. No backend set up yet: a click on the
+microphone explains how (Setup › Defaults › Dictation) and can open that menu; away from Omarchy
+there is no microphone. The programs are started as argument lists, never through a shell, and the
+backend's name is read bounded (64 KiB, 3 s).
+
+**Automaton**: the ⓘ windows' "All links" list opens fixed `https://en.wikipedia.org/wiki/…` addresses
+(listed in `automaton_info.dart`) in your browser, only when you choose one.
 
 ## Building and testing
 
