@@ -126,7 +126,7 @@ class _GamesPageState extends State<GamesPage> {
             style: OutlinedButton.styleFrom(
               foregroundColor: look.red,
               side: BorderSide(color: look.red),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(corners(context))),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(cornerSizes(context).control)),
             ),
             child: Text(tr("Delete"), style: TextStyle(fontWeight: FontWeight.w700)),
           ),

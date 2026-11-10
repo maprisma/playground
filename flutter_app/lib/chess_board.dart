@@ -128,7 +128,7 @@ void paintPiece(Canvas canvas, String piece, Offset c, double cell, String style
 
 /// A piece glyph as the cards draw it (.am-chess-glyph with .am-chess-white/black).
 class PieceGlyph extends StatelessWidget {
-  const PieceGlyph(this.piece, {super.key, this.size = 34});
+  const PieceGlyph(this.piece, {super.key, this.size = 26});
   final String piece;
   final double size;
   @override
@@ -345,7 +345,7 @@ class ChessBoardState extends State<ChessBoard> {
                         Tooltip(
                           message: kindNames[m.promotion.toUpperCase()]!,
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(cornerSizes(context).small),
                             onTap: () => Navigator.pop(context, m),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -394,6 +394,7 @@ class ChessBoardState extends State<ChessBoard> {
             pieceStyle: widget.pieceStyle,
             coordinates: widget.coordinates,
             stamp: Object.hash(game.position, game.lastMove, game.revision),
+            radius: cornerSizes(context).board,
           ),
         ),
       ),
@@ -422,6 +423,7 @@ class _BoardPainter extends CustomPainter {
     required this.pieceStyle,
     required this.coordinates,
     required this.stamp,
+    this.radius = 0,
   }) : dragAt = drag?.at;
   final ChessGame game;
   final Look look;
@@ -432,11 +434,17 @@ class _BoardPainter extends CustomPainter {
   final String boardStyle, pieceStyle;
   final int stamp;
 
+  /// Settings › Corners, as the cards (at most 12): the squares are clipped to it.
+  final double radius;
+
   @override
   void paint(Canvas canvas, Size size) {
     final (light, dark) = chessSquares(look, boardStyle);
     final g = boardGeometry(size);
     final cell = g.cell;
+    final frame = Rect.fromLTWH(g.x0, g.y0, cell * 8, cell * 8);
+    canvas.save();
+    canvas.clipRRect(RRect.fromRectAndRadius(frame, Radius.circular(radius)));
     final pos = game.position;
     final last = game.mode == ChessMode.define ? null : game.lastMove;
     final targets = selected == null
@@ -490,8 +498,9 @@ class _BoardPainter extends CustomPainter {
         }
       }
     }
-    canvas.drawRect(
-      Rect.fromLTWH(g.x0 + .5, g.y0 + .5, cell * 8 - 1, cell * 8 - 1),
+    canvas.restore();
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(frame.deflate(.5), Radius.circular(radius)),
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
@@ -520,6 +529,7 @@ class _BoardPainter extends CustomPainter {
       old.boardStyle != boardStyle ||
       old.pieceStyle != pieceStyle ||
       old.coordinates != coordinates ||
+      old.radius != radius ||
       old.look != look;
 }
 

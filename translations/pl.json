@@ -2423,5 +2423,17 @@
  ],
  "Reading the moves needs an agent that sees pictures and runs without tools: Claude Code or Pi, signed in or connected to a local vision model.": "Do odczytania ruchów potrzebny jest agent, który widzi obrazy i działa bez narzędzi: Claude Code lub Pi, zalogowany albo połączony z lokalnym modelem wizyjnym.",
  "Left out: {0}. It can read files on this computer, and a video's text or pictures could ask it to.": "Pominięty: {0}. Może czytać pliki na tym komputerze, a tekst lub obrazy filmu mogłyby go o to poprosić.",
- "Only an agent without tools may read a video.": "Tylko agent bez narzędzi może odczytać film."
+ "Only an agent without tools may read a video.": "Tylko agent bez narzędzi może odczytać film.",
+ "Apps, shortcuts and updates, with AI package advice": "Aplikacje, skróty i aktualizacje z poradami AI",
+ "Slightly rounded ({0} px)": "Lekko zaokrąglone ({0} px)",
+ "Rounded ({0} px)": "Zaokrąglone ({0} px)",
+ "F12 saves a screenshot": "F12 zapisuje zrzut ekranu",
+ "Screenshot saved": "Zrzut ekranu zapisany",
+ "Saved as {0}": "Zapisano jako {0}",
+ "What is wrong? (optional)": "Co jest nie tak? (opcjonalnie)",
+ "The screenshot could not be saved: {0}": "Nie udało się zapisać zrzutu ekranu: {0}",
+ "The note could not be saved: {0}": "Nie udało się zapisać notatki: {0}",
+ "The window drew nothing.": "Okno niczego nie narysowało.",
+ "This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or stand still instead; choose Conway's Life above to see it as described.": "Ten wzór jest stworzony dla Gry w życie Conwaya. Przy regule „{0}” może zamiast tego rosnąć, rozpadać się lub stać w miejscu; wybierz u góry Conway's Life, aby zobaczyć go tak, jak opisano.",
+ "All links ({0})": "Wszystkie linki ({0})"
 }

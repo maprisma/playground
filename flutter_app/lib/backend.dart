@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:maprisma_playground_core/maprisma_playground_core.dart';
 
 /// An error the core replied with: `code` (bad_params, not_found, cancelled, failed) and its
@@ -54,6 +55,11 @@ final class Backend {
   SendPort? _send;
   var _id = 0;
   var _down = false;
+
+  /// A core that never answers (widget tests of the whole window): every request stays pending.
+  @visibleForTesting
+  Backend.idle() : _idle = true;
+  bool _idle = false;
 
   static Future<Backend> launch() async {
     final b = Backend._();
@@ -107,6 +113,7 @@ final class Backend {
   ]) {
     final id = ++_id;
     final pending = Completer<Map<String, dynamic>>();
+    if (_idle) return Job._(id, this, pending.future);
     if (_down) {
       pending.completeError(CoreFailure('failed', tr("The core is closed.")));
       return Job._(id, this, pending.future);

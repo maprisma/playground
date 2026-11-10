@@ -63,9 +63,10 @@ final Map<String, Setting> schema = {
   'language': Setting('auto', _text, 'Settings › Language: "auto" (the system\'s) or a language code'),
   'corners': Setting(
     'windows',
-    _oneOf(['windows', 'rounded', 'square']),
-    "Settings › Corners: the desktop's, rounded or square",
+    _oneOf(['windows', 'slight', 'rounded', 'square']),
+    "Settings › Corners: the desktop's, slightly rounded (6 px), rounded (12 px) or square",
   ),
+  'screenshot_key': Setting(true, _bool, 'Settings › F12 saves a screenshot (with a note)'),
   'window_size': Setting(null, _size, "the window's size when it was last closed: [width, height]"),
   'automaton_rule': Setting('B3/S23', _text, 'Automaton › Rule'),
   'automaton_speed': Setting(10, (v) => v is int && v >= 1 && v <= 60, 'Automaton › Speed (generations per second)'),

@@ -2356,5 +2356,17 @@
  ],
  "Reading the moves needs an agent that sees pictures and runs without tools: Claude Code or Pi, signed in or connected to a local vision model.": "Om de zetten te lezen is een agent nodig die afbeeldingen ziet en zonder tools werkt: Claude Code of Pi, aangemeld of verbonden met een lokaal vision-model.",
  "Left out: {0}. It can read files on this computer, and a video's text or pictures could ask it to.": "Weggelaten: {0}. Die kan bestanden op deze computer lezen, en de tekst of beelden van een video zouden daarom kunnen vragen.",
- "Only an agent without tools may read a video.": "Alleen een agent zonder tools mag een video lezen."
+ "Only an agent without tools may read a video.": "Alleen een agent zonder tools mag een video lezen.",
+ "Apps, shortcuts and updates, with AI package advice": "Apps, sneltoetsen en updates, met AI-pakketadvies",
+ "Slightly rounded ({0} px)": "Licht afgerond ({0} px)",
+ "Rounded ({0} px)": "Afgerond ({0} px)",
+ "F12 saves a screenshot": "F12 bewaart een schermafbeelding",
+ "Screenshot saved": "Schermafbeelding bewaard",
+ "Saved as {0}": "Bewaard als {0}",
+ "What is wrong? (optional)": "Wat is er mis? (optioneel)",
+ "The screenshot could not be saved: {0}": "De schermafbeelding kon niet worden bewaard: {0}",
+ "The note could not be saved: {0}": "De notitie kon niet worden bewaard: {0}",
+ "The window drew nothing.": "Het venster tekende niets.",
+ "This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or stand still instead; choose Conway's Life above to see it as described.": "Dit patroon is gemaakt voor Conway's Life. Onder de regel van ‘{0}’ kan het in plaats daarvan groeien, uiteenvallen of stilstaan; kies bovenaan Conway's Life om het te zien zoals beschreven.",
+ "All links ({0})": "Alle links ({0})"
 }

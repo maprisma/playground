@@ -184,4 +184,58 @@ void main() {
       expect(isMaterialsRule("Conway's Life"), isFalse);
     });
   });
+
+  group('the second ⓘ and Read more (AI Playground 0.4.8–0.4.10)', () {
+    test('mergeLinks keeps the order and each address once', () {
+      final merged = mergeLinks([
+        [('A', 'https://a'), ('B', 'https://b')],
+        [('B again', 'https://b'), ('C', 'https://c')],
+      ]);
+      expect(merged, [('A', 'https://a'), ('B', 'https://b'), ('C', 'https://c')]);
+    });
+
+    test('Draw cells takes what to look for, what to try and Try it from the scenario', () {
+      final draw = patternInfo['draw']!, high = ruleInfo['HighLife']!;
+      final info = drawingInfo('HighLife');
+      expect(info.what, draw.what);
+      expect(info.watch, high.watch);
+      expect(info.tryIt, high.tryIt);
+      expect(info.setup, same(high.setup));
+      // The scenario's links first, then the drawing's, each address once.
+      expect(info.links.take(high.links.length), high.links);
+      expect(info.links.map((l) => l.$2).toSet().length, info.links.length);
+      expect(info.links.map((l) => l.$2), containsAll(draw.links.map((l) => l.$2)));
+    });
+
+    test('Draw cells with an own rule keeps the drawing\'s own texts', () {
+      final draw = patternInfo['draw']!;
+      final info = drawingInfo('own');
+      expect([info.watch, info.tryIt], [draw.watch, draw.tryIt]);
+      expect(info.setup, same(draw.setup));
+      expect(info.links.take(ruleInfo['own']!.links.length), ruleInfo['own']!.links);
+    });
+
+    test('a pattern window lists its links, then the scenario\'s', () {
+      final glider = patternInfo['Glider']!;
+      final info = patternWindowInfo('Glider', "Brian's Brain");
+      expect(info.what, glider.what);
+      expect(info.links.first, glider.links.first);
+      expect(info.links.map((l) => l.$2), containsAll(ruleInfo["Brian's Brain"]!.links.map((l) => l.$2)));
+      expect(info.links.every((l) => l.$2.startsWith('https://')), isTrue);
+    });
+
+    test('the Life note: not under B3/S23 or B36/S23, always in the static mixer', () {
+      expect(needsPatternNote('B3/S23'), isFalse);
+      expect(needsPatternNote('B36/S23'), isFalse);
+      expect(needsPatternNote('B2/S'), isTrue);
+      expect(needsPatternNote('B3/S23', mixing: true), isTrue);
+      expect(patternNote, contains('{0}'));
+    });
+
+    test('every scenario has a key the windows can find', () {
+      for (final name in [...namedRules.keys, mixerName, 'own']) {
+        expect(scenarioInfo(name), same(ruleInfo[name]), reason: name);
+      }
+    });
+  });
 }

@@ -52,7 +52,7 @@ class _ChessPageState extends State<ChessPage> {
   final _body = GlobalKey();
   final _look = MenuController();
   final _subscriptions = <StreamSubscription>[];
-  double _side = boardMax;
+  double _side = boardMin; // _fit grows it to what the window allows
   bool _dragOver = false;
   bool get _visible => widget.active;
 
@@ -540,7 +540,7 @@ class _ChessPageState extends State<ChessPage> {
             for (final p in mine)
               Tooltip(
                 message: trf("{0} captured", [kindNames[p.toUpperCase()]]),
-                child: SizedBox(height: 26, child: PieceGlyph(p, size: 24)),
+                child: SizedBox(height: 22, child: PieceGlyph(p, size: 20)),
               ),
           ],
         ),
@@ -820,7 +820,7 @@ class _Toggle extends StatelessWidget {
         foregroundColor: on ? look.accent : look.fg,
         backgroundColor: on ? look.accent.withValues(alpha: .14) : null,
         side: BorderSide(color: on ? look.accent : look.fg.withValues(alpha: .35)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(corners(context))),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(cornerSizes(context).control)),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         minimumSize: const Size(0, 30),
         textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),

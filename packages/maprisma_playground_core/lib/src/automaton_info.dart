@@ -260,3 +260,53 @@ const patternInfo = <String, ScenarioInfo>{
     links: [('Methuselah', 'https://en.wikipedia.org/wiki/Methuselah_(cellular_automaton)')],
   ),
 };
+
+/// Rules under which the Life patterns (glider, pulsar, gun …) behave as described.
+const lifeLike = ['B3/S23', 'B36/S23'];
+
+/// Said in a pattern's hint window under another rule (or in the static mixer); {0} is the scenario.
+const patternNote =
+    "This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or stand still "
+    'instead; choose Conway\'s Life above to see it as described.';
+
+/// Links of several lists in order, each address once.
+List<(String, String)> mergeLinks(List<List<(String, String)>> groups) {
+  final seen = <String>{};
+  return [
+    for (final group in groups)
+      for (final link in group)
+        if (seen.add(link.$2)) link,
+  ];
+}
+
+/// The scenario's own hint ("own" for an own rule).
+ScenarioInfo scenarioInfo(String scenario) => ruleInfo[scenario] ?? ruleInfo['own']!;
+
+/// The second ⓘ with Draw cells: what drawing does, but what to look for, what to try and Try it
+/// from the chosen scenario (an own rule keeps the drawing's own); the scenario's links first.
+ScenarioInfo drawingInfo(String scenario) {
+  final draw = patternInfo['draw']!;
+  final own = scenario == 'own' ? null : ruleInfo[scenario];
+  return ScenarioInfo(
+    what: draw.what,
+    watch: own?.watch ?? draw.watch,
+    tryIt: own?.tryIt ?? draw.tryIt,
+    setup: own?.setup ?? draw.setup,
+    links: mergeLinks([scenarioInfo(scenario).links, draw.links]),
+  );
+}
+
+/// The second ⓘ with a pattern: the pattern's hint, its links and then the scenario's.
+ScenarioInfo patternWindowInfo(String pattern, String scenario) {
+  final info = patternInfo[pattern]!;
+  return ScenarioInfo(
+    what: info.what,
+    watch: info.watch,
+    tryIt: info.tryIt,
+    setup: info.setup,
+    links: mergeLinks([info.links, scenarioInfo(scenario).links]),
+  );
+}
+
+/// Whether a Life pattern needs the "made for Conway's Life" note under this rule.
+bool needsPatternNote(String notation, {bool mixing = false}) => mixing || !lifeLike.contains(notation);

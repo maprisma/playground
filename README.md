@@ -1,7 +1,8 @@
 # Maprisma Playground
 
 Try out the AI agents on your computer, one test per tab:
-- **Analyze:** see at a glance what an agent and its model can do.
+- **Analyze** (the test-tube symbol in the header): see at a glance what an agent and its model can
+  do.
 - **Chess:** play against Claude Code, Codex, Hermes or Pi, or let two of them play each other.
   An agent that runs on a local LLM plays with that model.
 - **Automaton:** watch a cellular automaton.
@@ -41,7 +42,7 @@ entry and icons.
 
 A click on the icon opens Maprisma Playground, brings it to the front, or closes it when it is
 already the window in front (`maprisma-playground --toggle`). `maprisma-playground --test chess`
-opens a tab, including in a window that is already open.
+opens a tab (or `--test analyze` the Analyze page), including in a window that is already open.
 
 Optional tools, each only for the feature named:
 - `yt-dlp`, `ffmpeg` and `ffprobe`: reading a chess game from a video, and video frames on Vision.
@@ -49,7 +50,12 @@ Optional tools, each only for the feature named:
 
 ## The tabs
 
-- **Analyze:** pick an agent and one of its models. There is one card per capability (text,
+The tabs fill the header's width and wrap onto more lines in a narrow window; the symbols at the
+right stay in view: the test tube (Analyze), ⓘ (Information) and the gear (Settings). Each opens a
+page with a Back button, lit while it is open.
+
+- **Analyze** (the test-tube symbol in the header, beside ⓘ and the gear): pick an agent and one of
+  its models. There is one card per capability (text,
   pictures, chess videos, thinking time, chess, context, making pictures), with a mark: green ✓
   can, red ✗ cannot, yellow ! only slowly, ? not stated. A few short test questions are asked; the
   rest is read from the agent's own settings and model lists.
@@ -63,6 +69,10 @@ Optional tools, each only for the feature named:
   Life, HighLife, Seeds, Day & Night, Brian's Brain …, or your own), patterns such as the glider
   and the Gosper glider gun, random fill, step, speed, and wrapping edges. Nothing is asked of any
   agent.
+  - The text under the heading tells what the chosen scenario does.
+  - The ⓘ beside the rule explains the scenario; the ⓘ beside Draw cells explains drawing in it
+    (or the pattern, with a note when it is made for Conway's Life but another rule is chosen).
+    Read more is one drop-down with all their links, opened in the browser.
 - **Speed and cost:** one question to several agents and local models; their answers side by side,
   with time, tokens and cost where the agent reports them.
 - **Head to head:** one question to two agents or local models. You pick the better answer. In
@@ -81,9 +91,16 @@ Optional tools, each only for the feature named:
   card's memory together, you are asked first.
 
 Keys:
-- Ctrl+1 … Ctrl+8 switch tabs.
+- Ctrl+1 … Ctrl+7 switch tabs.
 - Ctrl+, opens the settings.
-- Esc goes back.
+- Esc or Backspace goes back from Analyze, Information, Settings and the saved games.
+- F12 saves a picture of the window to `~/Pictures/Maprisma Playground/` and asks for an optional
+  note about what is wrong (a `.txt` next to it). Settings › F12 saves a screenshot turns it off.
+
+**Corners** (Settings): like the desktop's windows, slightly rounded (6 px), rounded (12 px) or
+square. Every control follows it in three sizes: cards, dialogs, pop-ups, the chess board and the
+automaton grid take the full radius; buttons, choice boxes and fields at most 8 px; check boxes,
+slider tracks, progress bars and colour swatches at most 4 px. Square squares all of them.
 
 **Languages:** English, Deutsch, Français, Español, Italiano, Português, Nederlands and Polski, as
 AI Playground has them. The language follows the system unless Settings › Language picks one.
@@ -128,6 +145,12 @@ nothing. Local LLM servers are asked only when they run under your own account, 
 without a proxy. Generate downloads only from GitHub (stable-diffusion.cpp's release, checked by its
 published digest) and Hugging Face (files pinned by size and SHA-256). Settings and saved games stay
 in `~/.config/maprisma-playground`.
+
+**Screenshots** (F12) are saved only when you press it, in `~/Pictures/Maprisma Playground/` (the
+pictures folder of `user-dirs.dirs`), as new files readable only by you (folder 0700, files 0600,
+never over an existing file or through a link); a note you type goes next to it as a `.txt`. The
+window draws itself into the picture: no screenshot program is started and nothing is sent
+anywhere.
 
 ## Building and testing
 

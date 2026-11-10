@@ -6,6 +6,7 @@ import '../backend.dart';
 import '../contestants.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'page_head.dart';
 
 /// The capability cards, in order: key, title, what it means (analyze.CARDS).
 List<(String, String, String)> get analyzeCards => <(String, String, String)>[
@@ -77,11 +78,14 @@ final class Finding {
   final Map<String, dynamic>? download;
 }
 
-/// AnalyzeTab: what an agent and one of its models can do, a card per capability with a mark.
+/// AnalyzeTab: what an agent and one of its models can do, a card per capability with a mark. A
+/// header symbol's page (the test tube beside ⓘ and Settings), with Back like Settings: its heading
+/// stays while the rest scrolls.
 class AnalyzePage extends StatefulWidget {
-  const AnalyzePage({super.key, required this.host, required this.playground});
+  const AnalyzePage({super.key, required this.host, required this.playground, required this.onBack});
   final Host host;
   final Playground playground;
+  final VoidCallback onBack;
   @override
   State<AnalyzePage> createState() => _AnalyzePageState();
 }
@@ -263,10 +267,9 @@ class _AnalyzePageState extends State<AnalyzePage> {
     final agent = ready.where((a) => a.command == _agent).firstOrNull;
     final choices = _choices;
     final none = ready.isEmpty;
-    return PageScroll(
+    final body = PageScroll(
       children: [
-        TabIntro(
-          tr("Analyze"),
+        Hint(
           tr(
             "What an agent can do with one of its models: text, pictures, chess videos, thinking time, chess, how much it keeps in mind. A few short test questions are asked (they may count against your plan); a local model is set up for pictures where it can be.",
           ),
@@ -309,6 +312,13 @@ class _AnalyzePageState extends State<AnalyzePage> {
         vgap,
         if (_findings.isNotEmpty)
           for (final (k, t, m) in analyzeCards) _card(k, t, m),
+      ],
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PageHead(title: tr("Analyze"), onBack: widget.onBack),
+        Expanded(child: body),
       ],
     );
   }

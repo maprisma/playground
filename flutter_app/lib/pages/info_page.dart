@@ -75,6 +75,10 @@ class InfoPage extends StatelessWidget {
               card(Icons.apps, 'Maprisma Manager', [
                 tr("Installs, updates and removes the Maprisma apps, and puts their icons in the bar."),
               ]),
+              vgap,
+              card(Icons.rocket_launch_outlined, 'Maprisma Launcher', [
+                tr("Apps, shortcuts and updates, with AI package advice"),
+              ]),
             ],
           ),
         ),

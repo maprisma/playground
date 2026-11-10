@@ -72,7 +72,7 @@ void main() {
     await tester.tap(find.text('Use rule'));
     await tester.pump();
     expect(settings.text('automaton_rule'), 'B36/S23');
-    expect(find.textContaining('HighLife'), findsOneWidget);
+    expect(find.textContaining('HighLife  B36/S23'), findsOneWidget);
   });
 
   testWidgets('a rule that is not one is refused', (tester) async {
@@ -81,5 +81,114 @@ void main() {
     await tester.tap(find.text('Use rule'));
     await tester.pump();
     expect(settings.text('automaton_rule'), 'B3/S23');
+  });
+
+  String what(String scenario) => ruleInfo[scenario]!.whatText;
+
+  testWidgets('the text under the heading follows the scenario; an own rule shows the general intro', (tester) async {
+    await pump(tester);
+    expect(find.text(what("Conway's Life")), findsOneWidget); // the saved one from the start
+    await tester.enterText(find.byType(TextField), 'b36/s23');
+    await tester.tap(find.text('Use rule'));
+    await tester.pump();
+    expect(find.text(what('HighLife')), findsOneWidget); // a typed rule that is a named scenario
+    await tester.enterText(find.byType(TextField), 'B1/S1');
+    await tester.tap(find.text('Use rule'));
+    await tester.pump();
+    expect(find.textContaining('A cellular automaton: each cell lives or dies'), findsOneWidget);
+  });
+
+  testWidgets('a saved scenario explains itself from the start', (tester) async {
+    settings.update({'automaton_rule': 'B2/S'});
+    await pump(tester);
+    expect(find.text(what('Seeds')), findsOneWidget);
+  });
+
+  Future<void> openPatternHint(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('About this pattern'));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> closeHint(WidgetTester tester) async {
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('the second ⓘ with Draw cells follows the scenario', (tester) async {
+    await pump(tester);
+    await tester.enterText(find.byType(TextField), 'b36/s23');
+    await tester.tap(find.text('Use rule'));
+    await tester.pump();
+    await openPatternHint(tester);
+    final high = ruleInfo['HighLife']!, draw = patternInfo['draw']!;
+    expect(find.text('Draw cells · HighLife'), findsOneWidget);
+    expect(find.text(draw.whatText), findsOneWidget);
+    expect(find.text(high.watchText), findsOneWidget);
+    expect(find.text(high.tryText), findsOneWidget);
+    expect(find.text(draw.watchText), findsNothing);
+    final links = drawingInfo('HighLife').links;
+    expect(find.text('All links (${links.length})'), findsOneWidget);
+    await closeHint(tester);
+  });
+
+  testWidgets('a Life pattern under another rule says it is made for Conway\'s Life', (tester) async {
+    await pump(tester);
+    await tester.tap(find.text('Draw cells'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Glider').last);
+    await tester.pumpAndSettle();
+    await openPatternHint(tester);
+    expect(find.text('Good to know'), findsNothing); // Conway's Life: as described
+    await closeHint(tester);
+    await tester.enterText(find.byType(TextField), 'B2/S');
+    await tester.tap(find.text('Use rule'));
+    await tester.pump();
+    await openPatternHint(tester);
+    expect(find.text('GOOD TO KNOW'), findsOneWidget);
+    expect(find.textContaining('This pattern is made for Conway\'s Life. Under the rule of “Seeds”'), findsOneWidget);
+    await closeHint(tester);
+  });
+
+  testWidgets('Read more is one "All links" drop-down that opens a link and stays a list', (tester) async {
+    final opened = <String>[];
+    final links = ruleInfo["Conway's Life"]!.links;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: appTheme(Brightness.dark, const {}, 8),
+        home: Scaffold(
+          body: Center(child: LinksChoice(links, open: opened.add)),
+        ),
+      ),
+    );
+    expect(find.text('All links (${links.length})'), findsOneWidget);
+    expect(find.byType(OutlinedButton), findsNothing); // no separate link buttons
+    await tester.tap(find.text('All links (${links.length})'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('${links[1].$1}  ↗'));
+    await tester.pumpAndSettle();
+    expect(opened, [links[1].$2]);
+    expect(find.text('All links (${links.length})'), findsOneWidget);
+  });
+
+  testWidgets('the controls wrap in groups in a narrow window', (tester) async {
+    tester.view.physicalSize = const Size(700, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final host = Host(settings: settings, toast: (_) {}, show: (_) {});
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: appTheme(Brightness.dark, const {}, 8),
+        home: Scaffold(body: AutomatonPage(host: host, active: true)),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    // A choice and its ⓘ stay on one line.
+    final rule = tester.getRect(find.textContaining("Conway's Life  B3/S23"));
+    final about = tester.getRect(find.byTooltip('About this rule'));
+    expect((about.center.dy - rule.center.dy).abs(), lessThan(4));
+    final draw = tester.getRect(find.text('Draw cells'));
+    final aboutPattern = tester.getRect(find.byTooltip('About this pattern'));
+    expect((aboutPattern.center.dy - draw.center.dy).abs(), lessThan(4));
   });
 }

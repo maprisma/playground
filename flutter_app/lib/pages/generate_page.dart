@@ -220,7 +220,7 @@ class _GeneratePageState extends State<GeneratePage> {
           ),
           vgap,
         ],
-        PromptField(controller: _prompt, minLines: 2, onSubmit: _ready && !busy ? _generate : null),
+        PromptField(controller: _prompt, onSubmit: _ready && !busy ? _generate : null),
         vgap,
         Wrap(
           spacing: 8,

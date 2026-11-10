@@ -257,3 +257,63 @@ void atomicPrivateWrite(String path, String text, {bool privateFolder = false}) 
     if (File(temp).existsSync()) File(temp).deleteSync();
   }
 }
+
+final _errnoLocation = _libc.lookupFunction<Pointer<Int32> Function(), Pointer<Int32> Function()>(
+  '__errno_location',
+);
+final _strerror = _libc.lookupFunction<Pointer<Uint8> Function(Int32), Pointer<Uint8> Function(int)>('strerror');
+final _mkdir = _libc.lookupFunction<Int32 Function(Pointer<Uint8>, Uint32), int Function(Pointer<Uint8>, int)>(
+  'mkdir',
+);
+
+/// The last libc error as an OSError (its own English text, as Python's strerror).
+OSError _lastError() {
+  final code = _errnoLocation().value;
+  final text = _strerror(code);
+  var length = 0;
+  while (text[length] != 0) {
+    length++;
+  }
+  return OSError(utf8.decode(text.asTypedList(length), allowMalformed: true), code);
+}
+
+/// A new file only its owner can read (0600 from the first byte): never through a link
+/// (O_NOFOLLOW) and never over an existing file (O_EXCL).
+void writeNewPrivate(String path, List<int> bytes) {
+  final name = _text(path);
+  int fd;
+  try {
+    fd = _openMode(name, 1 | 0x20000 | 0x80000 | 0x40 | 0x80, 0x180); // O_WRONLY|O_NOFOLLOW|O_CLOEXEC|O_CREAT|O_EXCL
+  } finally {
+    _free(name.cast());
+  }
+  if (fd < 0) throw FileSystemException('open', path, _lastError());
+  final buffer = _allocate(bytes.isEmpty ? 1 : bytes.length);
+  try {
+    buffer.asTypedList(bytes.length).setAll(0, bytes);
+    var offset = 0;
+    while (offset < bytes.length) {
+      final n = _writeFd(fd, buffer + offset, bytes.length - offset);
+      if (n <= 0) throw FileSystemException('write', path, _lastError());
+      offset += n;
+    }
+  } finally {
+    _free(buffer.cast());
+    _close(fd);
+  }
+}
+
+/// A folder of this account's that only it can open (0700 from the start); its parents are made
+/// as usual. An existing folder is left as it is.
+void makePrivateFolder(String path) {
+  if (FileSystemEntity.isDirectorySync(path)) return;
+  Directory(File(path).parent.path).createSync(recursive: true);
+  final name = _text(path);
+  try {
+    if (_mkdir(name, 0x1c0) != 0 && !FileSystemEntity.isDirectorySync(path)) {
+      throw FileSystemException('mkdir', path, _lastError());
+    }
+  } finally {
+    _free(name.cast());
+  }
+}

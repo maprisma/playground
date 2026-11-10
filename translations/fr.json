@@ -2356,5 +2356,17 @@
  ],
  "Reading the moves needs an agent that sees pictures and runs without tools: Claude Code or Pi, signed in or connected to a local vision model.": "Pour lire les coups, il faut un agent qui voit les images et fonctionne sans outils : Claude Code ou Pi, connecté à son compte ou à un modèle de vision local.",
  "Left out: {0}. It can read files on this computer, and a video's text or pictures could ask it to.": "Laissé de côté : {0}. Il peut lire des fichiers sur cet ordinateur, et le texte ou les images d'une vidéo pourraient le lui demander.",
- "Only an agent without tools may read a video.": "Seul un agent sans outils peut lire une vidéo."
+ "Only an agent without tools may read a video.": "Seul un agent sans outils peut lire une vidéo.",
+ "Apps, shortcuts and updates, with AI package advice": "Applis, raccourcis et mises à jour, avec conseils IA",
+ "Slightly rounded ({0} px)": "Légèrement arrondis ({0} px)",
+ "Rounded ({0} px)": "Arrondis ({0} px)",
+ "F12 saves a screenshot": "F12 enregistre une capture d'écran",
+ "Screenshot saved": "Capture enregistrée",
+ "Saved as {0}": "Enregistrée sous {0}",
+ "What is wrong? (optional)": "Qu'est-ce qui ne va pas ? (facultatif)",
+ "The screenshot could not be saved: {0}": "La capture n'a pas pu être enregistrée : {0}",
+ "The note could not be saved: {0}": "La note n'a pas pu être enregistrée : {0}",
+ "The window drew nothing.": "La fenêtre n'a rien dessiné.",
+ "This pattern is made for Conway's Life. Under the rule of “{0}” it may grow, fall apart or stand still instead; choose Conway's Life above to see it as described.": "Ce motif est fait pour le Jeu de la vie de Conway. Avec la règle de « {0} », il peut grandir, se défaire ou rester immobile ; choisis Conway's Life en haut pour le voir comme décrit.",
+ "All links ({0})": "Tous les liens ({0})"
 }

@@ -108,6 +108,9 @@ class _LocalPageState extends State<LocalPage> {
           ),
         ),
         vgap,
+        // The question first, as on the other tabs; the models below it.
+        PromptField(controller: _prompt, onSubmit: _ask),
+        vgap,
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -136,8 +139,6 @@ class _LocalPageState extends State<LocalPage> {
             SmallButton(tr("Look again"), onPressed: p.scanning ? null : p.scan),
           ],
         ),
-        vgap,
-        PromptField(controller: _prompt, minLines: 2, onSubmit: _ask),
         vgap,
         ActionButton(tr("Ask"), onPressed: locals.isEmpty || p.scanning ? null : _ask),
         vgap,

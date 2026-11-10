@@ -292,7 +292,7 @@ class _VisionPageState extends State<VisionPage> {
           ),
         ],
         vgap,
-        PromptField(controller: _prompt, minLines: 2, onSubmit: _ask),
+        PromptField(controller: _prompt, onSubmit: _ask),
         vgap,
         if (agents.isEmpty)
           Hint(tr("No agent that can see and runs without tools is set up (Claude Code or Pi)."))

@@ -6,8 +6,8 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'page_head.dart';
 
-/// build_settings_page: General (Language, Corners, Text in choice boxes), then how it works, in
-/// cards that fold. No Look: Maprisma Playground follows the desktop's colours.
+/// build_settings_page: General (Language, Corners, Text in choice boxes, F12 saves a screenshot),
+/// then how it works, in cards that fold. No Look: Maprisma Playground follows the desktop's colours.
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key, required this.host, required this.onBack, required this.onLookChanged, this.rounding});
   final Host host;
@@ -18,7 +18,7 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  void _save(String key, String value) {
+  void _save(String key, Object value) {
     try {
       widget.host.settings.update({key: value});
     } on Object catch (e) {
@@ -38,9 +38,13 @@ class _SettingsPageState extends State<SettingsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(fontSize: 14, color: look.fg)),
+                // The rows as the cards' text: title 13 semi-bold, explanation 12 dimmed.
+                Text(
+                  title,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: look.fg),
+                ),
                 const SizedBox(height: 2),
-                Text(hint, style: TextStyle(fontSize: 12, color: look.muted)),
+                Text(hint, style: TextStyle(fontSize: 12, color: look.dim)),
               ],
             ),
           ),
@@ -56,8 +60,13 @@ class _SettingsPageState extends State<SettingsPage> {
     final look = Look.of(context);
     final s = widget.host.settings;
     final like = widget.rounding == null ? tr("Like windows") : trf("Like windows ({0} px)", [widget.rounding]);
-    const cornerValues = ['windows', 'rounded', 'square'];
-    final cornerLabels = [like, tr("Rounded"), tr("Square")];
+    const cornerValues = ['windows', 'slight', 'rounded', 'square'];
+    final cornerLabels = [
+      like,
+      trf("Slightly rounded ({0} px)", [slightRadius]),
+      trf("Rounded ({0} px)", [roundedRadius]),
+      tr("Square"),
+    ];
     final group = Container(
       decoration: BoxDecoration(
         color: look.fg.withValues(alpha: .03),
@@ -83,7 +92,9 @@ class _SettingsPageState extends State<SettingsPage> {
           Divider(color: look.fg.withValues(alpha: .08)),
           _row(
             tr("Corners"),
-            tr("The corners of cards and buttons: like the desktop's windows, rounded or square."),
+            tr(
+              "Corners of the window, its cards and every control (buttons, choice boxes, fields). “Like windows” follows the desktop's window rounding.",
+            ),
             Choice<String>(
               value: s.text('corners'),
               items: cornerValues,
@@ -102,6 +113,18 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: (v) => _save('choice_text', v),
             ),
           ),
+          Divider(color: look.fg.withValues(alpha: .08)),
+          _row(
+            tr("F12 saves a screenshot"),
+            tr(
+              "A picture of this window goes to ~/Pictures/Maprisma Playground; then you can add a note about what is wrong, saved next to it.",
+            ),
+            Switch(
+              key: const ValueKey('screenshot-key'),
+              value: s.flag('screenshot_key'),
+              onChanged: (v) => _save('screenshot_key', v),
+            ),
+          ),
         ],
       ),
     );
@@ -115,7 +138,11 @@ class _SettingsPageState extends State<SettingsPage> {
         Expanded(
           child: PageScroll(
             children: [
-              SectionTitle(tr("General")),
+              // The group heading: 11 px capitals, dimmed (Settings' own, below the page's name).
+              Text(
+                tr("General").toUpperCase(),
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: look.dim),
+              ),
               vgap,
               group,
               vgap,

@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:io' show FileSystemException;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:maprisma_playground_core/maprisma_playground_core.dart';
 
@@ -18,11 +21,12 @@ import 'pages/info_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/todo_page.dart';
 import 'theme.dart';
+import 'widgets.dart';
 import 'window.dart';
 
-/// The tabs, in the plugin's order with the Automaton after Chess (Ctrl+1 … Ctrl+8).
+/// The tabs, in the plugin's order with the Automaton after Chess (Ctrl+1 … Ctrl+7). Analyze is
+/// not a tab: it is a header symbol's page, as Information and Settings.
 List<(String, String)> get tabs => <(String, String)>[
-  ('analyze', tr("Analyze")),
   ('chess', tr("Chess")),
   ('automaton', tr("Automaton")),
   ('speed', tr("Speed and cost")),
@@ -32,6 +36,17 @@ List<(String, String)> get tabs => <(String, String)>[
   ('local', tr("Local LLMs")),
 ];
 final tabKeys = {for (final t in tabs) t.$1};
+
+/// Pages opened from a header symbol (or Games from Chess), with Back: Esc and Backspace go back
+/// to the last tab.
+const symbolPages = {'analyze', 'settings', 'info', 'games'};
+
+/// What `--test` may open: a tab, or the Analyze page.
+Set<String> get testPages => {...tabKeys, 'analyze'};
+
+/// The whole window, dialogs included, for F12's picture (MaterialApp.builder).
+final windowShot = GlobalKey(debugLabel: 'window');
+Widget windowFrame(BuildContext context, Widget? child) => RepaintBoundary(key: windowShot, child: child);
 
 /// What every page gets: the settings, a way to show a short message, and to switch pages.
 final class Host {
@@ -94,6 +109,7 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
       title: 'Maprisma Playground',
       debugShowCheckedModeBanner: false,
       theme: theme,
+      builder: windowFrame,
       home: Shell(
         settings: widget.settings,
         playground: widget.playground,
@@ -113,12 +129,16 @@ class Shell extends StatefulWidget {
     required this.args,
     this.rounding,
     required this.onLookChanged,
+    this.screenshots,
   });
   final Settings settings;
   final Playground playground;
   final List<String> args;
   final int? rounding;
   final VoidCallback onLookChanged;
+
+  /// Where F12 saves its pictures (tests); null: ~/Pictures/Maprisma Playground.
+  final String? screenshots;
   @override
   State<Shell> createState() => _ShellState();
 }
@@ -141,9 +161,10 @@ class _ShellState extends State<Shell> {
   void initState() {
     super.initState();
     final saved = widget.settings.text('playground_tab');
-    _page = tabKeys.contains(saved) ? saved : 'analyze';
+    _page = tabKeys.contains(saved) ? saved : tabs.first.$1; // a saved "analyze" is no tab any more
     _lastTab = _page;
     _open(widget.args);
+    HardwareKeyboard.instance.addHandler(_f12);
     if (widget.settings.get('window_size') case [final int w, final int h]) {
       AppWindow.instance.resize(w, h); // a tiling desktop may still place it as it likes
     }
@@ -177,7 +198,7 @@ class _ShellState extends State<Shell> {
   }
 
   void _open(List<String> words) {
-    final wanted = parseArgs(words, tabKeys);
+    final wanted = parseArgs(words, testPages);
     if (wanted.tab.isNotEmpty) _show(wanted.tab);
   }
 
@@ -191,6 +212,7 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_f12);
     for (final s in _subscriptions) {
       s.cancel();
     }
@@ -212,6 +234,102 @@ class _ShellState extends State<Shell> {
     if (tabKeys.contains(page)) _remember();
   }
 
+  // --- F12: a picture of the window ------------------------------------------------------------
+
+  bool _shooting = false;
+
+  bool get _screenshotOn {
+    try {
+      return widget.settings.flag('screenshot_key');
+    } on Object {
+      return true;
+    }
+  }
+
+  /// F12 without Ctrl, Shift, Alt or Super, wherever the keyboard is (also in a dialog).
+  bool _f12(KeyEvent event) {
+    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.f12) return false;
+    final keys = HardwareKeyboard.instance;
+    if (keys.isControlPressed || keys.isShiftPressed || keys.isAltPressed || keys.isMetaPressed) return false;
+    if (!_screenshotOn) return false;
+    takeScreenshot();
+    return true;
+  }
+
+  static String _why(Object error) => switch (error) {
+    FileSystemException(:final osError?) => osError.message,
+    FileSystemException(:final message) => message,
+    _ => '$error',
+  };
+
+  /// The window as it is now into a PNG (it draws itself: no screenshot program), then the
+  /// dialog for a note.
+  Future<void> takeScreenshot() async {
+    if (_shooting) return;
+    _shooting = true;
+    String path;
+    try {
+      final boundary = windowShot.currentContext?.findRenderObject();
+      if (boundary is! RenderRepaintBoundary || !boundary.hasSize || boundary.size.isEmpty) {
+        throw _NoPicture();
+      }
+      final image = await boundary.toImage(pixelRatio: View.of(context).devicePixelRatio);
+      final ByteData? png;
+      try {
+        png = await image.toByteData(format: ui.ImageByteFormat.png);
+      } finally {
+        image.dispose();
+      }
+      if (png == null) throw _NoPicture();
+      path = saveScreenshot(widget.screenshots ?? screenshotFolder(), png.buffer.asUint8List());
+    } on Object catch (e) {
+      _shooting = false;
+      if (mounted) _toast(trf("The screenshot could not be saved: {0}", [_why(e)]));
+      return;
+    }
+    _shooting = false;
+    if (mounted) await _screenshotNote(path);
+  }
+
+  /// "Screenshot saved": where, and an optional note about what is wrong, saved next to it as a
+  /// .txt when the dialog closes (Done, Enter, Esc).
+  Future<void> _screenshotNote(String path) async {
+    // Not disposed: the field still uses it while the dialog fades out.
+    final note = TextEditingController();
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(tr("Screenshot saved"), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AnswerText(trf("Saved as {0}", [homeShort(path)])),
+              const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('screenshot-note'),
+                controller: note,
+                autofocus: true,
+                maxLength: screenshotNoteLimit,
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(hintText: tr("What is wrong? (optional)"), counterText: ''),
+                onSubmitted: (_) => Navigator.pop(context),
+              ),
+            ],
+          ),
+        ),
+        actions: [ActionButton(tr("Done"), onPressed: () => Navigator.pop(context))],
+      ),
+    );
+    try {
+      saveScreenshotNote(path, note.text);
+    } on Object catch (e) {
+      if (mounted) _toast(trf("The note could not be saved: {0}", [_why(e)]));
+    }
+  }
+
   bool get _editing {
     final focus = FocusManager.instance.primaryFocus;
     return focus?.context?.widget is EditableText ||
@@ -230,8 +348,7 @@ class _ShellState extends State<Shell> {
       LogicalKeyboardKey.digit5,
       LogicalKeyboardKey.digit6,
       LogicalKeyboardKey.digit7,
-      LogicalKeyboardKey.digit8,
-    ];
+    ].take(tabs.length).toList();
     if (ctrl && digits.contains(key)) {
       _show(tabs[digits.indexOf(key)].$1);
       return KeyEventResult.handled;
@@ -245,7 +362,7 @@ class _ShellState extends State<Shell> {
       return KeyEventResult.handled;
     }
     // A page with a Back button: Esc and Backspace go back, unless a text field has the keyboard.
-    if (!tabKeys.contains(_page) &&
+    if (symbolPages.contains(_page) &&
         (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.backspace) &&
         !_editing) {
       _show(_lastTab);
@@ -256,7 +373,6 @@ class _ShellState extends State<Shell> {
 
   Widget _tabPage(String key) => switch (key) {
     'automaton' => AutomatonPage(host: _host, active: _page == 'automaton'),
-    'analyze' => AnalyzePage(host: _host, playground: widget.playground),
     'chess' => ChessPage(host: _host, playground: widget.playground, active: _page == 'chess'),
     'speed' => SpeedPage(host: _host, playground: widget.playground),
     'vision' => VisionPage(host: _host, playground: widget.playground),
@@ -269,7 +385,8 @@ class _ShellState extends State<Shell> {
   @override
   Widget build(BuildContext context) {
     final look = Look.of(context);
-    final index = tabs.indexWhere((t) => t.$1 == _page);
+    // Analyze stays built after the tabs (a running analysis keeps going under Settings).
+    final index = _page == 'analyze' ? tabs.length : tabs.indexWhere((t) => t.$1 == _page);
     return Scaffold(
       backgroundColor: look.bg,
       body: Focus(
@@ -278,7 +395,7 @@ class _ShellState extends State<Shell> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Header(page: _page, onShow: _show),
+            AppHeader(page: _page, onShow: _show),
             Expanded(
               child: Stack(
                 fit: StackFit.expand,
@@ -291,7 +408,10 @@ class _ShellState extends State<Shell> {
                       enabled: index >= 0,
                       child: IndexedStack(
                         index: index < 0 ? tabs.indexWhere((t) => t.$1 == _lastTab) : index,
-                        children: [for (final t in tabs) _tabPage(t.$1)],
+                        children: [
+                          for (final t in tabs) _tabPage(t.$1),
+                          AnalyzePage(host: _host, playground: widget.playground, onBack: () => _show(_lastTab)),
+                        ],
                       ),
                     ),
                   ),
@@ -323,47 +443,17 @@ class _ShellState extends State<Shell> {
   }
 }
 
-/// build_header: the gamepad, the name, a button per tab, then Information and Settings.
-class _Header extends StatelessWidget {
-  const _Header({required this.page, required this.onShow});
+/// build_header: the gamepad, the name, the tabs (wrapping onto more lines in a narrow window and
+/// filling the header's width), then Analyze, Information and Settings, always in view.
+class AppHeader extends StatelessWidget {
+  const AppHeader({super.key, required this.page, required this.onShow});
   final String page;
   final ValueChanged<String> onShow;
 
   @override
   Widget build(BuildContext context) {
     final look = Look.of(context);
-    final radius = corners(context);
-    Widget tab(int i) {
-      final (key, label) = tabs[i];
-      final on = key == page;
-      return Padding(
-        padding: const EdgeInsets.only(right: 4),
-        child: Tooltip(
-          message: trf('Ctrl+{0}', [i + 1]),
-          child: TextButton(
-            onPressed: () => onShow(key),
-            style: TextButton.styleFrom(
-              foregroundColor: on ? look.accent : look.fg,
-              backgroundColor: on ? look.accent.withValues(alpha: .15) : look.fg.withValues(alpha: .08),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-            ),
-            child: Text(label),
-          ),
-        ),
-      );
-    }
-
-    Widget round(IconData icon, String tip, String target) => Tooltip(
-      message: tip,
-      child: IconButton(
-        onPressed: () => onShow(target),
-        icon: Icon(icon, size: 19, color: page == target ? look.accent : look.fg),
-      ),
-    );
-
-    // A narrow (tiled) window keeps every tab in view: the name gives way first, the icon stays.
+    // A narrow (tiled) window keeps the tabs and symbols in view: the name gives way first.
     final wide = MediaQuery.sizeOf(context).width >= 1300;
     return Padding(
       padding: const EdgeInsets.fromLTRB(17, 8, 12, 8),
@@ -382,16 +472,171 @@ class _Header extends StatelessWidget {
           ],
           SizedBox(width: wide ? 16 : 10),
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(children: [for (var i = 0; i < tabs.length; i++) tab(i)]),
-            ),
+            child: HeaderTabs(page: page, onShow: onShow),
           ),
           const SizedBox(width: 8),
-          round(Icons.info, tr("Information"), 'info'),
-          round(Icons.settings, tr("Settings (Ctrl+,)"), 'settings'),
+          // Symbols that open a page with Back; lit while it is open.
+          for (final (key, icon, tip) in [
+            ('analyze', Icons.science_outlined, tr("Analyze")),
+            ('info', Icons.info_outline, tr("Information")),
+            ('settings', Icons.settings, tr("Settings (Ctrl+,)")),
+          ]) ...[
+            if (key != 'analyze') const SizedBox(width: 4),
+            HeaderSymbol(
+              key: ValueKey('symbol-$key'),
+              icon: icon,
+              tooltip: tip,
+              active: page == key,
+              onPressed: () => onShow(key),
+            ),
+          ],
         ],
       ),
     );
   }
+}
+
+/// A header symbol (Analyze, Information, Settings): a small square bordered button, in the
+/// accent colour while its page is open.
+class HeaderSymbol extends StatelessWidget {
+  const HeaderSymbol({super.key, required this.icon, required this.tooltip, required this.active, this.onPressed});
+  final IconData icon;
+  final String tooltip;
+  final bool active;
+  final VoidCallback? onPressed;
+
+  static const side = 26.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final look = Look.of(context);
+    final color = active ? look.accent : look.fg;
+    return Tooltip(
+      message: tooltip,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: color,
+          backgroundColor: active ? look.accent.withValues(alpha: .14) : Colors.transparent,
+          side: BorderSide(color: active ? look.accent : look.fg.withValues(alpha: .35)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(cornerSizes(context).control)),
+          padding: EdgeInsets.zero,
+          minimumSize: const Size.square(side),
+          fixedSize: const Size.square(side),
+          visualDensity: VisualDensity.standard,
+        ),
+        child: Icon(icon, size: 16, color: color),
+      ),
+    );
+  }
+}
+
+/// fit_tabs: the tabs' lines for this width. They wrap where they no longer fit; all on one line,
+/// that line fills the width; wrapped, the full lines fill it and the last line keeps the tabs'
+/// own widths. Each entry is (tab index, width).
+List<List<(int, double)>> fitTabs(List<double> natural, double width, {double spacing = 4}) {
+  final lines = <List<int>>[];
+  var line = <int>[];
+  var used = 0.0;
+  for (var i = 0; i < natural.length; i++) {
+    final need = (line.isEmpty ? 0 : spacing) + natural[i];
+    if (line.isNotEmpty && used + need > width + .01) {
+      lines.add(line);
+      line = [i];
+      used = natural[i];
+    } else {
+      line.add(i);
+      used += need;
+    }
+  }
+  if (line.isNotEmpty) lines.add(line);
+  return [
+    for (var k = 0; k < lines.length; k++)
+      () {
+        final ids = lines[k];
+        final fill = lines.length == 1 || k < lines.length - 1;
+        final total = ids.fold(0.0, (sum, i) => sum + natural[i]) + spacing * (ids.length - 1);
+        final extra = fill ? (width - total).clamp(0.0, double.infinity) / ids.length : 0.0;
+        return [for (final i in ids) (i, (natural[i] + extra).clamp(0.0, width).toDouble())];
+      }(),
+  ];
+}
+
+/// The tab buttons in lines that fill the header (fitTabs).
+class HeaderTabs extends StatelessWidget {
+  const HeaderTabs({super.key, required this.page, required this.onShow});
+  final String page;
+  final ValueChanged<String> onShow;
+
+  static const spacing = 4.0, padding = 11.0;
+  static const style = TextStyle(fontSize: 14, fontWeight: FontWeight.w700);
+
+  @override
+  Widget build(BuildContext context) {
+    final look = Look.of(context);
+    final radius = cornerSizes(context).control;
+    final scaler = MediaQuery.textScalerOf(context);
+    final natural = [
+      for (final (_, label) in tabs)
+        (TextPainter(
+              text: TextSpan(text: label, style: style),
+              textDirection: TextDirection.ltr,
+              textScaler: scaler,
+              maxLines: 1,
+            )..layout()).width.ceilToDouble() +
+            2 * padding +
+            2,
+    ];
+    return LayoutBuilder(
+      builder: (context, box) {
+        final lines = fitTabs(natural, box.maxWidth, spacing: spacing);
+        Widget tab(int i, double width) {
+          final (key, label) = tabs[i];
+          final on = key == page;
+          return SizedBox(
+            width: width,
+            child: Tooltip(
+              message: trf('Ctrl+{0}', [i + 1]),
+              child: TextButton(
+                key: ValueKey('tab-$key'),
+                onPressed: () => onShow(key),
+                style: TextButton.styleFrom(
+                  foregroundColor: on ? look.accent : look.fg,
+                  backgroundColor: on ? look.accent.withValues(alpha: .15) : look.fg.withValues(alpha: .08),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+                  padding: const EdgeInsets.symmetric(horizontal: padding, vertical: 8),
+                  textStyle: style,
+                ),
+                child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var k = 0; k < lines.length; k++) ...[
+              if (k > 0) const SizedBox(height: spacing),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var j = 0; j < lines[k].length; j++) ...[
+                    if (j > 0) const SizedBox(width: spacing),
+                    tab(lines[k][j].$1, lines[k][j].$2),
+                  ],
+                ],
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+final class _NoPicture implements Exception {
+  @override
+  String toString() => tr("The window drew nothing.");
 }

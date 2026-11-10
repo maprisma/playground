@@ -14,6 +14,18 @@ import '../widgets.dart';
 const _ownRule = 'Own rule…';
 const _paint = 'Draw cells';
 const _densities = [.1, .2, .3, .4, .5];
+const _intro =
+    "A cellular automaton: each cell lives or dies by how many of its eight neighbours are alive. Draw cells with the mouse (the right button erases), place a pattern, or fill at random, then Play. The rule can be changed while it runs: B is how many neighbours bring a cell to life, S how many keep it alive.";
+
+/// A group of controls that belong together and wrap as one (a choice and its ⓘ, Speed and its
+/// slider), so the page fits a narrow window (au_group).
+Widget _group(List<Widget> children) => Row(
+  mainAxisSize: MainAxisSize.min,
+  crossAxisAlignment: CrossAxisAlignment.center,
+  children: [
+    for (var i = 0; i < children.length; i++) ...[if (i > 0) const SizedBox(width: 8), children[i]],
+  ],
+);
 
 /// The Automaton tab (new in Maprisma Playground, after Chess): a cellular automaton to draw on,
 /// run, step and change the rule of while it runs.
@@ -133,10 +145,17 @@ class _AutomatonPageState extends State<AutomatonPage> {
 
   // --- the hint windows --------------------------------------------------------------------------
 
-  Future<void> _explain(String title, String notation, ScenarioInfo info, {bool materials = false}) async {
+  Future<void> _explain(
+    String title,
+    String notation,
+    ScenarioInfo info, {
+    bool materials = false,
+    String note = '',
+  }) async {
     final go = await showDialog<bool>(
       context: context,
-      builder: (context) => _ScenarioDialog(title: title, notation: notation, info: info, materials: materials),
+      builder: (context) =>
+          _ScenarioDialog(title: title, notation: notation, info: info, materials: materials, note: note),
     );
     if (go == true && mounted) _tryIt(info.setup);
   }
@@ -176,6 +195,27 @@ class _AutomatonPageState extends State<AutomatonPage> {
     _repaint.value++;
     setState(() => _playing = setup.play);
     _schedule();
+  }
+
+  /// The scenario's key in ruleInfo ("own" for an own rule) and its title as the window shows it.
+  String get _scenarioKey => _ruleChoice == _ownRule ? 'own' : _ruleChoice;
+  String get _scenarioTitle => _ruleChoice == _ownRule || _ruleChoice == mixerName || isMaterialsRule(_ruleChoice)
+      ? tr(_ruleChoice)
+      : _ruleChoice;
+
+  /// The text under the heading follows the chosen scenario (its "What happens"); with an own rule
+  /// it is the tab's general explanation.
+  String get _introText => _ruleChoice == _ownRule ? tr(_intro) : scenarioInfo(_scenarioKey).whatText;
+
+  /// The second ⓘ follows the scenario too: drawing explains what to look for and try in the chosen
+  /// scenario (and Try it sets that up); a Life pattern under another rule says so.
+  void _explainPattern() {
+    if (_tool == _paint) {
+      _explain('${tr('Draw cells')} · $_scenarioTitle', '', drawingInfo(_scenarioKey));
+      return;
+    }
+    final note = needsPatternNote(_grid.rule.notation, mixing: _grid.mixing) ? trf(patternNote, [_scenarioTitle]) : '';
+    _explain(tr(_tool), '', patternWindowInfo(_tool, _scenarioKey), note: note);
   }
 
   // --- the rule ------------------------------------------------------------------------------
@@ -279,127 +319,130 @@ class _AutomatonPageState extends State<AutomatonPage> {
   Widget build(BuildContext context) {
     final look = Look.of(context);
     final controls = Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 12,
+      runSpacing: 6,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Choice<String>(
-          value: _ruleChoice,
-          items: [...namedRules.keys, mixerName, _ownRule],
-          label: (n) => switch (n) {
-            _ownRule => tr('Own rule…'),
-            mixerName => tr(mixerName),
-            _ when isMaterialsRule(n) => '${tr(n)}  ${namedRules[n]}',
-            _ => '$n  ${namedRules[n]}',
-          },
-          onChanged: _pickRule,
-          tooltip: tr("Rule"),
-        ),
-        IconSmallButton(
-          Icons.info_outline,
-          tooltip: tr("About this rule"),
-          onPressed: () => _explain(
-            switch (_ruleChoice) {
+        _group([
+          Choice<String>(
+            value: _ruleChoice,
+            items: [...namedRules.keys, mixerName, _ownRule],
+            label: (n) => switch (n) {
               _ownRule => tr('Own rule…'),
               mixerName => tr(mixerName),
-              _ when isMaterialsRule(_ruleChoice) => tr(_ruleChoice),
-              _ => _ruleChoice,
+              _ when isMaterialsRule(n) => '${tr(n)}  ${namedRules[n]}',
+              _ => '$n  ${namedRules[n]}',
             },
-            switch (_ruleChoice) {
-              _ownRule => _ruleText.text,
-              mixerName => '',
-              _ => namedRules[_ruleChoice]!,
-            },
-            ruleInfo[_ruleChoice == _ownRule ? 'own' : _ruleChoice]!,
-            materials: _ruleChoice == mixerName || isMaterialsRule(_ruleChoice),
+            onChanged: _pickRule,
+            tooltip: tr("Rule"),
           ),
-        ),
-        SizedBox(
-          width: 150,
-          child: TextField(
-            controller: _ruleText,
-            style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
-            decoration: InputDecoration(
-              hintText: 'B3/S23',
-              errorText: _ruleError == null ? null : '',
-              errorStyle: const TextStyle(height: 0, fontSize: 0),
+          IconSmallButton(
+            Icons.info_outline,
+            tooltip: tr("About this rule"),
+            onPressed: () => _explain(
+              switch (_ruleChoice) {
+                _ownRule => tr('Own rule…'),
+                mixerName => tr(mixerName),
+                _ when isMaterialsRule(_ruleChoice) => tr(_ruleChoice),
+                _ => _ruleChoice,
+              },
+              switch (_ruleChoice) {
+                _ownRule => _ruleText.text,
+                mixerName => '',
+                _ => namedRules[_ruleChoice]!,
+              },
+              ruleInfo[_ruleChoice == _ownRule ? 'own' : _ruleChoice]!,
+              materials: _ruleChoice == mixerName || isMaterialsRule(_ruleChoice),
             ),
-            onSubmitted: _applyRule,
-            onTapOutside: (_) => FocusScope.of(context).unfocus(),
           ),
-        ),
-        SmallButton(
-          tr("Use rule"),
-          onPressed: () => _applyRule(_ruleText.text),
-          tooltip: tr(
-            "B: neighbours a dead cell needs to be born, S: neighbours a live cell needs to stay, C: states of a Generations rule",
+        ]),
+        _group([
+          SizedBox(
+            width: 150,
+            child: TextField(
+              controller: _ruleText,
+              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              decoration: InputDecoration(
+                hintText: 'B3/S23',
+                // A one-line field as high as the controls beside it.
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                errorText: _ruleError == null ? null : '',
+                errorStyle: const TextStyle(height: 0, fontSize: 0),
+              ),
+              onSubmitted: _applyRule,
+              onTapOutside: (_) => FocusScope.of(context).unfocus(),
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Choice<String>(
-          value: _tool,
-          items: [_paint, ...patterns.map((p) => p.name)],
-          label: (n) => switch (n) {
-            _paint => tr('Draw cells'),
-            'Glider' => tr('Glider'),
-            'Lightweight spaceship' => tr('Lightweight spaceship'),
-            'Pulsar' => tr('Pulsar'),
-            'Gosper glider gun' => tr('Gosper glider gun'),
-            'R-pentomino' => tr('R-pentomino'),
-            'Acorn' => tr('Acorn'),
-            'Diehard' => tr('Diehard'),
-            _ => n,
-          },
-          onChanged: (n) => setState(() => _tool = n),
-          tooltip: tr("What a click does: draw (the right button erases) or place a pattern"),
-        ),
-        IconSmallButton(
-          Icons.info_outline,
-          tooltip: tr("About this pattern"),
-          onPressed: () => _explain(
-            _tool == _paint ? tr('Draw cells') : tr(_tool),
-            '',
-            patternInfo[_tool == _paint ? 'draw' : _tool]!,
+          SmallButton(
+            tr("Use rule"),
+            onPressed: () => _applyRule(_ruleText.text),
+            tooltip: tr(
+              "B: neighbours a dead cell needs to be born, S: neighbours a live cell needs to stay, C: states of a Generations rule",
+            ),
           ),
-        ),
+        ]),
+        _group([
+          Choice<String>(
+            value: _tool,
+            items: [_paint, ...patterns.map((p) => p.name)],
+            label: (n) => switch (n) {
+              _paint => tr('Draw cells'),
+              'Glider' => tr('Glider'),
+              'Lightweight spaceship' => tr('Lightweight spaceship'),
+              'Pulsar' => tr('Pulsar'),
+              'Gosper glider gun' => tr('Gosper glider gun'),
+              'R-pentomino' => tr('R-pentomino'),
+              'Acorn' => tr('Acorn'),
+              'Diehard' => tr('Diehard'),
+              _ => n,
+            },
+            onChanged: (n) => setState(() => _tool = n),
+            tooltip: tr("What a click does: draw (the right button erases) or place a pattern"),
+          ),
+          IconSmallButton(Icons.info_outline, tooltip: tr("About this pattern"), onPressed: _explainPattern),
+        ]),
       ],
     );
 
     final actions = Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 12,
+      runSpacing: 6,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        ActionButton(_playing ? tr("Pause") : tr("Play"), onPressed: _playPause, tooltip: tr("Space")),
-        SmallButton(tr("Step"), icon: Icons.skip_next, onPressed: _step, tooltip: tr("One generation (→)")),
-        SmallButton(tr("Clear"), onPressed: _clear),
-        SmallButton(tr("Random"), onPressed: _random, tooltip: tr("Fill at random with the density beside it")),
-        Choice<double>(
-          value: _density,
-          items: _densities,
-          label: (d) => '${(d * 100).round()} %',
-          onChanged: (d) => setState(() => _density = d),
-          tooltip: tr("Density of a random fill"),
-        ),
-        const SizedBox(width: 8),
-        Text(tr("Speed"), style: TextStyle(fontSize: 13, color: look.fg)),
-        SizedBox(
-          width: 160,
-          child: Slider(
-            value: _speed.toDouble(),
-            min: 1,
-            max: 60,
-            divisions: 59,
-            label: trf("{0} / s", [_speed]),
-            onChanged: (v) {
-              setState(() => _speed = v.round());
-              _schedule();
-            },
-            onChangeEnd: (v) => _save({'automaton_speed': v.round()}),
+        _group([
+          ActionButton(_playing ? tr("Pause") : tr("Play"), onPressed: _playPause, tooltip: tr("Space")),
+          SmallButton(tr("Step"), icon: Icons.skip_next, onPressed: _step, tooltip: tr("One generation (→)")),
+          SmallButton(tr("Clear"), onPressed: _clear),
+        ]),
+        _group([
+          SmallButton(tr("Random"), onPressed: _random, tooltip: tr("Fill at random with the density beside it")),
+          Choice<double>(
+            value: _density,
+            items: _densities,
+            label: (d) => '${(d * 100).round()} %',
+            onChanged: (d) => setState(() => _density = d),
+            tooltip: tr("Density of a random fill"),
           ),
-        ),
-        Text(trf("{0} / s", [_speed]), style: TextStyle(fontSize: 12, color: look.muted)),
-        const SizedBox(width: 8),
+        ]),
+        _group([
+          Text(tr("Speed"), style: TextStyle(fontSize: 12, color: look.fg)),
+          SizedBox(
+            width: 160,
+            child: Slider(
+              value: _speed.toDouble(),
+              min: 1,
+              max: 60,
+              divisions: 59,
+              label: trf("{0} / s", [_speed]),
+              onChanged: (v) {
+                setState(() => _speed = v.round());
+                _schedule();
+              },
+              onChangeEnd: (v) => _save({'automaton_speed': v.round()}),
+            ),
+          ),
+          Text(trf("{0} / s", [_speed]), style: TextStyle(fontSize: 12, color: look.muted)),
+        ]),
         Choice<bool>(
           value: _byAge,
           items: const [true, false],
@@ -423,37 +466,62 @@ class _AutomatonPageState extends State<AutomatonPage> {
       ],
     );
 
-    final status = Row(
-      children: [
-        Text(
-          _grid.mixing
-              ? trf("Mixer element {0}  ·  {1} layers  ·  {2} × {3} cells", [
-                  _grid.generation,
-                  _grid.layers,
-                  _grid.width,
-                  _grid.height,
-                ])
-              : trf("Generation {0}  ·  {1} alive  ·  {2} × {3} cells", [
-            _grid.generation,
-            _grid.population,
-            _grid.width,
-            _grid.height,
-          ]),
-          style: TextStyle(fontSize: 12, color: look.muted),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: SizedBox(
-            height: 22,
-            child: ValueListenableBuilder(
-              valueListenable: _repaint,
-              builder: (_, _, _) => CustomPaint(painter: _Sparkline(List.of(_grid.history), look.accent)),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Text(trf("Ctrl + wheel: cell size ({0} px)", [_cell]), style: TextStyle(fontSize: 12, color: look.dim)),
-      ],
+    // Generation, population, size; the sparkline; the cell size hint. In a narrow window the
+    // texts wrap and the sparkline goes below them, so the tab never needs more width.
+    final counts = Text(
+      _grid.mixing
+          ? trf("Mixer element {0}  ·  {1} layers  ·  {2} × {3} cells", [
+              _grid.generation,
+              _grid.layers,
+              _grid.width,
+              _grid.height,
+            ])
+          : trf("Generation {0}  ·  {1} alive  ·  {2} × {3} cells", [
+              _grid.generation,
+              _grid.population,
+              _grid.width,
+              _grid.height,
+            ]),
+      style: TextStyle(fontSize: 12, color: look.muted),
+    );
+    final cellHint = Text(
+      trf("Ctrl + wheel: cell size ({0} px)", [_cell]),
+      style: TextStyle(fontSize: 12, color: look.dim),
+    );
+    final spark = SizedBox(
+      height: 22,
+      child: ValueListenableBuilder(
+        valueListenable: _repaint,
+        builder: (_, _, _) => CustomPaint(painter: _Sparkline(List.of(_grid.history), look.accent)),
+      ),
+    );
+    final status = LayoutBuilder(
+      builder: (context, box) {
+        double width(Text t) => (TextPainter(
+          text: TextSpan(text: t.data, style: t.style),
+          textDirection: TextDirection.ltr,
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 1,
+        )..layout()).width;
+        if (width(counts) + width(cellHint) + 24 + 80 <= box.maxWidth) {
+          return Row(
+            children: [
+              counts,
+              const SizedBox(width: 12),
+              Expanded(child: spark),
+              const SizedBox(width: 12),
+              cellHint,
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(spacing: 12, runSpacing: 2, children: [counts, cellHint]),
+            spark,
+          ],
+        );
+      },
     );
 
     return Focus(
@@ -464,22 +532,20 @@ class _AutomatonPageState extends State<AutomatonPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TabIntro(
-              tr("Automaton"),
-              tr(
-                "A cellular automaton: each cell lives or dies by how many of its eight neighbours are alive. Draw cells with the mouse (the right button erases), place a pattern, or fill at random, then Play. The rule can be changed while it runs: B is how many neighbours bring a cell to life, S how many keep it alive.",
-              ),
-            ),
+            TabIntro(tr("Automaton"), _introText),
             vgap,
             controls,
             vgap,
             actions,
             vgap,
             status,
-            if (_grid.mixing)
-              ...[const SizedBox(height: 6), const _MixLegend()]
-            else if (_byAge)
-              ...[const SizedBox(height: 6), const _Legend()],
+            if (_grid.mixing) ...[
+              const SizedBox(height: 6),
+              const _MixLegend(),
+            ] else if (_byAge) ...[
+              const SizedBox(height: 6),
+              const _Legend(),
+            ],
             const SizedBox(height: 8),
             Expanded(
               child: LayoutBuilder(
@@ -511,7 +577,14 @@ class _AutomatonPageState extends State<AutomatonPage> {
                         onSecondaryTapDown: (_) {}, // keeps the right button for erasing
                         child: CustomPaint(
                           size: Size(cols * _cell.toDouble(), rows * _cell.toDouble()),
-                          painter: _GridPainter(_grid, _cell.toDouble(), look, corners(context), _repaint, byAge: _byAge),
+                          painter: _GridPainter(
+                            _grid,
+                            _cell.toDouble(),
+                            look,
+                            cornerSizes(context).board,
+                            _repaint,
+                            byAge: _byAge,
+                          ),
                         ),
                       ),
                     ),
@@ -565,7 +638,7 @@ class _MixLegend extends StatelessWidget {
           Container(
             width: 11,
             height: 11,
-            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(cornerSizes(context).small)),
           ),
           const SizedBox(width: 6),
           Text(text, style: TextStyle(fontSize: 12, color: look.muted)),
@@ -592,7 +665,7 @@ class _Legend extends StatelessWidget {
             height: 11,
             decoration: BoxDecoration(
               color: trace ? color.withValues(alpha: .35) : color,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(cornerSizes(context).small),
             ),
           ),
           const SizedBox(width: 6),
@@ -733,10 +806,19 @@ class _Sparkline extends CustomPainter {
 
 /// The hint window behind an ⓘ: what the scenario is, what to look for, and how to try it.
 class _ScenarioDialog extends StatelessWidget {
-  const _ScenarioDialog({required this.title, required this.notation, required this.info, this.materials = false});
+  const _ScenarioDialog({
+    required this.title,
+    required this.notation,
+    required this.info,
+    this.materials = false,
+    this.note = '',
+  });
   final String title, notation;
   final ScenarioInfo info;
   final bool materials;
+
+  /// "Good to know" for this window (a Life pattern under another rule).
+  final String note;
 
   @override
   Widget build(BuildContext context) {
@@ -746,7 +828,10 @@ class _ScenarioDialog extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(padding: const EdgeInsets.only(top: 1), child: Icon(icon, size: 18, color: look.accent)),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(icon, size: 18, color: look.accent),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -763,11 +848,17 @@ class _ScenarioDialog extends StatelessWidget {
           Icon(Icons.info_outline, color: look.accent),
           const SizedBox(width: 10),
           Flexible(
-            child: Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: look.fg)),
+            child: Text(
+              title,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: look.fg),
+            ),
           ),
           if (notation.isNotEmpty) ...[
             const SizedBox(width: 10),
-            Text(notation, style: TextStyle(fontSize: 14, fontFamily: 'monospace', color: look.muted)),
+            Text(
+              notation,
+              style: TextStyle(fontSize: 14, fontFamily: 'monospace', color: look.muted),
+            ),
           ],
         ],
       ),
@@ -782,31 +873,20 @@ class _ScenarioDialog extends StatelessWidget {
               part(Icons.visibility_outlined, tr("What to look for"), info.watchText),
               part(Icons.play_circle_outline, tr("Try this"), info.tryText),
               if (materials) part(Icons.science_outlined, tr("Good to know"), tr(materialsNote)),
+              if (note.isNotEmpty) part(Icons.info_outline, tr("Good to know"), note),
               if (info.links.isNotEmpty)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Padding(padding: const EdgeInsets.only(top: 1), child: Icon(Icons.public, size: 18, color: look.accent)),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Icon(Icons.public, size: 18, color: look.accent),
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SectionTitle(tr("Read more")),
-                          const SizedBox(height: 4),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: [
-                              for (final (title, url) in info.links)
-                                SmallButton(
-                                  '$title  ↗',
-                                  tooltip: url,
-                                  onPressed: () => _openPage(url),
-                                ),
-                            ],
-                          ),
-                        ],
+                        children: [SectionTitle(tr("Read more")), const SizedBox(height: 4), LinksChoice(info.links)],
                       ),
                     ),
                   ],
@@ -823,8 +903,27 @@ class _ScenarioDialog extends StatelessWidget {
   }
 }
 
+/// Read more: every link of a hint window in one drop-down, "All links (N)" (the scenario's first);
+/// choosing one opens it in the browser and the drop-down says "All links" again. Only the fixed
+/// https addresses of automaton_info.
+class LinksChoice extends StatelessWidget {
+  const LinksChoice(this.links, {super.key, this.open = openPage});
+  final List<(String, String)> links;
+  final void Function(String url) open;
+
+  @override
+  Widget build(BuildContext context) => Choice<int>(
+    value: null, // a list, not a remembered choice
+    items: [for (var i = 0; i < links.length; i++) i],
+    label: (i) => '${links[i].$1}  ↗',
+    empty: trf("All links ({0})", [links.length]),
+    tooltip: links.map((l) => l.$2).join('\n'),
+    onChanged: (i) => open(links[i].$2),
+  );
+}
+
 /// A web page of the hint window in the browser (only the fixed https addresses in automaton_info).
-void _openPage(String url) {
+void openPage(String url) {
   if (!url.startsWith('https://')) return;
   Process.start('xdg-open', [url], mode: ProcessStartMode.detached).ignore();
 }

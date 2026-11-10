@@ -8,7 +8,10 @@ import 'theme.dart';
 
 const gap = 12.0; // ai_core.GAP
 
-/// .am-section-title: 11 px, bold, letter-spaced, in capitals.
+/// One height for the small controls: small buttons, choice boxes, fields (the plugin's 22 px).
+const controlHeight = 22.0;
+
+/// .am-section-title: 12 px, bold, letter-spaced, in capitals.
 class SectionTitle extends StatelessWidget {
   const SectionTitle(this.text, {super.key, this.color});
   final String text;
@@ -16,11 +19,11 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text.toUpperCase(),
-    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: color ?? Look.of(context).fg),
+    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: color ?? Look.of(context).fg),
   );
 }
 
-/// .am-hint: 13 px in the muted colour.
+/// .am-hint: 12 px in the muted colour.
 class Hint extends StatelessWidget {
   const Hint(this.text, {super.key, this.error = false});
   final String text;
@@ -31,7 +34,7 @@ class Hint extends StatelessWidget {
     return Text(
       text,
       style: TextStyle(
-        fontSize: 13,
+        fontSize: 12,
         color: error ? look.red : look.muted,
         fontWeight: error ? FontWeight.w700 : FontWeight.w400,
         height: 1.35,
@@ -40,14 +43,14 @@ class Hint extends StatelessWidget {
   }
 }
 
-/// host.tab_intro: the tab's name in capitals, then what it does.
+/// host.tab_intro: the tab's name in capitals, then what it does, close together (6 px).
 class TabIntro extends StatelessWidget {
   const TabIntro(this.title, this.text, {super.key});
   final String title, text;
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: [SectionTitle(title), const SizedBox(height: 14), Hint(text)],
+    children: [SectionTitle(title), const SizedBox(height: 6), Hint(text)],
   );
 }
 
@@ -163,7 +166,10 @@ class _FoldCardState extends State<FoldCard> {
             duration: const Duration(milliseconds: 180),
             alignment: Alignment.topCenter,
             child: open
-                ? Padding(padding: const EdgeInsets.only(top: gap, bottom: 6), child: widget.child)
+                ? Padding(
+                    padding: const EdgeInsets.only(top: gap, bottom: 6),
+                    child: widget.child,
+                  )
                 : const SizedBox(width: double.infinity),
           ),
         ],
@@ -187,16 +193,17 @@ class SmallButton extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         foregroundColor: look.fg,
         side: BorderSide(color: look.fg.withValues(alpha: .35)),
-        // .am-small-btn: a pill, low, bold.
-        shape: const StadiumBorder(),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        minimumSize: const Size(0, 27),
-        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        // .am-small-btn: the controls' height (22 px) and corners (Settings › Corners, at most 8).
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(cornerSizes(context).control)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        minimumSize: const Size(0, controlHeight),
+        visualDensity: VisualDensity.standard,
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[Icon(icon, size: 16), if (label.isNotEmpty) const SizedBox(width: 6)],
+          if (icon != null) ...[Icon(icon, size: 15), if (label.isNotEmpty) const SizedBox(width: 6)],
           if (label.isNotEmpty) Text(label),
         ],
       ),
@@ -221,17 +228,18 @@ class IconSmallButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           foregroundColor: look.fg,
           side: BorderSide(color: look.fg.withValues(alpha: .35)),
-          shape: const StadiumBorder(),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          minimumSize: const Size(38, 26),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(cornerSizes(context).control)),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          minimumSize: const Size(26, controlHeight),
+          visualDensity: VisualDensity.standard,
         ),
-        child: Icon(icon, size: 16),
+        child: Icon(icon, size: 15),
       ),
     );
   }
 }
 
-/// .am-action-btn.am-primary: the tab's main button (Ask), large, in the accent colour.
+/// .am-action-btn.am-primary: the tab's main button (Ask), larger, with the accent border.
 class ActionButton extends StatelessWidget {
   const ActionButton(this.label, {super.key, this.onPressed, this.tooltip});
   final String label;
@@ -247,10 +255,11 @@ class ActionButton extends StatelessWidget {
         backgroundColor: look.accent.withValues(alpha: .25),
         disabledBackgroundColor: look.fg.withValues(alpha: .05),
         side: BorderSide(color: onPressed == null ? look.fg.withValues(alpha: .2) : look.accent),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(corners(context))),
-        minimumSize: const Size(166, 44),
-        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(cornerSizes(context).control)),
+        minimumSize: const Size(120, 34),
+        visualDensity: VisualDensity.standard,
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       ),
       child: Text(label),
     );
@@ -279,11 +288,12 @@ class Choice<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final look = Look.of(context);
-    final radius = corners(context);
+    final radius = cornerSizes(context).control;
     final enabled = onChanged != null && items.isNotEmpty;
     final text = value == null ? empty : label(value as T);
     Widget pill = Container(
-      padding: const EdgeInsets.fromLTRB(14, 4, 10, 4),
+      constraints: const BoxConstraints(minHeight: controlHeight),
+      padding: const EdgeInsets.fromLTRB(10, 2, 6, 2),
       decoration: BoxDecoration(
         border: Border.all(color: look.fg.withValues(alpha: .35)),
         borderRadius: BorderRadius.circular(radius),
@@ -295,11 +305,11 @@ class Choice<T> extends StatelessWidget {
             child: Text(
               text,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, color: enabled ? look.fg : look.dim),
+              style: TextStyle(fontSize: 12, color: enabled ? look.fg : look.dim),
             ),
           ),
-          const SizedBox(width: 8),
-          Icon(Icons.expand_more, size: 18, color: enabled ? look.fg : look.dim),
+          const SizedBox(width: 6),
+          Icon(Icons.expand_more, size: 16, color: enabled ? look.fg : look.dim),
         ],
       ),
     );
@@ -315,7 +325,10 @@ class Choice<T> extends StatelessWidget {
               height: 32,
               child: Row(
                 children: [
-                  SizedBox(width: 22, child: items[i] == value ? Icon(Icons.check, size: 16, color: look.accent) : null),
+                  SizedBox(
+                    width: 22,
+                    child: items[i] == value ? Icon(Icons.check, size: 16, color: look.accent) : null,
+                  ),
                   Flexible(child: Text(label(items[i]), overflow: TextOverflow.ellipsis)),
                 ],
               ),
@@ -328,9 +341,10 @@ class Choice<T> extends StatelessWidget {
   }
 }
 
-/// host.prompt_view: a framed, wrapping text field for a question.
+/// host.prompt_view: a framed, wrapping text field for a question, 72 px high to start with
+/// (three lines of 13 px text).
 class PromptField extends StatelessWidget {
-  const PromptField({super.key, required this.controller, this.minLines = 4, this.hint, this.onSubmit});
+  const PromptField({super.key, required this.controller, this.minLines = 3, this.hint, this.onSubmit});
   final TextEditingController controller;
   final int minLines;
   final String? hint;
@@ -341,7 +355,7 @@ class PromptField extends StatelessWidget {
       controller: controller,
       minLines: minLines,
       maxLines: 12,
-      style: const TextStyle(fontSize: 14),
+      style: const TextStyle(fontSize: 13, height: 1.4),
       decoration: InputDecoration(hintText: hint),
     );
     if (onSubmit == null) return field;
@@ -383,7 +397,7 @@ class CheckLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final look = Look.of(context);
     final row = InkWell(
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(cornerSizes(context).small),
       onTap: onChanged == null ? null : () => onChanged!(!value),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
@@ -403,7 +417,7 @@ class CheckLabel extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Flexible(
-              child: Text(label, style: TextStyle(fontSize: 13, color: onChanged == null ? look.dim : look.fg)),
+              child: Text(label, style: TextStyle(fontSize: 12, color: onChanged == null ? look.dim : look.fg)),
             ),
           ],
         ),
@@ -413,7 +427,7 @@ class CheckLabel extends StatelessWidget {
   }
 }
 
-/// A page's scroller with the plugin's padding (17 px, room for the scroll bar).
+/// A page's scroller with the plugin's padding (17 px on both sides, as the other pages).
 class PageScroll extends StatelessWidget {
   const PageScroll({super.key, required this.children, this.controller});
   final List<Widget> children;
@@ -421,7 +435,7 @@ class PageScroll extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
     controller: controller,
-    padding: const EdgeInsets.fromLTRB(17, 6, 31, 17),
+    padding: const EdgeInsets.fromLTRB(17, 6, 17, 17),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
   );
 }
