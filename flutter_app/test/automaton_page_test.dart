@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:maprisma_playground/app.dart';
 import 'package:maprisma_playground/pages/automaton_page.dart';
 import 'package:maprisma_playground/theme.dart';
-import 'package:maprisma_playground_core/src/settings.dart';
+import 'package:maprisma_playground_core/maprisma_playground_core.dart';
 
 void main() {
   late Directory home;

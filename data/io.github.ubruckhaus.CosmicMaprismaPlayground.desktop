@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Maprisma Playground
+Comment=Try out the AI agents on your computer, a test per tab
+Type=Application
+Exec=maprisma-playground-applet
+Terminal=false
+Categories=COSMIC;
+Keywords=COSMIC;Applet;AI;Agents;Chess;Playground;
+Icon=io.github.ubruckhaus.CosmicMaprismaPlayground-symbolic
+NoDisplay=true
+X-CosmicApplet=true
+X-HostWaylandDisplay=true
+X-OverflowPriority=10

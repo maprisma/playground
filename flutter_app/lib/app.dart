@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:maprisma_playground_core/maprisma_playground_core.dart';
-import 'package:maprisma_playground_core/src/settings.dart';
 
+import 'contestants.dart';
 import 'pages/automaton_page.dart';
+import 'pages/duel_page.dart';
+import 'pages/local_page.dart';
+import 'pages/speed_page.dart';
 import 'pages/info_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/todo_page.dart';
@@ -34,8 +37,9 @@ final class Host {
 }
 
 class PlaygroundApp extends StatefulWidget {
-  const PlaygroundApp({super.key, required this.settings, this.args = const []});
+  const PlaygroundApp({super.key, required this.settings, required this.playground, this.args = const []});
   final Settings settings;
+  final Playground playground;
   final List<String> args;
   @override
   State<PlaygroundApp> createState() => _PlaygroundAppState();
@@ -81,6 +85,7 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
       theme: theme,
       home: Shell(
         settings: widget.settings,
+        playground: widget.playground,
         args: widget.args,
         rounding: rounding,
         onLookChanged: () => setState(() {}),
@@ -90,8 +95,16 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
 }
 
 class Shell extends StatefulWidget {
-  const Shell({super.key, required this.settings, required this.args, this.rounding, required this.onLookChanged});
+  const Shell({
+    super.key,
+    required this.settings,
+    required this.playground,
+    required this.args,
+    this.rounding,
+    required this.onLookChanged,
+  });
   final Settings settings;
+  final Playground playground;
   final List<String> args;
   final int? rounding;
   final VoidCallback onLookChanged;
@@ -114,7 +127,11 @@ class _ShellState extends State<Shell> {
     _open(widget.args);
     _subscriptions
       ..add(AppWindow.instance.opened.stream.listen(_open))
-      ..add(AppWindow.instance.closing.stream.listen((_) => _remember()));
+      ..add(AppWindow.instance.closing.stream.listen((_) {
+        _remember();
+        // Nothing started here outlives the app: agents still answering, downloads, held models.
+        widget.playground.backend.shutdown();
+      }));
   }
 
   void _open(List<String> words) {
@@ -187,6 +204,9 @@ class _ShellState extends State<Shell> {
 
   Widget _tabPage(String key) => switch (key) {
     'automaton' => AutomatonPage(host: _host, active: _page == 'automaton'),
+    'speed' => SpeedPage(host: _host, playground: widget.playground),
+    'duel' => DuelPage(host: _host, playground: widget.playground),
+    'local' => LocalPage(host: _host, playground: widget.playground),
     _ => TodoPage(title: tabs.firstWhere((t) => t.$1 == key).$2),
   };
 

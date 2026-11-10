@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Maprisma Playground Tray
+Comment=Maprisma Playground's gamepad in the KDE system tray
+Exec=maprisma-playground-tray
+Icon=io.github.ubruckhaus.CosmicMaprismaPlayground-symbolic
+Terminal=false
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=2

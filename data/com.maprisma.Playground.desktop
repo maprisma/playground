@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Maprisma Playground
+Comment=Try out the AI agents on your computer: analyze, chess, automaton, speed and cost, head to head, vision, pictures, local LLMs
+Exec=maprisma-playground
+Icon=com.maprisma.Playground
+Terminal=false
+Categories=Utility;Development;Game;
+Keywords=AI;Agents;Claude;Codex;Chess;LLM;Automaton;
+StartupWMClass=com.maprisma.Playground

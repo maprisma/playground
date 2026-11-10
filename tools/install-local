@@ -1,0 +1,98 @@
+#!/bin/bash
+# Build and install Maprisma Playground for this user (no sudo):
+#
+#   tools/install-local [--no-build]
+#
+# ~/.local/lib/maprisma-playground   the Flutter bundle + bin/ (core CLI, COSMIC applet, KDE tray)
+# ~/.local/bin/maprisma-playground{,-core,-applet,-tray}   links
+# ~/.local/share/applications        the app's, its hidden Toggle and the applet's desktop entries
+# ~/.local/share/icons/hicolor       the app icon and the symbolic bar icon
+# ~/.config/autostart                the tray (KDE Plasma only; COSMIC has the applet)
+#
+# --no-build installs what the last build left in flutter_app/build and bar/target.
+# A running Flutter app maps its code from the bundle: never copy over it. The running copies
+# (the app and with it every agent it asked, the tray, the applet) are stopped by their real
+# program path, a fresh folder is swapped in, and the app is not restarted. COSMIC's panel
+# restarts its applet when the binary changed; on KDE the tray is started again here.
+set -euo pipefail
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+lib="$HOME/.local/lib/maprisma-playground"
+bin="$HOME/.local/bin"
+data="${XDG_DATA_HOME:-$HOME/.local/share}"
+build=1
+[[ ${1:-} == --no-build ]] && build=0
+export PATH="${FLUTTER:-/mnt/Data/flutter/bin}:$PATH"
+bundle="$root/flutter_app/build/linux/x64/release/bundle"
+
+if (( build )); then
+  (cd "$root/flutter_app" && flutter build linux --release --no-tree-shake-icons >/dev/null)
+  (cd "$root/bar" && cargo build --release -q)   # fetches the crates on a fresh checkout
+  mkdir -p "$bundle/bin"
+  (cd "$root/packages/maprisma_playground_core" && dart compile exe bin/maprisma_playground_core.dart -o "$bundle/bin/maprisma-playground-core" >/dev/null)
+  install -m755 "$root/bar/target/release/maprisma-playground-applet" "$root/bar/target/release/maprisma-playground-tray" "$bundle/bin/"
+fi
+for f in maprisma-playground bin/maprisma-playground-core bin/maprisma-playground-applet bin/maprisma-playground-tray lib/libapp.so; do
+  [[ -e $bundle/$f ]] || { echo "missing in the build: $f" >&2; exit 1; }
+done
+
+running() {
+  local p exe
+  for p in /proc/[0-9]*; do
+    exe=$(readlink "$p/exe" 2>/dev/null) || continue
+    exe=${exe% (deleted)}
+    [[ $exe == "$lib/"* || $exe == "$lib".*/* ]] && echo "${p#/proc/}"
+  done
+  return 0
+}
+
+mkdir -p "$(dirname "$lib")"
+new=$(mktemp -d "$lib.new.XXXXXX")
+trap 'rm -rf -- "$new"' EXIT
+cp -a "$bundle/." "$new/"
+chmod 755 "$new"
+pids=$(running)
+if [[ -n $pids ]]; then
+  echo "Stopping: $(echo $pids)"
+  # TERM first: the app hears "closing" and ends the agents and downloads it started.
+  kill -TERM $pids 2>/dev/null || true
+  for _ in $(seq 1 50); do [[ -z $(running) ]] && break; sleep 0.1; done
+  left=$(running); [[ -n $left ]] && { kill -KILL $left 2>/dev/null || true; sleep 0.3; }
+fi
+old=""
+if [[ -e $lib ]]; then old=$(mktemp -d "$lib.old.XXXXXX"); rmdir "$old"; mv "$lib" "$old"; fi
+mv "$new" "$lib"
+trap - EXIT
+[[ -n $old ]] && rm -rf -- "$old"
+
+mkdir -p "$bin" "$data/applications" "$data/icons/hicolor/scalable/apps"
+ln -sfn "$lib/maprisma-playground" "$bin/maprisma-playground"
+for b in maprisma-playground-core maprisma-playground-applet maprisma-playground-tray; do ln -sfn "$lib/bin/$b" "$bin/$b"; done
+
+# Exec with the full path, quoted: Plasma's and COSMIC's panels have no ~/.local/bin in PATH.
+exec_of() {
+  local v=$1
+  v=${v//\\/\\\\}; v=${v//\"/\\\"}; v=${v//\`/\\\`}; v=${v//\$/\\\$}
+  # …then the desktop file value layer: every backslash doubled again, % as %%.
+  v=${v//\\/\\\\}; v=${v//\%/%%}
+  printf '"%s"' "$v"
+}
+app=$(exec_of "$bin/maprisma-playground")
+{ grep -v '^Exec=' "$root/data/com.maprisma.Playground.desktop"; printf 'Exec=%s\n' "$app"; } > "$data/applications/com.maprisma.Playground.desktop"
+# A hidden entry that opens or closes the window (panel icons, launchers, shortcuts).
+{ grep -vE '^(Exec|Name|Comment)=' "$root/data/com.maprisma.Playground.desktop"
+  printf 'Name=Maprisma Playground (toggle)\nComment=Open or close Maprisma Playground\nNoDisplay=true\nExec=%s --toggle\n' "$app"
+} > "$data/applications/com.maprisma.Playground.Toggle.desktop"
+id=io.github.ubruckhaus.CosmicMaprismaPlayground
+{ grep -v '^Exec=' "$root/data/$id.desktop"; printf 'Exec=%s\n' "$(exec_of "$bin/maprisma-playground-applet")"; } > "$data/applications/$id.desktop"
+install -m644 "$root/data/icons/com.maprisma.Playground.svg" "$root/data/icons/$id-symbolic.svg" "$data/icons/hicolor/scalable/apps/"
+command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -f -t "$data/icons/hicolor" >/dev/null 2>&1 || true
+command -v update-desktop-database >/dev/null && update-desktop-database "$data/applications" >/dev/null 2>&1 || true
+
+autostart="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
+mkdir -p "$autostart"
+{ grep -v '^Exec=' "$root/data/com.maprisma.Playground.Tray.desktop"; printf 'Exec=%s\n' "$(exec_of "$bin/maprisma-playground-tray")"; } > "$autostart/com.maprisma.Playground.Tray.desktop"
+# The tray was stopped with the other running copies: start it again in a Plasma session.
+if [[ ":${XDG_CURRENT_DESKTOP:-}:" == *:KDE:* ]]; then
+  setsid -f "$bin/maprisma-playground-tray" >/dev/null 2>&1 < /dev/null || true
+fi
+echo "Installed Maprisma Playground into $lib"
