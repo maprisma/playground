@@ -1,0 +1,14 @@
+name: maprisma_playground_core
+description: Maprisma Playground's core in pure Dart (agents, chess, local LLMs, pictures).
+publish_to: none
+version: 0.1.0
+environment:
+  sdk: '>=3.8.0 <4.0.0'
+dependencies:
+  collection: ^1.19.1
+  crypto: ^3.0.7
+  path: ^1.9.1
+  image: ^4.5.4
+dev_dependencies:
+  test: ^1.29.0
+  lints: ^6.0.0
