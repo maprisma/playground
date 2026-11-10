@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 import 'dart:math';
 
@@ -130,10 +131,64 @@ class _AutomatonPageState extends State<AutomatonPage> {
     setState(() {});
   }
 
+  // --- the hint windows --------------------------------------------------------------------------
+
+  Future<void> _explain(String title, String notation, ScenarioInfo info, {bool materials = false}) async {
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (context) => _ScenarioDialog(title: title, notation: notation, info: info, materials: materials),
+    );
+    if (go == true && mounted) _tryIt(info.setup);
+  }
+
+  /// "Try it": the scenario's rule, edges and start (a random fill or a pattern in the middle of an
+  /// empty grid), then it runs (or waits for Step).
+  void _tryIt(TrySetup setup) {
+    if (setup.speed != null) {
+      _speed = setup.speed!;
+      _save({'automaton_speed': _speed});
+    }
+    if (setup.mixer) {
+      _grid
+        ..mixing = true
+        ..fillHalves();
+      _repaint.value++;
+      setState(() {
+        _ruleChoice = mixerName;
+        _playing = setup.play;
+      });
+      _schedule();
+      return;
+    }
+    if (setup.rule != null) _applyRule(setup.rule!);
+    if (setup.wrap != null && setup.wrap != _grid.wrap) {
+      _grid.wrap = setup.wrap!;
+      _save({'automaton_wrap': setup.wrap});
+    }
+    _grid.clear();
+    if (setup.density != null) {
+      _density = setup.density!;
+      _grid.randomize(_density);
+    } else if (setup.pattern != null) {
+      final p = findPattern(setup.pattern!)!;
+      _grid.stamp(p, (_grid.width - p.width) ~/ 2, (_grid.height - p.height) ~/ 2);
+    }
+    _repaint.value++;
+    setState(() => _playing = setup.play);
+    _schedule();
+  }
+
   // --- the rule ------------------------------------------------------------------------------
 
   void _pickRule(String name) {
     setState(() => _ruleChoice = name);
+    _grid.mixing = name == mixerName;
+    if (name == mixerName) {
+      // The two components, resin above and hardener below, ready for the first mixer element.
+      _grid.fillHalves();
+      _repaint.value++;
+      return;
+    }
     if (name == _ownRule) return; // the field below takes it
     _applyRule(namedRules[name]!);
   }
@@ -141,7 +196,9 @@ class _AutomatonPageState extends State<AutomatonPage> {
   void _applyRule(String text) {
     try {
       final rule = Rule.parse(text);
-      _grid.setRule(rule);
+      _grid
+        ..mixing = false
+        ..setRule(rule);
       _ruleText.text = rule.notation;
       _save({'automaton_rule': rule.notation});
       setState(() {
@@ -228,10 +285,34 @@ class _AutomatonPageState extends State<AutomatonPage> {
       children: [
         Choice<String>(
           value: _ruleChoice,
-          items: [...namedRules.keys, _ownRule],
-          label: (n) => n == _ownRule ? tr('Own rule…') : '$n  ${namedRules[n]}',
+          items: [...namedRules.keys, mixerName, _ownRule],
+          label: (n) => switch (n) {
+            _ownRule => tr('Own rule…'),
+            mixerName => tr(mixerName),
+            _ when isMaterialsRule(n) => '${tr(n)}  ${namedRules[n]}',
+            _ => '$n  ${namedRules[n]}',
+          },
           onChanged: _pickRule,
           tooltip: tr("Rule"),
+        ),
+        IconSmallButton(
+          Icons.info_outline,
+          tooltip: tr("About this rule"),
+          onPressed: () => _explain(
+            switch (_ruleChoice) {
+              _ownRule => tr('Own rule…'),
+              mixerName => tr(mixerName),
+              _ when isMaterialsRule(_ruleChoice) => tr(_ruleChoice),
+              _ => _ruleChoice,
+            },
+            switch (_ruleChoice) {
+              _ownRule => _ruleText.text,
+              mixerName => '',
+              _ => namedRules[_ruleChoice]!,
+            },
+            ruleInfo[_ruleChoice == _ownRule ? 'own' : _ruleChoice]!,
+            materials: _ruleChoice == mixerName || isMaterialsRule(_ruleChoice),
+          ),
         ),
         SizedBox(
           width: 150,
@@ -271,6 +352,15 @@ class _AutomatonPageState extends State<AutomatonPage> {
           },
           onChanged: (n) => setState(() => _tool = n),
           tooltip: tr("What a click does: draw (the right button erases) or place a pattern"),
+        ),
+        IconSmallButton(
+          Icons.info_outline,
+          tooltip: tr("About this pattern"),
+          onPressed: () => _explain(
+            _tool == _paint ? tr('Draw cells') : tr(_tool),
+            '',
+            patternInfo[_tool == _paint ? 'draw' : _tool]!,
+          ),
         ),
       ],
     );
@@ -336,7 +426,14 @@ class _AutomatonPageState extends State<AutomatonPage> {
     final status = Row(
       children: [
         Text(
-          trf("Generation {0}  ·  {1} alive  ·  {2} × {3} cells", [
+          _grid.mixing
+              ? trf("Mixer element {0}  ·  {1} layers  ·  {2} × {3} cells", [
+                  _grid.generation,
+                  _grid.layers,
+                  _grid.width,
+                  _grid.height,
+                ])
+              : trf("Generation {0}  ·  {1} alive  ·  {2} × {3} cells", [
             _grid.generation,
             _grid.population,
             _grid.width,
@@ -379,7 +476,10 @@ class _AutomatonPageState extends State<AutomatonPage> {
             actions,
             vgap,
             status,
-            if (_byAge) ...[const SizedBox(height: 6), const _Legend()],
+            if (_grid.mixing)
+              ...[const SizedBox(height: 6), const _MixLegend()]
+            else if (_byAge)
+              ...[const SizedBox(height: 6), const _Legend()],
             const SizedBox(height: 8),
             Expanded(
               child: LayoutBuilder(
@@ -447,6 +547,33 @@ Color ageColor(int age) {
     }
   }
   return _stops.last.$2;
+}
+
+const _resin = Color(0xfffb923c), _hardener = Color(0xff22d3ee);
+
+/// The two components of the static mixer.
+class _MixLegend extends StatelessWidget {
+  const _MixLegend();
+  @override
+  Widget build(BuildContext context) {
+    final look = Look.of(context);
+    Widget item(Color color, String text) => Padding(
+      padding: const EdgeInsets.only(right: 16),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 11,
+            height: 11,
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
+          ),
+          const SizedBox(width: 6),
+          Text(text, style: TextStyle(fontSize: 12, color: look.muted)),
+        ],
+      ),
+    );
+    return Wrap(children: [item(_resin, tr("Resin (component A)")), item(_hardener, tr("Hardener (component B)"))]);
+  }
 }
 
 /// What the colours mean (shown under the grid while they are on).
@@ -537,6 +664,19 @@ class _GridPainter extends CustomPainter {
         }
       }
     }
+    if (grid.mixing) {
+      // Resin and hardener: every cell is one of the two components.
+      canvas.drawRect(area, Paint()..color = _hardener.withValues(alpha: .85));
+      final resin = Path();
+      for (var y = 0; y < grid.height; y++) {
+        for (var x = 0; x < grid.width; x++) {
+          if (grid.cell(x, y) == 1) resin.addRect(Rect.fromLTWH(x * cell, y * cell, cell, cell));
+        }
+      }
+      canvas.drawPath(resin, Paint()..color = _resin);
+      canvas.restore();
+      return;
+    }
     if (byAge) {
       canvas.drawPath(traces, Paint()..color = _died.withValues(alpha: .35));
       byColor.forEach((age, path) => canvas.drawPath(path, Paint()..color = ageColor(age)));
@@ -589,4 +729,102 @@ class _Sparkline extends CustomPainter {
 
   @override
   bool shouldRepaint(_Sparkline old) => true;
+}
+
+/// The hint window behind an ⓘ: what the scenario is, what to look for, and how to try it.
+class _ScenarioDialog extends StatelessWidget {
+  const _ScenarioDialog({required this.title, required this.notation, required this.info, this.materials = false});
+  final String title, notation;
+  final ScenarioInfo info;
+  final bool materials;
+
+  @override
+  Widget build(BuildContext context) {
+    final look = Look.of(context);
+    Widget part(IconData icon, String heading, String text) => Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(padding: const EdgeInsets.only(top: 1), child: Icon(icon, size: 18, color: look.accent)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [SectionTitle(heading), const SizedBox(height: 4), AnswerText(text)],
+            ),
+          ),
+        ],
+      ),
+    );
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.info_outline, color: look.accent),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: look.fg)),
+          ),
+          if (notation.isNotEmpty) ...[
+            const SizedBox(width: 10),
+            Text(notation, style: TextStyle(fontSize: 14, fontFamily: 'monospace', color: look.muted)),
+          ],
+        ],
+      ),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              part(Icons.auto_awesome, tr("What happens"), info.whatText),
+              part(Icons.visibility_outlined, tr("What to look for"), info.watchText),
+              part(Icons.play_circle_outline, tr("Try this"), info.tryText),
+              if (materials) part(Icons.science_outlined, tr("Good to know"), tr(materialsNote)),
+              if (info.links.isNotEmpty)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(padding: const EdgeInsets.only(top: 1), child: Icon(Icons.public, size: 18, color: look.accent)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SectionTitle(tr("Read more")),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              for (final (title, url) in info.links)
+                                SmallButton(
+                                  '$title  ↗',
+                                  tooltip: url,
+                                  onPressed: () => _openPage(url),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        SmallButton(tr("Close"), onPressed: () => Navigator.pop(context, false)),
+        ActionButton(tr("Try it"), onPressed: () => Navigator.pop(context, true)),
+      ],
+    );
+  }
+}
+
+/// A web page of the hint window in the browser (only the fixed https addresses in automaton_info).
+void _openPage(String url) {
+  if (!url.startsWith('https://')) return;
+  Process.start('xdg-open', [url], mode: ProcessStartMode.detached).ignore();
 }

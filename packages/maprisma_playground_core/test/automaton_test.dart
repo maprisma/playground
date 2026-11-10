@@ -1,4 +1,5 @@
 import 'package:maprisma_playground_core/src/automaton.dart';
+import 'package:maprisma_playground_core/src/automaton_info.dart';
 import 'package:test/test.dart';
 
 Automaton grid(List<String> rows, {String rule = 'B3/S23', bool wrap = false}) {
@@ -138,6 +139,49 @@ void main() {
           expect(a.age(x, y), 0);
         }
       }
+    });
+  });
+
+  test('every rule and pattern has its explanation, and every "Try it" can be set up', () {
+    for (final name in [...namedRules.keys, mixerName]) {
+      expect(ruleInfo, contains(name), reason: name);
+    }
+    expect(ruleInfo, contains('own'));
+    for (final p in patterns) {
+      expect(patternInfo, contains(p.name), reason: p.name);
+    }
+    expect(patternInfo, contains('draw'));
+    for (final info in [...ruleInfo.values, ...patternInfo.values]) {
+      final s = info.setup;
+      if (s.rule != null) Rule.parse(s.rule!);
+      if (s.pattern != null) expect(findPattern(s.pattern!), isNotNull, reason: s.pattern);
+      expect(s.density != null && s.pattern != null, isFalse, reason: 'a fill or a pattern, not both');
+      expect(info.links, isNotEmpty, reason: info.what);
+      for (final (title, url) in info.links) {
+        expect(url, startsWith('https://en.wikipedia.org/wiki/'), reason: title);
+      }
+    }
+  });
+
+  group('the static mixer', () {
+    test('each element doubles the layers until they are one cell thin', () {
+      final a = Automaton(16, 16, rule: Rule.parse('B3/S23'))..mixing = true;
+      a.fillHalves();
+      expect(a.layers, 2);
+      for (final n in [4, 8, 16]) {
+        expect(a.step(), isTrue);
+        expect(a.layers, n);
+        expect(a.population, 128, reason: 'as much resin as before: half of the grid');
+      }
+      expect(a.step(), isFalse, reason: 'one cell per layer: mixed, the mixer stops');
+      expect(a.layers, 16);
+    });
+    test('the materials rules are named and grouped', () {
+      for (final name in ['Plastics: demixing of a blend', 'Plastics: crystallization', 'Adhesive: curing']) {
+        expect(ruleName(Rule.parse(namedRules[name]!)), name);
+        expect(isMaterialsRule(name), isTrue);
+      }
+      expect(isMaterialsRule("Conway's Life"), isFalse);
     });
   });
 }

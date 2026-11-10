@@ -61,7 +61,18 @@ final Map<String, String> namedRules = {
   'Replicator': 'B1357/S1357',
   "Brian's Brain": 'B2/S/C3',
   'Star Wars': 'B2/S345/C4',
+  // Materials: plastics and adhesives, shown (not measured) with simple rules.
+  'Plastics: demixing of a blend': 'B4678/S35678',
+  'Plastics: crystallization': 'B1/S012345678',
+  'Adhesive: curing': 'B35678/S012345678',
 };
+
+/// The named rules of the materials group (for a heading in the menu).
+bool isMaterialsRule(String name) => name.startsWith('Plastics: ') || name.startsWith('Adhesive: ');
+
+/// The static mixer of a two-component adhesive is not a rule: each generation is one mixer element
+/// (see [Automaton.mixing]).
+const mixerName = 'Adhesive: static mixer (2K)';
 
 /// The name of a rule, or null for one typed by the user.
 String? ruleName(Rule rule) {
@@ -123,6 +134,20 @@ List<CellPattern> get patterns => <CellPattern>[
   CellPattern('Diehard', ['......O.', 'OO......', '.O...OOO'], about: tr("vanishes after 130 generations")),
 ];
 
+/// Small shapes that only "Try it" uses (not in the pattern menu).
+const setupPatterns = <CellPattern>[
+  CellPattern('Blinker', ['OOO'], about: 'three cells in a row: an oscillator of period 2'),
+  CellPattern('Seeds pair', ['OO'], about: 'two cells side by side: the seed of an explosion in Seeds'),
+];
+
+/// A pattern by its name (the menu's or a setup one), or null.
+CellPattern? findPattern(String name) {
+  for (final p in [...patterns, ...setupPatterns]) {
+    if (p.name == name) return p;
+  }
+  return null;
+}
+
 /// The grid and its history. Cells: 0 dead, 1 alive, 2 … states-1 dying (Generations rules).
 final class Automaton {
   Automaton(this.width, this.height, {required this.rule, this.wrap = true})
@@ -144,6 +169,11 @@ final class Automaton {
   /// 1 where a live cell died in the last generation (its trace shows where things vanish).
   Uint8List _died;
   int generation = 0;
+
+  /// The static mixer (2K adhesive): instead of the rule, each generation is one mixer element. It
+  /// cuts the flow in two and stacks the halves, so the layers of resin (live cells) and hardener
+  /// (dead cells) double in number each time: 2, 4, 8, 16 … (the striations of mixing theory).
+  bool mixing = false;
 
   /// Population after each of the last [historyLength] generations (for the sparkline).
   final List<int> history = [];
@@ -179,6 +209,7 @@ final class Automaton {
 
   /// One generation. Returns whether anything changed.
   bool step() {
+    if (mixing) return _mixStep();
     final next = Uint8List(_cells.length);
     final ages = Uint16List(_cells.length);
     final died = Uint8List(_cells.length);
@@ -216,6 +247,61 @@ final class Automaton {
     generation++;
     _remember();
     return changed;
+  }
+
+  /// One mixer element: every row takes the one at twice its distance from the top, so the grid
+  /// holds two squeezed copies of itself on top of each other: twice the layers, each half as thick.
+  bool _mixStep() {
+    // Mixed down to one cell per layer: another element would only lose layers (the grid is too
+    // coarse to show thinner ones), so the mixer stops here.
+    final before = layers;
+    if (before * 2 > height) return false;
+    final next = Uint8List(_cells.length);
+    final ages = Uint16List(_cells.length);
+    final died = Uint8List(_cells.length);
+    var changed = false;
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width; x++) {
+        final i = y * width + x;
+        final from = ((2 * y) % height) * width + x;
+        final v = _cells[from] == 1 ? 1 : 0;
+        next[i] = v;
+        if (v == 1) {
+          ages[i] = _cells[i] == 1 ? min(_ages[i] + 1, 65535) : 1;
+        } else if (_cells[i] == 1) {
+          died[i] = 1;
+        }
+        if (v != _cells[i]) changed = true;
+      }
+    }
+    _cells = next;
+    _ages = ages;
+    _died = died;
+    generation++;
+    _remember();
+    return changed;
+  }
+
+  /// The two components before mixing: resin (live cells) in the top half, hardener below.
+  void fillHalves() {
+    clear();
+    for (var y = 0; y < height ~/ 2; y++) {
+      for (var x = 0; x < width; x++) {
+        _cells[y * width + x] = 1;
+        _ages[y * width + x] = 1;
+      }
+    }
+    history.add(population);
+  }
+
+  /// The layers of resin and hardener, counted down the first column (the mixer's stripes).
+  int get layers {
+    if (height == 0) return 0;
+    var n = 1;
+    for (var y = 1; y < height; y++) {
+      if ((_cells[y * width] == 1) != (_cells[(y - 1) * width] == 1)) n++;
+    }
+    return n;
   }
 
   int _neighbours(int x, int y) {
