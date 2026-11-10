@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
@@ -5,9 +6,8 @@ import 'package:toml/toml.dart';
 import 'private_files.dart';
 
 // Bundled upstream adapters: facts only. No user-supplied executable templates.
-final List<AgentAdapter> adapters = adapterData
-    .map((v) => AgentAdapter(Map<String, dynamic>.from(v)))
-    .toList(growable: false);
+List<AgentAdapter> get adapters =>
+    adapterData.map((v) => AgentAdapter(Map<String, dynamic>.from(v))).toList(growable: false);
 
 class AgentAdapter {
   AgentAdapter(this.data);
@@ -205,7 +205,7 @@ Map<String, Object?> agentInfo(AgentAdapter a, Map<String, String> environment) 
   'reads_untrusted': readsUntrusted(a.command),
   'model_flag': modelFlags[a.command] ?? '',
 };
-const List<Map<String, dynamic>> adapterData = [
+List<Map<String, dynamic>> get adapterData => [
   {
     "command": "claude",
     "name": "Claude Code",
@@ -218,20 +218,20 @@ const List<Map<String, dynamic>> adapterData = [
         "deep": ["--effort", "high"],
         "max": ["--effort", "max"],
       },
-      "note": "no tools, no MCP servers, no session kept",
+      "note": tr("no tools, no MCP servers, no session kept"),
     },
     "access": {
-      "how": "A Claude Pro or Max subscription (claude.ai), or an API key from console.anthropic.com",
+      "how": tr("A Claude Pro or Max subscription (claude.ai), or an API key from console.anthropic.com"),
       "login": "claude auth login",
       "files": [".claude/.credentials.json"],
       "env": ["ANTHROPIC_API_KEY"],
       "logins": [
         {
-          "label": "Claude subscription",
+          "label": tr("Claude subscription"),
           "argv": ["claude", "auth", "login", "--claudeai"],
         },
         {
-          "label": "API billing (Anthropic Console)",
+          "label": tr("API billing (Anthropic Console)"),
           "argv": ["claude", "auth", "login", "--console"],
         },
       ],
@@ -259,17 +259,17 @@ const List<Map<String, dynamic>> adapterData = [
         "deep": ["-c", "model_reasoning_effort=high"],
         "max": ["-c", "model_reasoning_effort=high"],
       },
-      "note": "read-only sandbox, no session kept",
+      "note": tr("read-only sandbox, no session kept"),
     },
     "access": {
-      "how": "A ChatGPT plan (Plus, Pro, Business), or an API key from platform.openai.com",
+      "how": tr("A ChatGPT plan (Plus, Pro, Business), or an API key from platform.openai.com"),
       "login": "codex login",
       "files": [".codex/auth.json"],
       "env": ["OPENAI_API_KEY"],
       "local_ok": true,
       "logins": [
         {
-          "label": "ChatGPT plan",
+          "label": tr("ChatGPT plan"),
           "argv": ["codex", "login"],
         },
       ],
@@ -292,16 +292,16 @@ const List<Map<String, dynamic>> adapterData = [
         "deep": ["--reasoning", "high"],
         "max": ["--reasoning", "max"],
       },
-      "note": "only its in-memory task list (no files, terminal, web or MCP), no project rules or memory",
+      "note": tr("only its in-memory task list (no files, terminal, web or MCP), no project rules or memory"),
     },
     "access": {
-      "how": "A provider key (hermes setup), or a local LLM from the map",
+      "how": tr("A provider key (hermes setup), or a local LLM from the map"),
       "login": "hermes setup",
       "files": [".hermes/auth.json", ".hermes/.env"],
       "local_ok": true,
       "logins": [
         {
-          "label": "Setup wizard (account or key)",
+          "label": tr("Setup wizard (account or key)"),
           "argv": ["hermes", "setup"],
         },
       ],
@@ -329,19 +329,19 @@ const List<Map<String, dynamic>> adapterData = [
         "deep": ["--thinking", "high"],
         "max": ["--thinking", "max"],
       },
-      "note": "no tools, no MCP servers, skills or context files, project files ignored",
+      "note": tr("no tools, no MCP servers, skills or context files, project files ignored"),
     },
     "access": {
-      "how": "Sign in inside Pi (/login: Claude, ChatGPT, Copilot \u2026), an API key, or a local LLM from the map",
+      "how": tr("Sign in inside Pi (/login: Claude, ChatGPT, Copilot …), an API key, or a local LLM from the map"),
       "login": "pi  \u2192  /login",
       "files": [".pi/agent/auth.json"],
       "env": ["ANTHROPIC_API_KEY", "OPENAI_API_KEY"],
       "local_ok": true,
       "logins": [
         {
-          "label": "Inside Pi",
+          "label": tr("Inside Pi"),
           "argv": ["pi"],
-          "note": "Type /login in it.",
+          "note": tr("Type /login in it."),
         },
       ],
     },

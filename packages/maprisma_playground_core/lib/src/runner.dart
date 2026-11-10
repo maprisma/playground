@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -95,7 +96,7 @@ final class ProcessRunner {
     required bool captureOutput,
   }) async {
     if (argv.isEmpty || maxBytes < 0 || _closing) {
-      return const RunResult([], false, reason: 'stopped');
+      return RunResult([], false, reason: tr('stopped'));
     }
     cancel?.check();
     final clock = Stopwatch()..start();
@@ -111,7 +112,7 @@ final class ProcessRunner {
         runInShell: false,
       );
     } on Object {
-      return const RunResult([], false, reason: 'start failed');
+      return RunResult([], false, reason: tr("start failed"));
     }
     Future<void>? killing;
     Future<void> kill() => killing ??= () async {
@@ -131,7 +132,7 @@ final class ProcessRunner {
       try {
         onOutput?.call(chunk);
       } on Object {
-        stop('write failed');
+        stop(tr("write failed"));
       }
       if (!captureOutput) return;
       final remaining = maxBytes - count;
@@ -139,7 +140,7 @@ final class ProcessRunner {
         bytes.add(chunk.length <= remaining ? chunk : chunk.sublist(0, remaining));
       }
       count += chunk.length;
-      if (count > maxBytes) stop('output limit');
+      if (count > maxBytes) stop(tr("output limit"));
     }
 
     final errorTail = <int>[];
@@ -148,7 +149,7 @@ final class ProcessRunner {
       read,
       onDone: () => outDone.complete(),
       onError: (Object e) {
-        stop('read failed');
+        stop(tr("read failed"));
         if (!outDone.isCompleted) outDone.complete();
       },
     );
@@ -182,7 +183,7 @@ final class ProcessRunner {
     final complete = () async {
       final code = await proc.exitCode;
       await Future.wait([outDone.future, errDone.future, feed]);
-      return code == 0 ? '' : 'exit failed';
+      return code == 0 ? '' : tr("exit failed");
     }();
     String reason;
     try {

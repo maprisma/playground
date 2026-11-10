@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'private_files.dart';
@@ -59,6 +60,7 @@ const thinkingLevels = ['quick', 'normal', 'deep', 'max'];
 /// or look: Maprisma Playground speaks English and follows the desktop's colours).
 final Map<String, Setting> schema = {
   'choice_text': Setting('bright', _oneOf(['bright', 'dim']), 'Settings › Text in choice boxes'),
+  'language': Setting('auto', _text, 'Settings › Language: "auto" (the system\'s) or a language code'),
   'corners': Setting(
     'windows',
     _oneOf(['windows', 'rounded', 'square']),
@@ -105,7 +107,7 @@ final class Settings {
   /// The stored value when it has the declared shape, else the default (a fresh copy).
   Object? get(String key) {
     final setting = schema[key];
-    if (setting == null) throw ArgumentError('not a declared setting: $key');
+    if (setting == null) throw ArgumentError(trf("not a declared setting: {0}", [key]));
     final stored = _load()[key];
     if (stored != null && setting.valid(stored)) return stored;
     final d = setting.fallback;
@@ -119,7 +121,7 @@ final class Settings {
   /// Whether settings.json holds a valid value of its own for this key (not just the default).
   bool stored(String key) {
     final setting = schema[key];
-    if (setting == null) throw ArgumentError('not a declared setting: $key');
+    if (setting == null) throw ArgumentError(trf("not a declared setting: {0}", [key]));
     final v = _load()[key];
     return v != null && setting.valid(v);
   }
@@ -131,7 +133,7 @@ final class Settings {
   /// Write settings (null removes one). Only declared keys.
   void update(Map<String, Object?> values) {
     final unknown = values.keys.where((k) => !schema.containsKey(k)).toList();
-    if (unknown.isNotEmpty) throw ArgumentError('not a declared setting: ${unknown.join(', ')}');
+    if (unknown.isNotEmpty) throw ArgumentError(trf("not a declared setting: {0}", [unknown.join(', ')]));
     final data = _load();
     values.forEach((k, v) => v == null ? data.remove(k) : data[k] = v);
     writePrivate(places.settingsFile, const JsonEncoder.withIndent('  ').convert(data));

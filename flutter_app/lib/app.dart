@@ -21,24 +21,27 @@ import 'theme.dart';
 import 'window.dart';
 
 /// The tabs, in the plugin's order with the Automaton after Chess (Ctrl+1 … Ctrl+8).
-const tabs = <(String, String)>[
-  ('analyze', 'Analyze'),
-  ('chess', 'Chess'),
-  ('automaton', 'Automaton'),
-  ('speed', 'Speed and cost'),
-  ('duel', 'Head to head'),
-  ('vision', 'Vision'),
-  ('generate', 'Generate'),
-  ('local', 'Local LLMs'),
+List<(String, String)> get tabs => <(String, String)>[
+  ('analyze', tr("Analyze")),
+  ('chess', tr("Chess")),
+  ('automaton', tr("Automaton")),
+  ('speed', tr("Speed and cost")),
+  ('duel', tr("Head to head")),
+  ('vision', tr("Vision")),
+  ('generate', tr("Generate")),
+  ('local', tr("Local LLMs")),
 ];
 final tabKeys = {for (final t in tabs) t.$1};
 
 /// What every page gets: the settings, a way to show a short message, and to switch pages.
 final class Host {
-  Host({required this.settings, required this.toast, required this.show});
+  Host({required this.settings, required this.toast, required this.show, this.onLanguage});
   final Settings settings;
   final void Function(String text) toast;
   final void Function(String page) show;
+
+  /// Settings › Language changed ("auto" or a code): the core follows, every page is rebuilt.
+  final void Function(String setting)? onLanguage;
 }
 
 class PlaygroundApp extends StatefulWidget {
@@ -123,7 +126,15 @@ class Shell extends StatefulWidget {
 class _ShellState extends State<Shell> {
   late String _page;
   late String _lastTab;
-  late final Host _host = Host(settings: widget.settings, toast: _toast, show: _show);
+  late final Host _host = Host(settings: widget.settings, toast: _toast, show: _show, onLanguage: _language);
+
+  void _language(String setting) {
+    widget.playground.backend.call('settings.set', {
+      'values': {'language': setting},
+    }).ignore();
+    widget.onLookChanged(); // the whole app is built again in the new language
+  }
+
   final _subscriptions = <StreamSubscription>[];
 
   @override
@@ -212,8 +223,14 @@ class _ShellState extends State<Shell> {
     final ctrl = HardwareKeyboard.instance.isControlPressed;
     final key = event.logicalKey;
     final digits = [
-      LogicalKeyboardKey.digit1, LogicalKeyboardKey.digit2, LogicalKeyboardKey.digit3, LogicalKeyboardKey.digit4,
-      LogicalKeyboardKey.digit5, LogicalKeyboardKey.digit6, LogicalKeyboardKey.digit7, LogicalKeyboardKey.digit8,
+      LogicalKeyboardKey.digit1,
+      LogicalKeyboardKey.digit2,
+      LogicalKeyboardKey.digit3,
+      LogicalKeyboardKey.digit4,
+      LogicalKeyboardKey.digit5,
+      LogicalKeyboardKey.digit6,
+      LogicalKeyboardKey.digit7,
+      LogicalKeyboardKey.digit8,
     ];
     if (ctrl && digits.contains(key)) {
       _show(tabs[digits.indexOf(key)].$1);
@@ -322,7 +339,7 @@ class _Header extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.only(right: 4),
         child: Tooltip(
-          message: 'Ctrl+${i + 1}',
+          message: trf('Ctrl+{0}', [i + 1]),
           child: TextButton(
             onPressed: () => onShow(key),
             style: TextButton.styleFrom(
@@ -352,10 +369,16 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(17, 8, 12, 8),
       child: Row(
         children: [
-          Tooltip(message: 'Maprisma Playground', child: Icon(Icons.sports_esports, size: 20, color: look.fg)),
+          Tooltip(
+            message: 'Maprisma Playground',
+            child: Icon(Icons.sports_esports, size: 20, color: look.fg),
+          ),
           if (wide) ...[
             const SizedBox(width: 8),
-            Text('Maprisma Playground', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: look.fg)),
+            Text(
+              'Maprisma Playground',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: look.fg),
+            ),
           ],
           SizedBox(width: wide ? 16 : 10),
           Expanded(
@@ -365,8 +388,8 @@ class _Header extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          round(Icons.info, 'Information', 'info'),
-          round(Icons.settings, 'Settings (Ctrl+,)', 'settings'),
+          round(Icons.info, tr("Information"), 'info'),
+          round(Icons.settings, tr("Settings (Ctrl+,)"), 'settings'),
         ],
       ),
     );

@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -121,7 +122,7 @@ class ChessImport {
 
   Future<Map<String, Object?>> readerInfo(Map<String, dynamic> params, CancelToken token) async {
     final source = params['path'] ?? params['url'] ?? '';
-    if (source is! String) throw ArgumentError('Invalid video source.');
+    if (source is! String) throw ArgumentError(tr("Invalid video source."));
     final before = source.isEmpty
         ? null
         : games
@@ -147,7 +148,7 @@ class ChessImport {
         },
     };
     if (params['path'] is String && source.isNotEmpty) {
-      if (!p.isAbsolute(source) || !File(source).existsSync()) throw ArgumentError('Choose a video file.');
+      if (!p.isAbsolute(source) || !File(source).existsSync()) throw ArgumentError(tr("Choose a video file."));
       final out = await runner.run(
         mediaArgv(
           runner,
@@ -211,7 +212,7 @@ class ChessImport {
   }
 
   Future<(String, String)> download(String url, String folder, CancelToken token) async {
-    if (youtubeUrl(url) != url) throw ArgumentError('not a YouTube link');
+    if (youtubeUrl(url) != url) throw ArgumentError(tr("not a YouTube link"));
     final out = await runner.run(
       [
         'yt-dlp',
@@ -239,15 +240,15 @@ class ChessImport {
       cancel: token,
     );
     final lines = out.text.split('\n').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-    if (!out.ok || lines.isEmpty) throw StateError('The video could not be downloaded.');
+    if (!out.ok || lines.isEmpty) throw StateError(tr("The video could not be downloaded."));
     String real;
     try {
       real = File(lines.last).resolveSymbolicLinksSync();
     } on Object {
-      throw StateError('The video could not be downloaded.');
+      throw StateError(tr("The video could not be downloaded."));
     }
     if (!p.isWithin(folder, real) || !File(real).existsSync() || File(real).lengthSync() > 1024 * 1024 * 1024) {
-      throw StateError('The video could not be downloaded.');
+      throw StateError(tr("The video could not be downloaded."));
     }
     return (real, p.basenameWithoutExtension(real).replaceAll('_', ' '));
   }
@@ -333,42 +334,44 @@ class ChessImport {
         ? <String, dynamic>{'command': raw}
         : raw is Map
         ? raw.cast<String, dynamic>()
-        : throw ArgumentError('Expected a reader.');
+        : throw ArgumentError(tr("Expected a reader."));
     var command = reader['command'];
     var local = reader['local'];
     if (local == null && command is String && command.startsWith('local:')) {
       final m = RegExp(r'^local:(\d+):(.+)$').firstMatch(command);
-      if (m == null) throw ArgumentError('Invalid local reader.');
+      if (m == null) throw ArgumentError(tr("Invalid local reader."));
       final port = int.parse(m[1]!);
       final runtime = localServers.where((s) => s.$3 == port).firstOrNull;
-      if (runtime == null) throw ArgumentError('Invalid local reader.');
+      if (runtime == null) throw ArgumentError(tr("Invalid local reader."));
       local = {'port': port, 'runtime': runtime.$1, 'model': m[2]!};
     }
     if (local is! Map &&
         (command is! String || !readsUntrusted(command) || (params['way'] != 'text' && !takesImages(command)))) {
-      throw ArgumentError('Only an agent without tools may read a video.');
+      throw ArgumentError(tr("Only an agent without tools may read a video."));
     }
     final url = params['url'] ?? '', path = params['path'] ?? '';
     if (url is! String || path is! String || (url.isEmpty == path.isEmpty)) {
-      throw ArgumentError('Choose a video file or YouTube link.');
+      throw ArgumentError(tr("Choose a video file or YouTube link."));
     }
-    if (url.isNotEmpty && youtubeUrl(url) != url) throw ArgumentError('not a YouTube link');
+    if (url.isNotEmpty && youtubeUrl(url) != url) throw ArgumentError(tr("not a YouTube link"));
     if (path.isNotEmpty &&
         (!p.isAbsolute(path) ||
             !['.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v'].contains(p.extension(path).toLowerCase()) ||
             !File(path).existsSync())) {
-      throw ArgumentError('Choose a video file.');
+      throw ArgumentError(tr("Choose a video file."));
     }
     final gap = params['gap'] ?? 4, limit = params['limit'] ?? 0, way = params['way'] ?? 'frames';
     if (![2, 4, 8].contains(gap) ||
         ![0, 5, 15, 30, 300, 900, 1800].contains(limit) ||
         !['text', 'frames'].contains(way)) {
-      throw ArgumentError('Invalid video options.');
+      throw ArgumentError(tr("Invalid video options."));
     }
     Future<Answer> ask(String prompt, [List<String> images = const []]) async {
       if (local is Map) {
         final port = local['port'], model = local['model'];
-        if (port is! int || port < 1 || port > 65535 || model is! String) throw ArgumentError('Invalid local reader.');
+        if (port is! int || port < 1 || port > 65535 || model is! String) {
+          throw ArgumentError(tr("Invalid local reader."));
+        }
         if (images.isNotEmpty &&
             await seesPictures(
                   http,
@@ -379,7 +382,7 @@ class ChessImport {
                   cancel: token,
                 ) !=
                 true) {
-          throw ArgumentError('This local model cannot be sent pictures.');
+          throw ArgumentError(tr("This local model cannot be sent pictures."));
         }
         return LocalLlm(http).ask(port, model, prompt, images: images, cancel: token);
       }
@@ -419,9 +422,11 @@ class ChessImport {
     );
     try {
       await hold?.open(cancel: token);
-      if (hold != null && hold.error.isNotEmpty) throw StateError('The local LLM did not start: ${hold.error}');
+      if (hold != null && hold.error.isNotEmpty) {
+        throw StateError(trf("The local LLM did not start: {0}", [hold.error]));
+      }
       if (way == 'text' && url.isNotEmpty) {
-        progress(0, "Reading the video's description…");
+        progress(0, tr("Reading the video's description…"));
         final info = await videoInfo(url, token);
         if (info.isNotEmpty) {
           name = cleanTitle('${info['title'] ?? url}');
@@ -439,7 +444,7 @@ class ChessImport {
 
           remember(moves);
           if (moves.length < 6) {
-            progress(0, 'Reading the commentary…');
+            progress(0, tr("Reading the commentary…"));
             final spoken = await captions(info, token);
             var text = '${videoTextPrompt}Title: $name\n\nDescription:\n$description\n\nSpoken:\n$spoken';
             if (text.length > 20000 + videoTextPrompt.length) text = text.substring(0, 20000 + videoTextPrompt.length);
@@ -457,7 +462,9 @@ class ChessImport {
           reading.moves.clear();
           reading.start = reading.pos = null;
         }
-        if (reading.moves.isEmpty) progress(0, 'No game in the description or the commentary: watching the frames…');
+        if (reading.moves.isEmpty) {
+          progress(0, tr("No game in the description or the commentary: watching the frames…"));
+        }
       }
       if (reading.moves.isEmpty) {
         how = 'frames';
@@ -466,7 +473,7 @@ class ChessImport {
           final seeing = (await readers(token)).where((r) => r['local'] == null).firstOrNull;
           if (seeing == null) {
             throw StateError(
-              'No game in the description or the commentary, and no agent here sees pictures to watch the frames.',
+              tr("No game in the description or the commentary, and no agent here sees pictures to watch the frames."),
             );
           }
           command = seeing['command'];
@@ -474,13 +481,15 @@ class ChessImport {
           if (watcherModel != null) {
             watcherHold = LocalHold(watcherModel.$1, http, runner);
             await watcherHold.open(cancel: token);
-            if (watcherHold.error.isNotEmpty) throw StateError('The local LLM did not start: ${watcherHold.error}');
+            if (watcherHold.error.isNotEmpty) {
+              throw StateError(trf("The local LLM did not start: {0}", [watcherHold.error]));
+            }
             final verdict = await frames.check(command, watcherModel.$1, watcherModel.$2, '', token);
             if (verdict.state != 'ready') throw StateError(verdict.message);
           }
         }
         if (url.isNotEmpty) {
-          progress(0, 'Downloading the video…');
+          progress(0, tr("Downloading the video…"));
           final result = await download(url, folder.path, token);
           video = result.$1;
           name = result.$2;
@@ -489,9 +498,9 @@ class ChessImport {
           final verdict = await frames.check(command, used.$1, used.$2, '', token);
           if (verdict.state != 'ready') throw StateError(verdict.message);
         }
-        progress(0, 'Taking frames…');
+        progress(0, tr("Taking frames…"));
         final paths = await shots(video, folder.path, gap as int, (limit as int) < 60 ? limit * 60 : limit, token);
-        if (paths.isEmpty) throw StateError('No frames could be taken from that video.');
+        if (paths.isEmpty) throw StateError(tr("No frames could be taken from that video."));
         var previous = <int>[];
         final picks = <String>[];
         try {
@@ -520,7 +529,7 @@ class ChessImport {
               final count = offset + index + 1;
               progress(
                 count / picks.length,
-                'Frame $count of ${picks.length} · ${reading.moves.length} ${reading.moves.length == 1 ? 'move' : 'moves'} read',
+                '${trf('Frame {0} of {1}', [count, picks.length])} · ${trf('Moves read: {0}', [reading.moves.length])}',
               );
             }
           }
@@ -532,7 +541,7 @@ class ChessImport {
         }
       }
       token.check();
-      if (reading.moves.isEmpty) throw StateError('No moves could be read from that video.');
+      if (reading.moves.isEmpty) throw StateError(tr("No moves could be read from that video."));
       return saveReading();
     } on Cancelled {
       if (reading.moves.isEmpty) rethrow;

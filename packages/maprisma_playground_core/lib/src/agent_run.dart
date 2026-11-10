@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
@@ -158,20 +159,20 @@ Answer parseAnswer(String command, String out) {
           ].fold<num>(0, (n, k) => n + (number(usage[k]) ?? 0)),
     tokensOut: number(usage['output_tokens']),
     cost: number(last['total_cost_usd']),
-    error: last['is_error'] == true && text.isEmpty ? 'The agent reported an error.' : '',
+    error: last['is_error'] == true && text.isEmpty ? tr("The agent reported an error.") : '',
   );
 }
 
 String checkImage(String path) {
   if (!imageTypes.containsKey(p.extension(path).toLowerCase())) {
-    return 'Only PNG, JPEG, WebP or GIF pictures can be sent.';
+    return tr("Only PNG, JPEG, WebP or GIF pictures can be sent.");
   }
   try {
     if (!File(path).existsSync() || File(path).lengthSync() > 8 * 1024 * 1024) {
-      return 'The picture is missing or larger than 8 MB.';
+      return tr("The picture is missing or larger than 8 MB.");
     }
   } on FileSystemException {
-    return 'The picture cannot be read.';
+    return tr("The picture cannot be read.");
   }
   return '';
 }
@@ -190,10 +191,10 @@ Future<Answer> askAgent(
   int maxBytes = 512 * 1024,
 }) async {
   if (untrusted && !readsUntrusted(command)) {
-    return Answer(error: 'This agent cannot read untrusted input.');
+    return Answer(error: tr("This agent cannot read untrusted input."));
   }
   if (images.isNotEmpty && !takesImages(command)) {
-    return Answer(error: 'This agent cannot be sent pictures.');
+    return Answer(error: tr("This agent cannot be sent pictures."));
   }
   final folder = createPrivateTempDirectory();
   final clock = Stopwatch()..start();
@@ -207,10 +208,10 @@ Future<Answer> askAgent(
       copies.add(dest);
     }
     final built = buildAsk(command, prompt, images: copies, level: level, think: think, model: model);
-    if (built.argv.isEmpty) return Answer(error: 'This agent cannot be asked.');
+    if (built.argv.isEmpty) return Answer(error: tr("This agent cannot be asked."));
     // Resolve against the supplied PATH, not the host process's PATH.
     final exe = executableOnPath(command, runner.environment);
-    if (exe == null) return Answer(error: 'This agent cannot be asked.');
+    if (exe == null) return Answer(error: tr("This agent cannot be asked."));
     built.argv[0] = exe;
     final out = await runner.run(
       built.argv,
@@ -223,7 +224,9 @@ Future<Answer> askAgent(
     );
     final result = parseAnswer(command, out.text)..seconds = clock.elapsedMicroseconds / 1e6;
     if (result.text.isEmpty && result.error.isEmpty) {
-      result.error = out.ok ? 'The agent gave an empty answer.' : 'No answer: the agent took too long or stopped.';
+      result.error = out.ok
+          ? tr("The agent gave an empty answer.")
+          : tr("No answer: the agent took too long or stopped.");
     }
     return result;
   } on Cancelled {

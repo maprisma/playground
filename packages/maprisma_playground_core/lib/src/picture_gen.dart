@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:archive/archive.dart';
@@ -43,8 +44,8 @@ Future<void> downloadFile(
   void Function(double) progress, {
   bool resume = true,
 }) async {
-  if (!checksum.hasMatch(digest) || size <= 0) throw StateError('no checksum: nothing is downloaded');
-  if (!url.startsWith('https://')) throw ArgumentError('HTTPS required');
+  if (!checksum.hasMatch(digest) || size <= 0) throw StateError(tr("no checksum: nothing is downloaded"));
+  if (!url.startsWith('https://')) throw ArgumentError(tr("HTTPS required"));
   Directory(p.dirname(target)).createSync(recursive: true);
   final part = StagingFile('$target.part', resume: resume, mode: 0x1a4);
   try {
@@ -76,17 +77,21 @@ Future<void> downloadFile(
         timeout: const Duration(hours: 6),
         captureOutput: false,
         onOutput: (chunk) {
-          if (part.size + chunk.length > size) throw StateError('${p.basename(target)} is larger than announced');
+          if (part.size + chunk.length > size) {
+            throw StateError(trf("{0} is larger than announced", [p.basename(target)]));
+          }
           part.add(chunk);
           progress(part.size / size);
         },
       );
       if (!out.ok) {
-        throw StateError('download failed: ${out.stderr.trim().substring(0, out.stderr.trim().length.clamp(0, 400))}');
+        throw StateError(
+          trf("download failed: {0}", [out.stderr.trim().substring(0, out.stderr.trim().length.clamp(0, 400))]),
+        );
       }
     }
     token.check();
-    if (part.size != size) throw StateError('${p.basename(target)}: download incomplete');
+    if (part.size != size) throw StateError(trf("{0}: download incomplete", [p.basename(target)]));
     final digestOutput = _DigestSink();
     final hash = sha256.startChunkedConversion(digestOutput);
     await for (final chunk in File('/proc/self/fd/${part.fd}').openRead()) {
@@ -98,7 +103,7 @@ Future<void> downloadFile(
     token.check();
     if (actual.toString() != digest) {
       part.truncate();
-      throw StateError('${p.basename(target)} does not match its checksum; it was not kept');
+      throw StateError(trf("{0} does not match its checksum; it was not kept", [p.basename(target)]));
     }
     part.publish(target);
     progress(1);
@@ -115,7 +120,7 @@ Future<void> downloadFile(
 void unpackRelease(String archivePath, String folder) {
   final input = InputFileStream(archivePath);
   try {
-    if (File(archivePath).lengthSync() > 512 * 1024 * 1024) throw StateError('the release is too large');
+    if (File(archivePath).lengthSync() > 512 * 1024 * 1024) throw StateError(tr("the release is too large"));
     final directory = ZipDirectory();
     var announced = 0;
     final names = <String>{};
@@ -125,23 +130,25 @@ void unpackRelease(String archivePath, String folder) {
           !RegExp(r'^[A-Za-z0-9._+\-]{1,128}$').hasMatch(name) ||
           !names.add(name) ||
           mode & 0xf000 == 0x4000) {
-        throw StateError('unexpected entry in the release: $name');
+        throw StateError(trf("unexpected entry in the release: {0}", [name]));
       }
-      if (mode & 0xf000 == 0xa000) throw StateError('a link in the release: $name');
+      if (mode & 0xf000 == 0xa000) throw StateError(trf("a link in the release: {0}", [name]));
       announced += header.uncompressedSize;
-      if (announced > 1024 * 1024 * 1024) throw StateError('the release unpacks too large');
+      if (announced > 1024 * 1024 * 1024) throw StateError(tr("the release unpacks too large"));
     }
-    if (directory.filePosition < 0) throw StateError('unexpected release archive');
+    if (directory.filePosition < 0) throw StateError(tr("unexpected release archive"));
     final archive = ZipDecoder().decodeStream(input, verify: true);
     var total = 0;
     for (final file in archive.files) {
       final name = file.name;
       if (!file.isFile || name.startsWith('.') || !RegExp(r'^[A-Za-z0-9._+\-]{1,128}$').hasMatch(name)) {
-        throw StateError('unexpected entry in the release: ${name.substring(0, name.length.clamp(0, 80))}');
+        throw StateError(trf("unexpected entry in the release: {0}", [name.substring(0, name.length.clamp(0, 80))]));
       }
-      if (file.isSymbolicLink || file.mode & 0xf000 == 0xa000) throw StateError('a link in the release: $name');
+      if (file.isSymbolicLink || file.mode & 0xf000 == 0xa000) {
+        throw StateError(trf("a link in the release: {0}", [name]));
+      }
       total += file.size;
-      if (total > 1024 * 1024 * 1024) throw StateError('the release unpacks too large');
+      if (total > 1024 * 1024 * 1024) throw StateError(tr("the release unpacks too large"));
     }
     Directory(folder).createSync(recursive: true);
     for (final file in archive.files) {
@@ -199,14 +206,14 @@ class PictureGen {
   }
 
   Future<void> setup(CancelToken token, Progress progress) async {
-    if (_settingUp) throw StateError('it is being downloaded already');
+    if (_settingUp) throw StateError(tr("it is being downloaded already"));
     _settingUp = true;
     Directory(places.data).createSync(recursive: true);
     StagingFile? lock;
     try {
       lock = StagingFile(p.join(places.data, '.setup.lock'));
       if (binary == null) {
-        progress(0, '(program)');
+        progress(0, tr('(program)'));
         final out = await runner.run(
           [
             'curl',
@@ -225,11 +232,11 @@ class PictureGen {
           timeout: const Duration(seconds: 30),
           cancel: token,
         );
-        if (!out.ok) throw StateError('GitHub could not be reached');
+        if (!out.ok) throw StateError(tr("GitHub could not be reached"));
         final data = jsonDecode(out.text);
         final tag = data is Map ? data['tag_name'] : null;
         if (tag is! String || !releaseTag.hasMatch(tag) || tag == '.' || tag == '..') {
-          throw StateError('unexpected release list');
+          throw StateError(tr("unexpected release list"));
         }
         Map? asset;
         for (final a in data['assets'] is List ? data['assets'] : []) {
@@ -238,7 +245,7 @@ class PictureGen {
             break;
           }
         }
-        if (asset == null) throw StateError('the release has no Linux Vulkan build');
+        if (asset == null) throw StateError(tr("the release has no Linux Vulkan build"));
         final digest = asset['digest'], url = asset['browser_download_url'], size = asset['size'];
         if (digest is! String ||
             !digest.startsWith('sha256:') ||
@@ -248,10 +255,10 @@ class PictureGen {
             size is! int ||
             size <= 0 ||
             size > 512 * 1024 * 1024) {
-          throw StateError('the release lists no checksum for its Linux build');
+          throw StateError(tr("the release lists no checksum for its Linux build"));
         }
         final root = p.join(places.data, 'sd'), archive = p.join(root, asset['name']);
-        await downloadFile(runner, url, archive, size, digest.substring(7), token, (f) => progress(f, '(program)'));
+        await downloadFile(runner, url, archive, size, digest.substring(7), token, (f) => progress(f, tr('(program)')));
         final staging = Directory(p.join(root, '.$tag.partial'));
         if (staging.existsSync()) staging.deleteSync(recursive: true);
         try {
@@ -296,10 +303,10 @@ class PictureGen {
 
   List<String> build(String prompt, String out, {String size = 'square', int seed = -1}) {
     final exe = binary;
-    if (exe == null) throw StateError('stable-diffusion.cpp is not set up');
+    if (exe == null) throw StateError(tr("stable-diffusion.cpp is not set up"));
     prompt = prompt.trim().split(RegExp(r'\s+')).join(' ');
     if (prompt.length > 2000) prompt = prompt.substring(0, 2000);
-    if (prompt.isEmpty) throw ArgumentError('empty prompt');
+    if (prompt.isEmpty) throw ArgumentError(tr("empty prompt"));
     final (width, height) = generationSizes[size] ?? generationSizes['square']!;
     return [
       exe,
@@ -338,7 +345,7 @@ class PictureGen {
   ) async {
     final out = p.join(folder.path, 'picture-${_next++}.png');
     final argv = build(prompt, out, size: size, seed: seed);
-    progress(0, 'loading the model');
+    progress(0, tr("loading the model"));
     final clock = Stopwatch()..start();
     var tail = '';
     try {
@@ -360,11 +367,11 @@ class PictureGen {
         },
       );
       if (!result.ok || !ownRegularFile(out)) {
-        if (result.reason == 'timeout') throw StateError('it took longer than 15 minutes');
+        if (result.reason == 'timeout') throw StateError(tr("it took longer than 15 minutes"));
         final lines = tail.split('\n').where((s) => s.trim().isNotEmpty).toList();
         final text = lines.skip((lines.length - 3).clamp(0, lines.length)).join(' / ');
         throw StateError(
-          text.isEmpty ? 'sd-cli ended with ${result.reason}' : text.substring(0, text.length.clamp(0, 400)),
+          text.isEmpty ? trf("sd-cli ended with {0}", [result.reason]) : text.substring(0, text.length.clamp(0, 400)),
         );
       }
       return {'path': out, 'seconds': clock.elapsedMicroseconds / 1e6, 'seed': seed};

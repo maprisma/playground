@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'agent_run.dart';
@@ -43,7 +44,7 @@ List<String> modelIds(Object? data) {
 }
 
 Answer chatAnswer(Object? data) {
-  if (data is! Map) return Answer(error: 'no answer');
+  if (data is! Map) return Answer(error: tr("no answer"));
   final choices = data['choices'];
   final message = choices is List && choices.isNotEmpty && choices.first is Map ? choices.first['message'] : null;
   final usage = data['usage'] is Map ? data['usage'] as Map : {};
@@ -100,7 +101,7 @@ class LocalLlm {
       // Vision must be positively identified by LocalHold.seesPictures before this call.
       Object content = prompt;
       if (images.isNotEmpty) {
-        if (images.length > 8) return Answer(error: 'Too many pictures.');
+        if (images.length > 8) return Answer(error: tr("Too many pictures."));
         final blocks = <Map<String, Object?>>[
           {'type': 'text', 'text': prompt},
         ];

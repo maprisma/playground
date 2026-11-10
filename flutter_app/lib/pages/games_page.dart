@@ -1,3 +1,4 @@
+import 'package:maprisma_playground_core/maprisma_playground_core.dart' show tr, trf;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
@@ -90,7 +91,7 @@ class _GamesPageState extends State<GamesPage> {
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Rename the game', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        title: Text(tr("Rename the game"), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         content: SizedBox(
           width: 420,
           child: TextField(
@@ -101,8 +102,8 @@ class _GamesPageState extends State<GamesPage> {
           ),
         ),
         actions: [
-          SmallButton('Cancel', onPressed: () => Navigator.pop(context)),
-          ActionButton('Rename', onPressed: () => Navigator.pop(context, field.text)),
+          SmallButton(tr("Cancel"), onPressed: () => Navigator.pop(context)),
+          ActionButton(tr("Rename"), onPressed: () => Navigator.pop(context, field.text)),
         ],
       ),
     );
@@ -116,10 +117,10 @@ class _GamesPageState extends State<GamesPage> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete this game?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        title: Text(tr("Delete this game?"), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         content: AnswerText(g.title),
         actions: [
-          SmallButton('Cancel', onPressed: () => Navigator.pop(context)),
+          SmallButton(tr("Cancel"), onPressed: () => Navigator.pop(context)),
           OutlinedButton(
             onPressed: () => Navigator.pop(context, true),
             style: OutlinedButton.styleFrom(
@@ -127,7 +128,7 @@ class _GamesPageState extends State<GamesPage> {
               side: BorderSide(color: look.red),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(corners(context))),
             ),
-            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.w700)),
+            child: Text(tr("Delete"), style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -154,7 +155,7 @@ class _GamesPageState extends State<GamesPage> {
     if (where == null) return;
     try {
       await s.core('games.pgn', {'id': g.id, 'path': where.path}).result;
-      widget.host.toast('Saved: ${where.path.split('/').last}');
+      widget.host.toast(trf("Saved: {0}", [where.path.split('/').last]));
     } on CoreFailure catch (e) {
       widget.host.toast(e.message);
     }
@@ -194,16 +195,16 @@ class _GamesPageState extends State<GamesPage> {
                 if (g.source.isNotEmpty) OriginalButton(game: g, toast: widget.host.toast),
                 IconSmallButton(
                   Icons.play_arrow,
-                  tooltip: 'Replay game: on the board, with the controls beneath it',
+                  tooltip: tr("Replay game: on the board, with the controls beneath it"),
                   onPressed: () => _replay(g),
                 ),
-                SmallButton('Rename…', onPressed: () => _rename(g)),
+                SmallButton(tr("Rename…"), onPressed: () => _rename(g)),
                 SmallButton(
-                  'Save as PGN…',
-                  tooltip: 'PGN: the chess programs\' format (Lichess, ChessBase, Scid…)',
+                  tr("Save as PGN…"),
+                  tooltip: tr("PGN: the chess programs' format (Lichess, ChessBase, Scid…)"),
                   onPressed: () => _pgn(g),
                 ),
-                IconSmallButton(Icons.delete_outline, tooltip: 'Delete this game', onPressed: () => _delete(g)),
+                IconSmallButton(Icons.delete_outline, tooltip: tr("Delete this game"), onPressed: () => _delete(g)),
               ],
             ),
           ],
@@ -215,24 +216,25 @@ class _GamesPageState extends State<GamesPage> {
   @override
   Widget build(BuildContext context) {
     final query = _search.text.trim();
-    const none = 'None yet. Drop a chess video or a YouTube link on this tab, or use Import video…';
+    final none = tr("None yet. Drop a chess video or a YouTube link on this tab, or use Import video…");
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PageHead(title: 'Saved games', onBack: widget.onBack),
+        PageHead(title: tr("Saved games"), onBack: widget.onBack),
         Expanded(
           child: PageScroll(
             children: [
-              const Hint(
-                'Your saved games and the ones read from chess videos, newest first. The play symbol puts one on the '
-                'board; Save as PGN gives it to other chess programs.',
+              Hint(
+                tr(
+                  "Your saved games and the ones read from chess videos, newest first. The play symbol puts one on the board; Save as PGN gives it to other chess programs.",
+                ),
               ),
               vgap,
               if (_everything >= _searchFrom || query.isNotEmpty) ...[
                 TextField(
                   controller: _search,
-                  decoration: const InputDecoration(
-                    hintText: 'Search saved games',
+                  decoration: InputDecoration(
+                    hintText: tr("Search saved games"),
                     prefixIcon: Icon(Icons.search, size: 18),
                     isDense: true,
                   ),
@@ -241,12 +243,12 @@ class _GamesPageState extends State<GamesPage> {
                 vgap,
               ],
               if (_error.isNotEmpty) ...[Hint(_error, error: true), vgap],
-              if (_loaded && _games.isEmpty && query.isEmpty) const Hint(none),
-              if (_loaded && _games.isEmpty && query.isNotEmpty) const Hint('No saved game has that in its title.'),
+              if (_loaded && _games.isEmpty && query.isEmpty) Hint(none),
+              if (_loaded && _games.isEmpty && query.isNotEmpty) Hint(tr("No saved game has that in its title.")),
               for (final g in _games) _card(g),
               if (!_all && query.isEmpty && _total > _games.length)
                 SmallButton(
-                  _total == 1 ? 'Show all 1 game' : 'Show all $_total games',
+                  _total == 1 ? tr("Show all 1 game") : trf("Show all {0} games", [_total]),
                   onPressed: () {
                     _all = true;
                     _load();

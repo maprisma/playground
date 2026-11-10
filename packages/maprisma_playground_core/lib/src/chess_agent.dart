@@ -1,9 +1,10 @@
+import 'i18n.dart';
 import 'chess_rules.dart' as rules;
 import 'agent_run.dart';
 import 'runner.dart';
 import 'agents.dart';
 
-String sideName(String side) => side == 'w' ? 'White' : 'Black';
+String sideName(String side) => side == 'w' ? tr("White") : tr("Black");
 String chessPrompt(
   rules.Position start,
   List<rules.Move> moves,
@@ -78,7 +79,7 @@ Future<ChessReply> askChess(
   CancelToken? cancel,
 }) async {
   if (!canAsk(command)) {
-    return const ChessReply(null, '', '', error: 'This agent cannot be asked for a move.');
+    return ChessReply(null, '', '', error: tr("This agent cannot be asked for a move."));
   }
   final answer = await askAgent(runner, command, text, level: level, cancel: cancel, maxBytes: 64 * 1024);
   if (answer.text.isEmpty) return ChessReply(null, '', '', error: answer.error);

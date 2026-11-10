@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -17,13 +18,13 @@ final _read = _libc
 final _close = _libc.lookupFunction<Int32 Function(Int32), int Function(int)>('close');
 Pointer<Uint8> _allocate(int bytes) {
   final ptr = _malloc(bytes).cast<Uint8>();
-  if (ptr.address == 0) throw StateError('Cannot allocate a file buffer.');
+  if (ptr.address == 0) throw StateError(tr("Cannot allocate a file buffer."));
   return ptr;
 }
 
 Pointer<Uint8> _text(String text) {
   final bytes = utf8.encode(text);
-  if (bytes.contains(0)) throw ArgumentError('Invalid file path.');
+  if (bytes.contains(0)) throw ArgumentError(tr("Invalid file path."));
   final ptr = _allocate(bytes.length + 1);
   ptr.asTypedList(bytes.length + 1)
     ..setAll(0, bytes)
@@ -34,7 +35,7 @@ Pointer<Uint8> _text(String text) {
 /// Empty private folder, with 0700 set atomically before its name is returned.
 Directory createPrivateTempDirectory({String prefix = 'maprisma-playground-'}) {
   if (prefix.contains('/') || prefix.contains('\u0000')) {
-    throw ArgumentError('Invalid temporary folder prefix.');
+    throw ArgumentError(tr("Invalid temporary folder prefix."));
   }
   final template =
       '${Directory.systemTemp.path}/$prefix'
@@ -42,7 +43,7 @@ Directory createPrivateTempDirectory({String prefix = 'maprisma-playground-'}) {
   final ptr = _text(template);
   try {
     if (_mkdtemp(ptr).address == 0) {
-      throw const FileSystemException('Cannot create a private temporary folder.');
+      throw FileSystemException(tr("Cannot create a private temporary folder."));
     }
     return Directory(utf8.decode(ptr.asTypedList(utf8.encode(template).length)));
   } finally {
@@ -53,7 +54,7 @@ Directory createPrivateTempDirectory({String prefix = 'maprisma-playground-'}) {
 /// Bounded configuration read without following a final symlink. O_NONBLOCK
 /// also prevents a replaced FIFO from blocking the core isolate.
 String readRegularNoFollow(String path, {int maxBytes = 512 * 1024, bool requireOwner = false}) {
-  if (maxBytes < 0) throw ArgumentError('Invalid file size limit.');
+  if (maxBytes < 0) throw ArgumentError(tr("Invalid file size limit."));
   try {
     if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.file) {
       return '';
@@ -158,7 +159,7 @@ bool ownFolder(String path) {
 void requirePrivateFolder(String path) {
   final s = fileIdentity(path);
   if (s == null || s.uid != fileOwnerUid || s.mode & 0xf000 != 0x4000 || s.mode & 0xfff != 0x1c0) {
-    throw FileSystemException('Expected own private 0700 folder', path);
+    throw FileSystemException(tr("Expected own private 0700 folder"), path);
   }
 }
 
@@ -172,23 +173,23 @@ class StagingFile {
     } finally {
       _free(name.cast());
     }
-    if (fd < 0) throw FileSystemException('Cannot open own download', path);
+    if (fd < 0) throw FileSystemException(tr("Cannot open own download"), path);
     final info = fileIdentity('', fd: fd);
     if (info == null || info.uid != fileOwnerUid || info.links != 1 || info.mode & 0xf000 != 0x8000) {
       close();
       throw FileSystemException(
-        "${File(path).uri.pathSegments.last} is not this account's own download; remove it and try again",
+        trf("{0} is not this account's own download; remove it and try again", [File(path).uri.pathSegments.last]),
       );
     }
     if (_fchmod(fd, info.mode & mode & 0x1ff) != 0) {
       close();
-      throw FileSystemException('Cannot set private file permissions', path);
+      throw FileSystemException(tr("Cannot set private file permissions"), path);
     }
     inode = info.inode;
     device = info.device;
     if (_flock(fd, 2 | 4) != 0) {
       close();
-      throw StateError('${File(path).uri.pathSegments.last} is being downloaded already');
+      throw StateError(trf("{0} is being downloaded already", [File(path).uri.pathSegments.last]));
     }
     if (!resume) truncate();
   }
@@ -197,7 +198,7 @@ class StagingFile {
   late int inode, device;
   int get size => fileIdentity('', fd: fd)!.size;
   void truncate() {
-    if (_truncate(fd, 0) != 0) throw FileSystemException('Cannot empty staging file', path);
+    if (_truncate(fd, 0) != 0) throw FileSystemException(tr("Cannot empty staging file"), path);
   }
 
   void add(List<int> bytes) {
@@ -209,7 +210,7 @@ class StagingFile {
       // append mode set by lseek before the first chunk.
       while (offset < bytes.length) {
         final n = _writeFd(fd, buffer + offset, bytes.length - offset);
-        if (n <= 0) throw FileSystemException('Cannot write staging file', path);
+        if (n <= 0) throw FileSystemException(tr("Cannot write staging file"), path);
         offset += n;
       }
     } finally {
@@ -219,13 +220,13 @@ class StagingFile {
 
   void seekEnd() {
     final seek = _libc.lookupFunction<Int64 Function(Int32, Int64, Int32), int Function(int, int, int)>('lseek');
-    if (seek(fd, 0, 2) < 0) throw FileSystemException('Cannot resume staging file', path);
+    if (seek(fd, 0, 2) < 0) throw FileSystemException(tr("Cannot resume staging file"), path);
   }
 
   void publish(String target) {
     final now = fileIdentity(path);
     if (_fsync(fd) != 0 || now?.inode != inode || now?.device != device) {
-      throw StateError('$path was replaced while downloading; nothing was kept');
+      throw StateError(trf("{0} was replaced while downloading; nothing was kept", [path]));
     }
     File(path).renameSync(target);
   }

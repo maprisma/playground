@@ -1,3 +1,4 @@
+import 'package:maprisma_playground_core/maprisma_playground_core.dart' show tr, trf;
 import 'package:flutter/material.dart';
 
 import 'backend.dart';
@@ -78,7 +79,9 @@ final class Playground extends ChangeNotifier {
         final s = (raw as Map).cast<String, dynamic>();
         final name = '${s['name'] ?? s['runtime']}';
         if (s['error'] is String && (s['error'] as String).isNotEmpty) {
-          problems.add('$name: ${s['error'] == 'another account' ? 'runs under another account; not asked' : s['error']}');
+          problems.add(
+            '$name: ${s['error'] == 'another account' ? tr('runs under another account; not asked') : s['error']}',
+          );
           continue;
         }
         for (final m in (s['models'] as List? ?? const [])) {
@@ -101,7 +104,9 @@ final class Playground extends ChangeNotifier {
     if (chosen.length < 2) return false;
     Map<String, dynamic> check;
     try {
-      check = await backend.call('gpu.check', {'targets': [for (final c in chosen) c.target]});
+      check = await backend.call('gpu.check', {
+        'targets': [for (final c in chosen) c.target],
+      });
     } on Object {
       return false;
     }
@@ -125,26 +130,31 @@ class _GpuDialog extends StatelessWidget {
     final lines = <String>[
       for (final raw in (check['needs'] as List? ?? const []))
         switch ((raw as Map).cast<String, dynamic>()) {
-          final n when n['loaded'] == true => '${n['label']}: loaded already',
-          final n when n['size'] == null => '${n['label']}: size not found',
-          final n => '${n['label']}: about ${gb(n['bytes_needed'])} GB',
+          final n when n['loaded'] == true => trf("{0}: loaded already", [n['label']]),
+          final n when n['size'] == null => trf("{0}: size not found", [n['label']]),
+          final n => trf("{0}: about {1} GB", [n['label'], gb(n['bytes_needed'])]),
         },
       if (check['total'] != null && check['fits'] == false)
-        'Together about ${gb(check['needed'])} GB more are needed; ${gb(check['free'])} GB of ${gb(check['total'])} GB '
-            'GPU memory are free.'
+        trf("Together about {0} GB more are needed; {1} GB of {2} GB GPU memory are free.", [
+          gb(check['needed']),
+          gb(check['free']),
+          gb(check['total']),
+        ])
       else if (check['total'] != null)
-        '${gb(check['free'])} GB of ${gb(check['total'])} GB GPU memory are free; not every size was found.'
+        trf("{0} GB of {1} GB GPU memory are free; not every size was found.", [gb(check['free']), gb(check['total'])])
       else if ('${check['message'] ?? ''}'.isNotEmpty)
         '${check['message']}',
       alternating
-          ? 'They answer in turn, but both may stay loaded: the local LLM may have to swap them for every move (slow), '
-                'or loading the second one fails.'
-          : 'Loading them at once can fail or make the computer stall. One after the other asks the next only when '
-                'the one before has answered.',
+          ? tr(
+              "They answer in turn, but both may stay loaded: the local LLM may have to swap them for every move (slow), or loading the second one fails.",
+            )
+          : tr(
+              "Loading them at once can fail or make the computer stall. One after the other asks the next only when the one before has answered.",
+            ),
     ];
     return AlertDialog(
       title: Text(
-        'These local models may not fit in GPU memory together',
+        tr("These local models may not fit in GPU memory together"),
         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: look.fg),
       ),
       content: SizedBox(
@@ -156,12 +166,12 @@ class _GpuDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        SmallButton('Cancel', onPressed: () => Navigator.pop(context)),
+        SmallButton(tr("Cancel"), onPressed: () => Navigator.pop(context)),
         if (alternating)
-          SmallButton('Play anyway', onPressed: () => Navigator.pop(context, false))
+          SmallButton(tr("Play anyway"), onPressed: () => Navigator.pop(context, false))
         else ...[
-          SmallButton('Both at once', onPressed: () => Navigator.pop(context, false)),
-          ActionButton('One after the other', onPressed: () => Navigator.pop(context, true)),
+          SmallButton(tr("Both at once"), onPressed: () => Navigator.pop(context, false)),
+          ActionButton(tr("One after the other"), onPressed: () => Navigator.pop(context, true)),
         ],
       ],
     );
@@ -171,10 +181,14 @@ class _GpuDialog extends StatelessWidget {
 /// 12.3 s · 450 tokens · $0.0210 · 35.2 tokens per second, as far as the answer reports them.
 /// Tokens per second only for local models: an agent's time includes its own start-up.
 String resultLine(Map<String, dynamic> a, {bool rate = true}) {
-  final parts = <String>['${((a['seconds'] as num?) ?? 0).toStringAsFixed(1)} s'];
-  if (a['tokens_out'] is num) parts.add('${a['tokens_out']} tokens');
+  final parts = <String>[
+    trf("{0} s", [((a['seconds'] as num?) ?? 0).toStringAsFixed(1)]),
+  ];
+  if (a['tokens_out'] is num) parts.add(trf("{0} tokens", [a['tokens_out']]));
   if (a['cost'] is num) parts.add('\$${(a['cost'] as num).toStringAsFixed(4)}');
-  if (rate && a['per_second'] is num) parts.add('${(a['per_second'] as num).toStringAsFixed(1)} tokens per second');
+  if (rate && a['per_second'] is num) {
+    parts.add(trf("{0} tokens per second", [(a['per_second'] as num).toStringAsFixed(1)]));
+  }
   return parts.join(' · ');
 }
 
@@ -188,14 +202,16 @@ final class Run {
   String? error;
   Job? job;
   bool get done => answer != null || error != null;
-  String get text => error ?? (answer?['error'] is String && '${answer!['error']}'.isNotEmpty && '${answer!['text'] ?? ''}'.isEmpty
-      ? '${answer!['error']}'
-      : '${answer?['text'] ?? ''}');
+  String get text =>
+      error ??
+      (answer?['error'] is String && '${answer!['error']}'.isNotEmpty && '${answer!['text'] ?? ''}'.isEmpty
+          ? '${answer!['error']}'
+          : '${answer?['text'] ?? ''}');
   bool get failed => error != null || ('${answer?['text'] ?? ''}'.isEmpty && '${answer?['error'] ?? ''}'.isNotEmpty);
   String summary() {
     if (!done) {
       final s = DateTime.now().difference(started).inMilliseconds / 1000;
-      return 'asking… ${s.toStringAsFixed(1)} s';
+      return trf("asking… {0} s", [s.toStringAsFixed(1)]);
     }
     if (failed) return text;
     return resultLine(answer!, rate: !contestant.isAgent);
@@ -203,9 +219,9 @@ final class Run {
 }
 
 class RunCard extends StatelessWidget {
-  const RunCard(this.run, {super.key, this.waiting = 'asking…'});
+  const RunCard(this.run, {super.key, this.waiting});
   final Run run;
-  final String waiting;
+  final String? waiting;
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: gap),
@@ -213,7 +229,7 @@ class RunCard extends StatelessWidget {
       title: run.contestant.name,
       initiallyOpen: true, // the time line stays in view, open or folded (as the plugin's)
       action: Text(run.summary(), style: TextStyle(fontSize: 11, color: Look.of(context).dim)),
-      child: AnswerText(run.done ? run.text : waiting, error: run.failed),
+      child: AnswerText(run.done ? run.text : (waiting ?? tr('asking…')), error: run.failed),
     ),
   );
 }
@@ -242,7 +258,7 @@ Future<void> askAll(
     try {
       run.answer = await run.job!.result;
     } on CoreFailure catch (e) {
-      run.error = e.cancelled ? 'Stopped.' : e.message;
+      run.error = e.cancelled ? tr("Stopped.") : e.message;
     } on Object catch (e) {
       run.error = '$e';
     }

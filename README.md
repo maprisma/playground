@@ -85,6 +85,9 @@ Keys:
 - Ctrl+, opens the settings.
 - Esc goes back.
 
+**Languages:** English, Deutsch, Français, Español, Italiano, Português, Nederlands and Polski, as
+AI Playground has them. The language follows the system unless Settings › Language picks one.
+
 ## How the agents are asked
 
 Each agent is started once per question, the way its own command line offers for one prompt and one

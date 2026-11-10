@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -158,7 +159,7 @@ bool acceptableHeader(Uint8List bytes, int fileSize) {
 }
 
 List<String> mediaArgv(ProcessRunner runner, String tool, List<String> options, String video, List<String> rest) {
-  if (!p.isAbsolute(video)) throw ArgumentError('a video path must be absolute');
+  if (!p.isAbsolute(video)) throw ArgumentError(tr("a video path must be absolute"));
   final argv = [
     tool,
     ...options,
@@ -211,21 +212,21 @@ class Pictures {
     } on Cancelled {
       rethrow;
     } on Object {
-      throw StateError('That picture cannot be read.');
+      throw StateError(tr("That picture cannot be read."));
     }
   }
 
   Future<String> _prepare(String path, CancelToken token) async {
     token.check();
     final file = File(path);
-    if (file.statSync().type != FileSystemEntityType.file) throw StateError('That picture cannot be read.');
+    if (file.statSync().type != FileSystemEntityType.file) throw StateError(tr("That picture cannot be read."));
     final handle = await file.open();
     late Uint8List bytes;
     try {
       final size = await handle.length();
-      if (size > maxPictureFile) throw StateError('That picture cannot be read.');
+      if (size > maxPictureFile) throw StateError(tr("That picture cannot be read."));
       bytes = await handle.read(size);
-      if (!acceptableHeader(bytes, size)) throw StateError('That picture cannot be read.');
+      if (!acceptableHeader(bytes, size)) throw StateError(tr("That picture cannot be read."));
     } finally {
       await handle.close();
     }
@@ -241,7 +242,7 @@ class Pictures {
       decoder = (img.WebPDecoder()..maxPixels = maxPicturePixels);
     }
     var picture = decoder.decode(bytes, frame: 0);
-    if (picture == null) throw StateError('That picture cannot be read.');
+    if (picture == null) throw StateError(tr("That picture cannot be read."));
     if (max(picture.width, picture.height) > 1600) {
       picture = img.copyResize(
         picture,
@@ -274,16 +275,16 @@ class Pictures {
       } else if (desktop.contains('cosmic')) {
         final help = await runner.run(['cosmic-screenshot', '--help'], cancel: token);
         if (!help.ok || !help.text.contains('--interactive') || !help.text.contains('--save-dir')) {
-          throw StateError('The screenshot did not work.');
+          throw StateError(tr("The screenshot did not work."));
         }
         argv = ['cosmic-screenshot', '--interactive=false', '--save-dir', raw.path];
       } else {
         argv = ['grim', path];
       }
       final result = await runner.run(argv, timeout: const Duration(seconds: 30), cancel: token);
-      if (!result.ok) throw StateError('The screenshot did not work.');
+      if (!result.ok) throw StateError(tr("The screenshot did not work."));
       final files = raw.listSync().whereType<File>().toList();
-      if (files.isEmpty) throw StateError('The screenshot did not work.');
+      if (files.isEmpty) throw StateError(tr("The screenshot did not work."));
       return await prepare(files.first.path, token);
     } finally {
       raw.deleteSync(recursive: true);
@@ -295,7 +296,7 @@ class Pictures {
     final paths = <String>[];
     try {
       final duration = await videoDuration(runner, video, token);
-      if (duration <= 0) throw StateError('No frames could be taken from that video.');
+      if (duration <= 0) throw StateError(tr("No frames could be taken from that video."));
       for (var i = 0; i < 4; i++) {
         final out = p.join(raw.path, '$i.png');
         final result = await runner.run(
@@ -310,7 +311,7 @@ class Pictures {
           timeout: const Duration(seconds: 30),
           cancel: token,
         );
-        if (!result.ok) throw StateError('No frames could be taken from that video.');
+        if (!result.ok) throw StateError(tr("No frames could be taken from that video."));
         paths.add(await prepare(out, token));
       }
       return paths;

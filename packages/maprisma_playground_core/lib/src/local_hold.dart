@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:async';
 import 'dart:io';
 import 'agents.dart';
@@ -124,7 +125,7 @@ class LocalHold {
     _holds.add(this);
     final port = portOf(runtime);
     if (port == 0) {
-      error = 'unknown local LLM';
+      error = tr("unknown local LLM");
       return;
     }
     try {
@@ -135,7 +136,7 @@ class LocalHold {
         // A foreign listener must never trigger start or receive a request.
         if (listeners(port).isNotEmpty) rethrow;
         if (!_hasService) {
-          error = 'it is not running and cannot be started from here';
+          error = tr("it is not running and cannot be started from here");
           return;
         }
         final started = controlService != null
@@ -146,7 +147,7 @@ class LocalHold {
                 timeout: const Duration(seconds: 30),
               )).ok;
         if (!started) {
-          error = 'it did not start';
+          error = tr("it did not start");
           return;
         }
         _started = true;
@@ -161,14 +162,14 @@ class LocalHold {
           rethrow;
         } on Object {
           if (clock.elapsed >= wait) {
-            error = 'it did not answer';
+            error = tr("it did not answer");
             return;
           }
         }
         await Future<void>.delayed(pollInterval);
       }
       if (_released) {
-        error = 'the app is closing';
+        error = tr("the app is closing");
         await _stopOwn();
         return;
       }
@@ -199,12 +200,12 @@ class LocalHold {
           req.followRedirects = false;
           final res = await req.close();
           if (res.statusCode < 200 || res.statusCode >= 300) {
-            throw StateError('not ready');
+            throw StateError(tr("not ready"));
           }
           var bytes = 0;
           await for (final chunk in res) {
             bytes += chunk.length;
-            if (bytes > 64 * 1024) throw StateError('answer too large');
+            if (bytes > 64 * 1024) throw StateError(tr("answer too large"));
           }
         })().timeout(const Duration(seconds: 5));
       } on Object {

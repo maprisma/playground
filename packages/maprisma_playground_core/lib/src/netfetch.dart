@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -26,7 +27,7 @@ class LocalHttp {
   void secureClient(HttpClient client) {
     client.connectionFactory = (uri, proxyHost, proxyPort) async {
       if (uri.host != '127.0.0.1' || uri.scheme != 'http' || proxyHost != null) {
-        throw StateError('not a direct local HTTP connection');
+        throw StateError(tr("not a direct local HTTP connection"));
       }
       final task = await connector(uri.port);
       return ConnectionTask.fromSocket(
@@ -57,11 +58,11 @@ class LocalHttp {
     Duration timeout = const Duration(seconds: 5),
     CancelToken? cancel,
   }) async {
-    if (_closed) throw StateError('the app is closing');
+    if (_closed) throw StateError(tr("the app is closing"));
     if (!path.startsWith('/') || path.startsWith('//') || path.contains('#')) {
-      throw ArgumentError('not a local path');
+      throw ArgumentError(tr("not a local path"));
     }
-    if (maxBytes < 0) throw ArgumentError('not a byte limit');
+    if (maxBytes < 0) throw ArgumentError(tr("not a byte limit"));
     cancel?.check();
     guard(port);
     final client = clientFactory()
@@ -75,7 +76,7 @@ class LocalHttp {
     }
 
     _live[client] = stop;
-    final timer = Timer(timeout, () => stop(TimeoutException('127.0.0.1 did not answer')));
+    final timer = Timer(timeout, () => stop(TimeoutException(tr("127.0.0.1 did not answer"))));
     if (cancel != null) {
       unawaited(
         cancel.whenCancelled.then((_) {
@@ -102,16 +103,16 @@ class LocalHttp {
         }
         final response = await request.close();
         if (response.statusCode < 200 || response.statusCode >= 300) {
-          throw HttpException('HTTP ${response.statusCode}');
+          throw HttpException(trf("HTTP {0}", [response.statusCode]));
         }
         if (response.contentLength > maxBytes) {
-          throw const HttpException('answer too large');
+          throw HttpException(tr("answer too large"));
         }
         final bytes = BytesBuilder(copy: false);
         var size = 0;
         await for (final chunk in response) {
           size += chunk.length;
-          if (size > maxBytes) throw const HttpException('answer too large');
+          if (size > maxBytes) throw HttpException(tr("answer too large"));
           bytes.add(chunk);
         }
         return bytes.takeBytes();
@@ -141,7 +142,7 @@ class LocalHttp {
   void dispose() {
     _closed = true;
     for (final stop in _live.values.toList()) {
-      stop(StateError('the app is closing'));
+      stop(StateError(tr("the app is closing")));
     }
   }
 }

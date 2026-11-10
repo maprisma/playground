@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'chess_rules.dart' as rules;
 import 'chess_agent.dart';
 import 'agent_run.dart' show seconds;
@@ -56,30 +57,31 @@ class ChessGame {
   String _agentName(String? command) => command == null ? '' : adapter(command)?.name ?? command;
   String status({Duration elapsed = Duration.zero}) {
     if (mode == ChessMode.define) {
-      return 'Pick a piece below or above, then click squares; a right click empties a square.';
+      return tr("Pick a piece below or above, then click squares; a right click empties a square.");
     }
     if (mode == ChessMode.replay) {
       return replayTitle.isEmpty
-          ? 'Move ${_moves.length} of ${_replay.length}'
-          : '$replayTitle: move ${_moves.length} of ${_replay.length}';
+          ? trf("Move {0} of {1}", [_moves.length, _replay.length])
+          : trf("{0}: move {1} of {2}", [replayTitle, _moves.length, _replay.length]);
     }
     final mover = agentFor(_position.turn);
     if (thinking) {
       String time(int s) => '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
-      return '${_agentName(mover)} is thinking… ${time(elapsed.inSeconds)} of ${time(seconds(level))}';
+      return trf("{0} is thinking… {1} of {2}", [_agentName(mover), time(elapsed.inSeconds), time(seconds(level))]);
     }
     final status = rules.status(_position);
     if (status == 'checkmate') {
       final winner = agentFor(_position.turn == 'w' ? 'b' : 'w');
-      return winner == null ? 'Checkmate: you win.' : 'Checkmate: ${_agentName(winner)} wins.';
+      return winner == null ? tr("Checkmate: you win.") : trf("Checkmate: {0} wins.", [_agentName(winner)]);
     }
-    final over = const {
-      'stalemate': 'Stalemate: a draw.',
-      'fifty': 'Draw by the fifty-move rule.',
-      'material': 'Draw: neither side can still mate.',
+    final over = {
+      'stalemate': tr("Stalemate: a draw."),
+      'fifty': tr("Draw by the fifty-move rule."),
+      'material': tr("Draw: neither side can still mate."),
     }[status];
     if (over != null) return over;
-    return '${mover == null ? 'Your move.' : '${_agentName(mover)} is to move.'}${rules.inCheck(_position, _position.turn) ? ' Check!' : ''}';
+    final turn = mover == null ? tr('Your move.') : trf('{0} is to move.', [_agentName(mover)]);
+    return rules.inCheck(_position, _position.turn) ? '$turn ${tr('Check!')}' : turn;
   }
 
   void reset({rules.Position? position, String? player, String? rival, ChessMode mode = ChessMode.game}) {
@@ -147,7 +149,7 @@ class ChessGame {
         : null;
     thinking = false;
     if (error.isNotEmpty || parsed == null || !rules.legalMoves(_position).contains(parsed)) {
-      this.error = error.isNotEmpty ? error : '${_agentName(mover)} did not name one of its legal moves.';
+      this.error = error.isNotEmpty ? error : trf("{0} did not name one of its legal moves.", [_agentName(mover)]);
       this.comment = comment;
       commentBy = mover ?? '';
       return false;
@@ -193,9 +195,9 @@ class ChessGame {
   }
 
   void setSquare(int square, String piece) {
-    if (mode != ChessMode.define) throw StateError('not defining a position');
+    if (mode != ChessMode.define) throw StateError(tr("not defining a position"));
     if (square < 0 || square > 63 || (piece.isNotEmpty && !'PNBRQKpnbrqk'.split('').contains(piece))) {
-      throw ArgumentError('not a square or piece');
+      throw ArgumentError(tr("not a square or piece"));
     }
     final board = List<String>.of(_position.board)..[square] = piece;
     _position = rules.Position(board, _position.turn, '');
@@ -215,12 +217,12 @@ class ChessGame {
   }
 
   void _side(String side) {
-    if (side != 'w' && side != 'b') throw ArgumentError('not a side');
+    if (side != 'w' && side != 'b') throw ArgumentError(tr("not a side"));
   }
 
   void setSideToMove(String side) {
     _side(side);
-    if (mode != ChessMode.define) throw StateError('not defining a position');
+    if (mode != ChessMode.define) throw StateError(tr("not defining a position"));
     _position = rules.Position(_position.board, side, _position.castling);
     _invalidate();
   }
@@ -236,7 +238,7 @@ class ChessGame {
       return false;
     }
     if (rules.status(pos) != 'ongoing') {
-      error = 'In this position the game is already over.';
+      error = tr("In this position the game is already over.");
       return false;
     }
     if (mode == ChessMode.replay) {
@@ -258,7 +260,7 @@ class ChessGame {
     var pos = start;
     for (final m in moves) {
       if (!rules.legalMoves(pos).contains(m)) {
-        throw ArgumentError('illegal replay move');
+        throw ArgumentError(tr("illegal replay move"));
       }
       pos = rules.apply(pos, m);
     }
@@ -269,7 +271,7 @@ class ChessGame {
 
   int get replayLength => _replay.length;
   void seek(int index) {
-    if (mode != ChessMode.replay) throw StateError('not replaying');
+    if (mode != ChessMode.replay) throw StateError(tr("not replaying"));
     if (index < 0 || index > _replay.length) {
       throw RangeError.range(index, 0, _replay.length);
     }

@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'analyze.dart';
 import 'chess_import.dart';
 import 'chess_video.dart';
@@ -30,7 +31,9 @@ class CoreService {
     : environment = Map.unmodifiable(environment),
       runner = runner ?? ProcessRunner(environment: environment),
       http = http ?? LocalHttp(),
-      settings = Settings(Places.fromEnv(environment));
+      settings = Settings(Places.fromEnv(environment)) {
+    setLanguage(resolveLanguage(settings.text('language'), environment));
+  }
   late final pictures = Pictures(runner);
   late final generation = PictureGen(runner, settings.places);
   late final frames = FrameCheck(runner, http);
@@ -55,7 +58,7 @@ class CoreService {
         return 'null';
       }
       if (decoded is! Map<String, dynamic>) {
-        throw const CoreError('bad_params', 'Expected a request object.');
+        throw CoreError('bad_params', tr("Expected a request object."));
       }
       if (decoded.containsKey('cancel')) {
         _jobs[decoded['cancel']]?.cancel();
@@ -63,15 +66,15 @@ class CoreService {
       }
       id = decoded['id'];
       if (decoded['protocol'] != 1 || (id is! int && id is! String) || decoded['method'] is! String) {
-        throw const CoreError('bad_params', 'Invalid protocol request.');
+        throw CoreError('bad_params', tr("Invalid protocol request."));
       }
       if (_closing) throw Cancelled();
       if (_jobs.containsKey(id)) {
-        throw const CoreError('bad_params', 'A request with this id is already running.');
+        throw CoreError('bad_params', tr("A request with this id is already running."));
       }
       final params = decoded['params'] ?? <String, dynamic>{};
       if (params is! Map<String, dynamic>) {
-        throw const CoreError('bad_params', 'Expected params to be an object.');
+        throw CoreError('bad_params', tr("Expected params to be an object."));
       }
       final token = CancelToken();
       _jobs[id!] = token;
@@ -85,7 +88,7 @@ class CoreService {
     } on Cancelled {
       return jsonEncode({
         'id': id,
-        'error': {'code': 'cancelled', 'message': 'Cancelled.'},
+        'error': {'code': 'cancelled', 'message': tr("Cancelled.")},
       });
     } on CoreError catch (e) {
       return jsonEncode({
@@ -118,51 +121,51 @@ class CoreService {
   String _string(Map p, String key, {String? fallback}) {
     final value = p[key] ?? fallback;
     if (value is! String) {
-      throw CoreError('bad_params', 'Expected $key to be a string.');
+      throw CoreError('bad_params', trf("Expected {0} to be a string.", [key]));
     }
     return value;
   }
 
   Map<String, dynamic> _object(Map p, String key) {
     final value = p[key];
-    if (value is! Map<String, dynamic>) throw CoreError('bad_params', 'Expected $key to be an object.');
+    if (value is! Map<String, dynamic>) throw CoreError('bad_params', trf("Expected {0} to be an object.", [key]));
     return value;
   }
 
   List<String> _strings(Object? value) {
     if (value is! List || value.any((v) => v is! String)) {
-      throw const CoreError('bad_params', 'Expected a list of strings.');
+      throw CoreError('bad_params', tr("Expected a list of strings."));
     }
     return value.cast<String>();
   }
 
   Map<String, dynamic> _target(Object? value) {
     if (value is! Map<String, dynamic>) {
-      throw const CoreError('bad_params', 'Expected a target.');
+      throw CoreError('bad_params', tr("Expected a target."));
     }
     final kind = value['kind'];
     if (kind == 'agent') {
       final command = _string(value, 'command');
       if (!canAsk(command)) {
-        throw const CoreError('not_found', 'This agent cannot be asked.');
+        throw CoreError('not_found', tr("This agent cannot be asked."));
       }
       final model = _string(value, 'model', fallback: '');
       if (model.isNotEmpty && (!modelFlags.containsKey(command) || modelName.stringMatch(model) != model)) {
-        throw const CoreError('bad_params', 'Invalid model name.');
+        throw CoreError('bad_params', tr("Invalid model name."));
       }
       final level = _string(value, 'level', fallback: 'normal');
       if (!thinkingSeconds.containsKey(level)) {
-        throw const CoreError('bad_params', 'Invalid thinking time.');
+        throw CoreError('bad_params', tr("Invalid thinking time."));
       }
     } else if (kind == 'local') {
       if (value['port'] is! int || value['port'] < 1 || value['port'] > 65535) {
-        throw const CoreError('bad_params', 'Invalid port.');
+        throw CoreError('bad_params', tr("Invalid port."));
       }
       _string(value, 'model');
       value = Map<String, dynamic>.of(value);
       value['runtime'] = serverKey(_string(value, 'runtime'));
     } else {
-      throw const CoreError('bad_params', 'Invalid target kind.');
+      throw CoreError('bad_params', tr("Invalid target kind."));
     }
     return value;
   }
@@ -183,7 +186,7 @@ class CoreService {
       case 'settings.get':
         final keys = p.containsKey('keys') ? _strings(p['keys']) : schema.keys.toList();
         if (keys.any((k) => !schema.containsKey(k))) {
-          throw const CoreError('bad_params', 'Unknown setting.');
+          throw CoreError('bad_params', tr("Unknown setting."));
         }
         return {
           'values': {for (final key in keys) key: settings.get(key)},
@@ -191,15 +194,16 @@ class CoreService {
       case 'settings.set':
         final values = p['values'];
         if (values is! Map<String, dynamic>) {
-          throw const CoreError('bad_params', 'Expected values to be an object.');
+          throw CoreError('bad_params', tr("Expected values to be an object."));
         }
         for (final entry in values.entries) {
           final setting = schema[entry.key];
           if (setting == null || (entry.value != null && !setting.valid(entry.value))) {
-            throw CoreError('bad_params', 'Invalid setting: ${entry.key}');
+            throw CoreError('bad_params', trf("Invalid setting: {0}", [entry.key]));
           }
         }
         settings.update(values);
+        if (values.containsKey('language')) setLanguage(resolveLanguage(settings.text('language'), environment));
         return {};
       case 'agents.list':
         return {'agents': adapters.map((a) => agentInfo(a, environment)).toList()};
@@ -207,7 +211,7 @@ class CoreService {
         return {'servers': await LocalLlm(http).servers(cancel: token)};
       case 'gpu.check':
         if (p['targets'] is! List) {
-          throw const CoreError('bad_params', 'Expected targets.');
+          throw CoreError('bad_params', tr("Expected targets."));
         }
         final wanted = <(String, String, String)>[];
         for (final raw in p['targets']) {
@@ -236,19 +240,19 @@ class CoreService {
         final prompt = _string(p, 'prompt');
         final images = p.containsKey('images') ? _strings(p['images']) : <String>[];
         if (images.any((path) => !pictures.contains(path) && !generation.contains(path))) {
-          throw const CoreError('bad_params', 'Pictures must be prepared before they are sent.');
+          throw CoreError('bad_params', tr("Pictures must be prepared before they are sent."));
         }
         if (images.isNotEmpty && t['kind'] == 'agent' && !readsUntrusted(t['command'])) {
-          throw const CoreError('bad_params', 'Only an agent without tools may read a picture.');
+          throw CoreError('bad_params', tr("Only an agent without tools may read a picture."));
         }
         if (p.containsKey('untrusted') && p['untrusted'] is! bool) {
-          throw const CoreError('bad_params', 'Expected untrusted to be a boolean.');
+          throw CoreError('bad_params', tr("Expected untrusted to be a boolean."));
         }
-        _event(id, 'progress', {'fraction': 0, 'text': 'Asking…'});
+        _event(id, 'progress', {'fraction': 0, 'text': tr("asking…")});
         Answer answer;
         if (t['kind'] == 'agent') {
           if (p['untrusted'] == true && !readsUntrusted(t['command'])) {
-            throw const CoreError('bad_params', 'This agent cannot read untrusted input.');
+            throw CoreError('bad_params', tr("This agent cannot read untrusted input."));
           }
           answer = await askAgent(
             runner,
@@ -271,7 +275,7 @@ class CoreService {
                     cancel: token,
                   ) !=
                   true) {
-            throw const CoreError('bad_params', 'This local model cannot be sent pictures.');
+            throw CoreError('bad_params', tr("This local model cannot be sent pictures."));
           }
           answer = await LocalLlm(http).ask(t['port'], t['model'], prompt, images: images, cancel: token);
         }
@@ -312,7 +316,7 @@ class CoreService {
         return {};
       case 'generate.run':
         if (p['seed'] is! int || !generationSizes.containsKey(p['size'])) {
-          throw const CoreError('bad_params', 'Invalid size or seed.');
+          throw CoreError('bad_params', tr("Invalid size or seed."));
         }
         return generation.generate(
           _string(p, 'prompt'),
@@ -326,7 +330,7 @@ class CoreService {
         return {};
       case 'games.list':
         if (p.containsKey('offset') && p['offset'] is! int || p.containsKey('limit') && p['limit'] is! int) {
-          throw const CoreError('bad_params', 'Invalid page.');
+          throw CoreError('bad_params', tr("Invalid page."));
         }
         return games.list(
           query: _string(p, 'query', fallback: ''),
@@ -357,7 +361,7 @@ class CoreService {
       case 'chess.ask':
         final command = _string(p, 'command');
         if (!plays(command)) {
-          throw const CoreError('not_found', 'This agent cannot be asked for a move.');
+          throw CoreError('not_found', tr("This agent cannot be asked for a move."));
         }
         final start = rules.fromFen(_string(p, 'start_fen'));
         final moves = <rules.Move>[];
@@ -365,14 +369,14 @@ class CoreService {
         for (final uci in _strings(p['moves'])) {
           final move = rules.parse(pos, uci);
           if (move == null || move.uci() != uci) {
-            throw const CoreError('bad_params', 'Illegal chess move.');
+            throw CoreError('bad_params', tr("Illegal chess move."));
           }
           moves.add(move);
           pos = rules.apply(pos, move);
         }
         final strength = _string(p, 'strength', fallback: 'club'), level = _string(p, 'level', fallback: 'normal');
         if (!strengthPrompts.containsKey(strength) || !thinkingSeconds.containsKey(level)) {
-          throw const CoreError('bad_params', 'Invalid strength or thinking time.');
+          throw CoreError('bad_params', tr("Invalid strength or thinking time."));
         }
         var prompt = chessPrompt(start, moves, pos.turn, level: level, strength: strength);
         if (p.containsKey('retry_of')) {
@@ -395,12 +399,12 @@ class CoreService {
             null,
             reply.written,
             reply.comment,
-            error: '${adapter(command)!.name} did not name one of its legal moves.',
+            error: trf("{0} did not name one of its legal moves.", [adapter(command)!.name]),
           );
         }
         return reply.toJson();
       default:
-        throw CoreError('not_found', 'Unknown method: $method');
+        throw CoreError('not_found', trf("Unknown method: {0}", [method]));
     }
   }
 

@@ -1,3 +1,5 @@
+import 'package:maprisma_playground_core/maprisma_playground_core.dart' show tr;
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -7,7 +9,7 @@ import '../contestants.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
-const localPrompt = 'In one sentence: what is a large language model?';
+String get localPrompt => tr("In one sentence: what is a large language model?");
 
 /// LocalTab: one question to a model of a local LLM server running here, optionally compared with
 /// a second one, with time and tokens per second.
@@ -20,12 +22,21 @@ class LocalPage extends StatefulWidget {
 }
 
 class _LocalPageState extends State<LocalPage> {
+  String _defaultPrompt = localPrompt;
   final _prompt = TextEditingController(text: localPrompt);
   String? _first, _second; // ids; _second null: no second model
   List<Run> _runs = const [];
   int _run = 0;
   Timer? _clock;
   List<String> _shownNotes = const [];
+
+  @override
+  void didUpdateWidget(covariant LocalPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final translated = localPrompt;
+    if (_prompt.text == _defaultPrompt) _prompt.text = translated;
+    _defaultPrompt = translated;
+  }
 
   @override
   void initState() {
@@ -90,11 +101,11 @@ class _LocalPageState extends State<LocalPage> {
     final second = locals.where((c) => c.id == _second).firstOrNull;
     return PageScroll(
       children: [
-        const TabIntro(
-          'Local LLMs',
-          'The local LLM servers running on this computer (llama.cpp, Ollama, LM Studio, vLLM, Jan, KoboldCpp): one '
-              'question to a model, with its time and tokens per second. Only servers that run under your own account '
-              'are asked.',
+        TabIntro(
+          tr("Local LLMs"),
+          tr(
+            "The local LLM servers running on this computer (llama.cpp, Ollama, LM Studio, vLLM, Jan, KoboldCpp): one question to a model, with its time and tokens per second. Only servers that run under your own account are asked.",
+          ),
         ),
         vgap,
         Wrap(
@@ -106,30 +117,31 @@ class _LocalPageState extends State<LocalPage> {
               value: p.scanning ? null : first,
               items: p.scanning ? const [] : locals,
               label: (c) => c.name,
-              empty: p.scanning ? 'Looking…' : 'No local LLM server is running',
+              empty: p.scanning ? tr("Looking…") : tr("No local LLM server is running"),
               onChanged: (c) => setState(() => _first = c.id),
             ),
-            Text('compared with', style: TextStyle(fontSize: 13, color: look.fg)),
+            Text(tr("compared with"), style: TextStyle(fontSize: 13, color: look.fg)),
             Tooltip(
-              message: 'A second model gets the same question; if both may not fit in GPU memory together, you are '
-                  'asked first',
+              message: tr(
+                "A second model gets the same question; if both may not fit in GPU memory together, you are asked first",
+              ),
               child: Choice<Contestant?>(
                 value: second,
                 items: [null, ...locals],
-                label: (c) => c?.name ?? 'no second model',
-                empty: 'no second model',
+                label: (c) => c?.name ?? tr("no second model"),
+                empty: tr("no second model"),
                 onChanged: (c) => setState(() => _second = c?.id),
               ),
             ),
-            SmallButton('Look again', onPressed: p.scanning ? null : p.scan),
+            SmallButton(tr("Look again"), onPressed: p.scanning ? null : p.scan),
           ],
         ),
         vgap,
         PromptField(controller: _prompt, minLines: 2, onSubmit: _ask),
         vgap,
-        ActionButton('Ask', onPressed: locals.isEmpty || p.scanning ? null : _ask),
+        ActionButton(tr("Ask"), onPressed: locals.isEmpty || p.scanning ? null : _ask),
         vgap,
-        for (final r in _runs) RunCard(r, waiting: 'asking… (a model that is not loaded yet loads first)'),
+        for (final r in _runs) RunCard(r, waiting: tr("asking… (a model that is not loaded yet loads first)")),
       ],
     );
   }

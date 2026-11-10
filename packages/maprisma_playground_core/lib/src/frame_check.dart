@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:async';
 import 'package:collection/collection.dart';
 import 'dart:convert';
@@ -96,7 +97,7 @@ class FrameCheck {
   void forget(String command) => _cache.removeWhere((key, value) => key.startsWith('$command|'));
   void sharedWrite(String path, String text) {
     final old = File(path);
-    if (!ownRegularFile(path)) throw StateError('Cannot change a shared file owned by another account.');
+    if (!ownRegularFile(path)) throw StateError(tr("Cannot change a shared file owned by another account."));
     final mode = old.statSync().mode & 0x1ff;
     final backupDir = Directory('$home/.local/state/ai-playground/backups/${DateTime.now().millisecondsSinceEpoch}');
     backupDir.createSync(recursive: true);
@@ -119,11 +120,13 @@ class FrameCheck {
 
   Future<String> addMmproj(String section, String projector, CancelToken token) async {
     final text = readConfig(ini), updated = iniWithMmproj(text, section, projector);
-    if (updated == null) return "its section is missing in llama.cpp's models.ini";
+    if (updated == null) return tr("its section is missing in llama.cpp's models.ini");
     sharedWrite(ini, updated);
     final port = portOf('llamacpp');
     if (loopbackListeners(port).isNotEmpty) {
-      if (localClients(port) > 0) return 'llama.cpp is in use now; it reads the vision file when it starts next time';
+      if (localClients(port) > 0) {
+        return tr("llama.cpp is in use now; it reads the vision file when it starts next time");
+      }
       await runner.run(
         ['systemctl', '--user', 'restart', 'llama-server.service'],
         timeout: const Duration(seconds: 60),
@@ -317,7 +320,8 @@ class FrameCheck {
     try {
       await previous;
       token.check();
-      final key = '$command|$runtime|$model|$arg', cached = _cache['$command|$runtime|$model|$arg'];
+      final key = '$command|$currentLanguage|$runtime|$model|$arg';
+      final cached = _cache[key];
       if (cached != null && (cached.$2.state == 'ready' || DateTime.now().difference(cached.$1).inSeconds < 120)) {
         return cached.$2;
       }
@@ -332,14 +336,17 @@ class FrameCheck {
   Future<VisionResult> _check(String command, String runtime, String model, String arg, CancelToken token) async {
     final name = adapter(command)!.name;
     final done = <String>[];
-    VisionResult no(String why) => VisionResult('no', '$name cannot read the frames with $model: $why.');
+    VisionResult no(String why) =>
+        VisionResult('no', trf("{0} cannot read the frames with {1}: {2}.", [name, model, why]));
     if (runtime == 'llamacpp' &&
         await seesPictures(http, runtime, model, environment: runner.environment, cancel: token) != true) {
       final section = iniSections(
         readConfig(ini),
       ).keys.where((s) => s == model.toLowerCase().replaceFirst(RegExp(r'\.gguf$'), '')).firstOrNull;
       final path = modelFile(model);
-      if (section == null || path == null) return no("its file or its section in llama.cpp's models.ini was not found");
+      if (section == null || path == null) {
+        return no(tr("its file or its section in llama.cpp's models.ini was not found"));
+      }
       String? projector;
       if (ownFolder(p.dirname(path))) {
         final files =
@@ -359,43 +366,53 @@ class FrameCheck {
       if (projector == null) {
         final repo = '${p.basename(p.dirname(p.dirname(path)))}/${p.basename(p.dirname(path))}';
         final d = await hfMmproj(repo, p.dirname(path), section, token);
-        if (d == null) return no('it has no vision file (mmproj), and none was found for it');
+        if (d == null) return no(tr("it has no vision file (mmproj), and none was found for it"));
         return VisionResult(
           'download',
-          "$model needs its vision file to see pictures: ${d['path']} (${((d['size'] as int) / gib).toStringAsFixed(1)} GB) from ${d['repo']}.",
+          trf("{0} needs its vision file to see pictures: {1} ({2:.1f} GB) from {3}.", [
+            model,
+            d['path'],
+            ((d['size'] as int) / gib).toStringAsFixed(1),
+            d['repo'],
+          ]),
           download: d,
         );
       }
       final why = await addMmproj(section, projector, token);
       if (why.isNotEmpty) return no(why);
-      done.add("the vision file in llama.cpp's models.ini");
+      done.add(tr("the vision file in llama.cpp's models.ini"));
     }
     final hold = holdFactory?.call(runtime) ?? LocalHold(runtime, http, runner);
     try {
       await hold.open(cancel: token);
-      if (hold.error.isNotEmpty) return no('the local LLM did not start (${hold.error})');
+      if (hold.error.isNotEmpty) return no(trf("the local LLM did not start ({0})", [hold.error]));
       if (['ollama', 'lmstudio'].contains(runtime) &&
           await seesPictures(http, runtime, model, environment: runner.environment, cancel: token) == false) {
         return no(
-          '${runtime == 'ollama' ? 'Ollama' : 'LM Studio'} says this model does not see pictures; choose a vision model there',
+          trf("{0} says this model does not see pictures; choose a vision model there", [
+            runtime == 'ollama' ? 'Ollama' : 'LM Studio',
+          ]),
         );
       }
       if (command == 'pi' && await fixPi(runtime, model, token)) {
-        done.add("Pi's settings for this model (pictures, thinking off)");
+        done.add(tr("Pi's settings for this model (pictures, thinking off)"));
       }
       final answer = await probe(command, arg, token);
       if (!answer.text.toLowerCase().contains('red')) {
         return no(
-          'it did not answer the test picture (${answer.error.isNotEmpty
-              ? answer.error
-              : answer.text.isEmpty
-              ? 'no answer'
-              : answer.text.substring(0, answer.text.length.clamp(0, 80))})',
+          trf("it did not answer the test picture ({0})", [
+            answer.error.isNotEmpty
+                ? answer.error
+                : answer.text.isEmpty
+                ? tr("no answer")
+                : answer.text.substring(0, answer.text.length.clamp(0, 80)),
+          ]),
         );
       }
       return VisionResult(
         'ready',
-        '$name reads pictures with $model${answer.seconds >= 15 ? ', but slowly' : ''}: about ${answer.seconds.toStringAsFixed(0)} s per frame.${done.isEmpty ? '' : ' Set up for it: ${done.join('; ')}.'}',
+        '${answer.seconds >= 15 ? trf('{0} reads pictures with {1}, but slowly: about {2:.0f} s per frame.', [name, model, answer.seconds]) : trf('{0} reads pictures with {1}: about {2:.0f} s per frame.', [name, model, answer.seconds])}'
+            '${done.isEmpty ? '' : ' ${trf('Set up for it: {0}.', [done.join('; ')])}'}',
         seconds: answer.seconds,
       );
     } finally {
@@ -411,7 +428,9 @@ class FrameCheck {
   ) async {
     // Only a previously offered, server-derived destination may be written.
     final wanted = _offers.values.where((d) => const DeepCollectionEquality().equals(d, download)).firstOrNull;
-    if (wanted == null || !ownFolder(p.dirname(wanted['target']))) throw ArgumentError('Unknown vision file download.');
+    if (wanted == null || !ownFolder(p.dirname(wanted['target']))) {
+      throw ArgumentError(tr("Unknown vision file download."));
+    }
     await downloadFile(
       runner,
       'https://huggingface.co/${wanted['repo']}/resolve/main/${Uri.encodeComponent(wanted['path'])}',

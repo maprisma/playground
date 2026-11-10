@@ -23,3 +23,4 @@ export 'src/chess_import.dart';
 export 'src/analyze.dart';
 export 'src/frame_check.dart';
 export 'src/automaton.dart';
+export 'src/i18n.dart';

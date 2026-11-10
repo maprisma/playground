@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:io';
 
 int currentUid({String proc = '/proc'}) {
@@ -6,7 +7,7 @@ int currentUid({String proc = '/proc'}) {
 }
 
 List<int> loopbackListeners(int port, {String procNet = '/proc/net'}) {
-  if (port < 1 || port > 65535) throw ArgumentError('not a port');
+  if (port < 1 || port > 65535) throw ArgumentError(tr("not a port"));
   final owners = <int>[];
   for (final name in ['tcp', 'tcp6']) {
     String text;
@@ -37,10 +38,10 @@ List<int> loopbackListeners(int port, {String procNet = '/proc/net'}) {
 
 void requireOwnListener(int port, {String procNet = '/proc/net', int? uid}) {
   final owners = loopbackListeners(port, procNet: procNet);
-  if (owners.isEmpty) throw StateError('not running');
+  if (owners.isEmpty) throw StateError(tr("not running"));
   final me = uid ?? currentUid();
   if (owners.any((owner) => owner != me)) {
-    throw StateError('port $port belongs to another user account');
+    throw StateError(trf("port {0} belongs to another user account", [port]));
   }
 }
 
@@ -87,10 +88,10 @@ void requireOwnConnectionPorts(int serverPort, int clientPort, {String procNet =
       }
 
       if (endpoint(f[1], serverPort) && endpoint(f[2], clientPort)) {
-        if (int.tryParse(f[7]) != me) throw StateError('connection belongs to another user account');
+        if (int.tryParse(f[7]) != me) throw StateError(tr("connection belongs to another user account"));
         found = true;
       }
     }
   }
-  if (!found) throw StateError('cannot verify local connection owner');
+  if (!found) throw StateError(tr("cannot verify local connection owner"));
 }

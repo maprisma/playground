@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'agents.dart';
@@ -32,17 +33,21 @@ class GpuCheck {
     final lines = [
       for (final n in needs)
         n.loaded
-            ? '${n.label}: loaded already'
+            ? trf("{0}: loaded already", [n.label])
             : n.size == null
-            ? '${n.label}: size not found'
-            : '${n.label}: about ${gb(n.bytesNeeded)} GB',
+            ? trf("{0}: size not found", [n.label])
+            : trf("{0}: about {1} GB", [n.label, gb(n.bytesNeeded)]),
     ];
     if (fits == false) {
       lines.add(
-        'Together about ${gb(needed)} GB more are needed; ${gb(free)} GB of ${gb(total)} GB GPU memory are free.',
+        trf("Together about {0} GB more are needed; {1} GB of {2} GB GPU memory are free.", [
+          gb(needed),
+          gb(free),
+          gb(total),
+        ]),
       );
     } else if (fits == null) {
-      lines.add('${gb(free)} GB of ${gb(total)} GB GPU memory are free; not every size was found.');
+      lines.add(trf("{0} GB of {1} GB GPU memory are free; not every size was found.", [gb(free), gb(total)]));
     }
     return {
       'fits': total == 0 ? true : fits,

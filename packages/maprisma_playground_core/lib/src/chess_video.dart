@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -198,7 +199,7 @@ class GamesStore {
 
   void write(List<Map<String, dynamic>> games) {
     final text = jsonEncode(games.take(200).toList());
-    if (utf8.encode(text).length > 4 * 1024 * 1024) throw ArgumentError('The game could not be saved.');
+    if (utf8.encode(text).length > 4 * 1024 * 1024) throw ArgumentError(tr("The game could not be saved."));
     atomicPrivateWrite(path, text);
   }
 
@@ -206,11 +207,11 @@ class GamesStore {
     final game = normalize(raw), games = load();
     final start = rules.fromFen(game['start_fen']);
     var pos = start;
-    if (game['moves'] is! List || (game['moves'] as List).length > 2000) throw ArgumentError('Too many moves.');
+    if (game['moves'] is! List || (game['moves'] as List).length > 2000) throw ArgumentError(tr("Too many moves."));
     for (final uci in game['moves']) {
-      if (uci is! String) throw ArgumentError('Illegal chess move.');
+      if (uci is! String) throw ArgumentError(tr("Illegal chess move."));
       final move = rules.parse(pos, uci);
-      if (move == null || move.uci() != uci) throw ArgumentError('Illegal chess move.');
+      if (move == null || move.uci() != uci) throw ArgumentError(tr("Illegal chess move."));
       pos = rules.apply(pos, move);
     }
     final source = sourceValue(game['source']);
@@ -248,7 +249,7 @@ class GamesStore {
   }
 
   Map<String, dynamic> get(String id) =>
-      load().firstWhere((g) => g['id'] == id, orElse: () => throw StateError('Game not found.'));
+      load().firstWhere((g) => g['id'] == id, orElse: () => throw StateError(tr("Game not found.")));
   void rename(String id, String name) {
     final title = cleanTitle(name);
     write([

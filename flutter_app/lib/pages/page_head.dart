@@ -1,3 +1,4 @@
+import 'package:maprisma_playground_core/maprisma_playground_core.dart' show tr;
 import 'package:flutter/material.dart';
 
 import '../widgets.dart';
@@ -13,7 +14,7 @@ class PageHead extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(17, 4, 17, 8),
     child: Row(
       children: [
-        IconSmallButton(Icons.arrow_back, tooltip: 'Back (Esc)', onPressed: onBack),
+        IconSmallButton(Icons.arrow_back, tooltip: tr("Back (Esc)"), onPressed: onBack),
         const SizedBox(width: 12),
         SectionTitle(title),
         const Spacer(),

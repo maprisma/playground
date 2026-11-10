@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'agent_run.dart';
 import 'agents.dart';
 import 'chess_agent.dart';
@@ -14,14 +15,14 @@ class Analyze {
   final LocalHttp http;
   final FrameCheck frames;
   Future<List<Map<String, dynamic>>> choices(String command, CancelToken token) async {
-    if (!canAsk(command)) throw ArgumentError('This agent cannot be asked.');
+    if (!canAsk(command)) throw ArgumentError(tr("This agent cannot be asked."));
     final home = runner.environment['HOME'] ?? '/', local = localAgentModel(command, runner.environment);
     var own = '';
     if (command == 'codex') own = '${readConfigToml('$home/.codex/config.toml')['model'] ?? ''}';
     if (command == 'claude') own = '${readConfigJson('$home/.claude/settings.json')['model'] ?? ''}';
     if (command == 'pi') own = '${readConfigJson('$home/.pi/agent/settings.json')['defaultModel'] ?? ''}';
     final first = <String, dynamic>{
-      'label': own.isEmpty ? 'Its own model' : 'Its own model ($own)',
+      'label': own.isEmpty ? tr("Its own model") : trf("Its own model ({0})", [own]),
       'arg': '',
       if (local != null) 'local': {'runtime': local.$1, 'model': local.$2},
     };
@@ -113,10 +114,10 @@ class Analyze {
     CancelToken token,
     void Function(Map<String, Object?>) report,
   ) async {
-    if (!canAsk(command)) throw ArgumentError('This agent cannot be asked.');
+    if (!canAsk(command)) throw ArgumentError(tr("This agent cannot be asked."));
     final model = choice['arg'] ?? '';
     if (model is! String || model.isNotEmpty && modelName.stringMatch(model) != model) {
-      throw ArgumentError('Invalid model name.');
+      throw ArgumentError(tr("Invalid model name."));
     }
     final agent = adapter(command)!;
     void finding(String key, String state, String summary, [String detail = '', Map<String, dynamic>? download]) {
@@ -137,35 +138,53 @@ class Analyze {
           named,
           levels.isEmpty
               ? ''
-              : "The model has these reasoning levels; AI Playground uses ${levels.length} of the agent's: ${levels.join(', ')}.",
+              : trf("The model has these reasoning levels; AI Playground uses {0} of the agent's: {1}.", [
+                  levels.length,
+                  levels.join(', '),
+                ]),
         );
       } else if (choice['thinking'] == false) {
-        finding('thinking', 'no', 'the model does not think', 'It answers at once; there is no thinking time to set.');
+        finding(
+          'thinking',
+          'no',
+          tr("the model does not think"),
+          tr("It answers at once; there is no thinking time to set."),
+        );
       } else if (levels.isNotEmpty) {
         finding(
           'thinking',
           'yes',
           levels.join(', '),
-          '${agent.name} takes a thinking time for each question: ${levels.join(', ')}.',
+          trf("{0} takes a thinking time for each question: {1}.", [agent.name, levels.join(', ')]),
         );
       } else {
-        finding('thinking', 'unknown', 'not stated', "The agent's settings name no thinking time.");
+        finding('thinking', 'unknown', tr("not stated"), tr("The agent's settings name no thinking time."));
       }
       final context = choice['context'];
       if (context is int && context > 0) {
-        finding('context', 'yes', '${_commas(context)} tokens', 'About ${_commas(context ~/ 500)} pages of text.');
+        finding(
+          'context',
+          'yes',
+          trf("{0} tokens", [_commas(context)]),
+          trf("About {0} pages of text.", [_commas(context ~/ 500)]),
+        );
       } else {
-        finding('context', 'unknown', 'not stated', 'The agent does not say how much this model keeps in mind.');
+        finding(
+          'context',
+          'unknown',
+          tr("not stated"),
+          tr("The agent does not say how much this model keeps in mind."),
+        );
       }
       finding(
         'making',
         'no',
-        'not with one answer',
-        'Use the Generate tab: it makes pictures on this computer, without an agent.',
+        tr("not with one answer"),
+        tr("Use the Generate tab: it makes pictures on this computer, without an agent."),
       );
       if (hold != null && hold.error.isNotEmpty) {
         for (final key in ['text', 'pictures', 'video', 'chess']) {
-          finding(key, 'no', 'The local LLM did not start: ${hold.error}');
+          finding(key, 'no', trf("The local LLM did not start: {0}", [hold.error]));
         }
         return;
       }
@@ -182,11 +201,11 @@ class Analyze {
         finding(
           'text',
           'no',
-          answer.error.isEmpty ? 'a wrong answer' : answer.error,
-          answer.text.isEmpty ? answer.error : 'Answer: ${_short(answer.text, 200)}',
+          answer.error.isEmpty ? tr("a wrong answer") : answer.error,
+          answer.text.isEmpty ? answer.error : trf("Answer: {0}", [_short(answer.text, 200)]),
         );
         for (final key in ['pictures', 'video', 'chess']) {
-          finding(key, 'skipped', 'not tested: no text answer');
+          finding(key, 'skipped', tr("not tested: no text answer"));
         }
         return;
       }
@@ -195,17 +214,17 @@ class Analyze {
         'yes',
         [
           _seconds(answer.seconds),
-          if (answer.tokensOut != null) '${answer.tokensOut} tokens',
+          if (answer.tokensOut != null) trf("{0} tokens", [answer.tokensOut]),
           ?answer.cost == null ? null : '\$${answer.cost!.toStringAsFixed(4)}',
         ].join(' · '),
-        'Answer: ${_short(answer.text, 80)}',
+        trf("Answer: {0}", [_short(answer.text, 80)]),
       );
       if (!takesImages(command) || choice['images'] == false) {
         final why = !takesImages(command)
-            ? '${agent.name} cannot be sent pictures from here (Claude Code, Codex and Pi can).'
-            : "The model's description says it takes text only.";
-        finding('pictures', 'no', !takesImages(command) ? 'no pictures' : 'text only', why);
-        finding('video', 'no', 'needs pictures', why);
+            ? trf("{0} cannot be sent pictures from here (Claude Code, Codex and Pi can).", [agent.name])
+            : tr("The model's description says it takes text only.");
+        finding('pictures', 'no', !takesImages(command) ? tr("no pictures") : tr("text only"), why);
+        finding('video', 'no', tr("needs pictures"), why);
       } else {
         VisionResult seen;
         if (local is Map) {
@@ -213,14 +232,16 @@ class Analyze {
         } else {
           final probe = await frames.probe(command, model, token);
           seen = probe.text.toLowerCase().contains('red')
-              ? VisionResult('ready', 'It named the colour of the test picture.', seconds: probe.seconds)
+              ? VisionResult('ready', tr("It named the colour of the test picture."), seconds: probe.seconds)
               : VisionResult(
                   'no',
-                  "It did not name the test picture's colour: ${probe.error.isEmpty
-                      ? probe.text.isEmpty
-                            ? 'no answer'
-                            : _short(probe.text, 120)
-                      : probe.error}",
+                  trf("It did not name the test picture's colour: {0}", [
+                    probe.error.isEmpty
+                        ? probe.text.isEmpty
+                              ? tr("no answer")
+                              : _short(probe.text, 120)
+                        : probe.error,
+                  ]),
                 );
         }
         if (seen.state == 'ready') {
@@ -228,18 +249,18 @@ class Analyze {
           finding(
             'video',
             seen.seconds >= 15 ? 'slow' : 'yes',
-            'about ${_seconds(seen.seconds)} per frame',
+            trf("about {0} per frame", [_seconds(seen.seconds)]),
             seen.seconds >= 15
-                ? 'Usable, but a long video takes a while.'
-                : 'A video frame is larger than the test picture: it may take a little longer.',
+                ? tr("Usable, but a long video takes a while.")
+                : tr("A video frame is larger than the test picture: it may take a little longer."),
           );
         } else {
-          finding('pictures', 'no', seen.state == 'download' ? 'not yet' : 'no', seen.message, seen.download);
-          finding('video', 'no', 'needs pictures', seen.message);
+          finding('pictures', 'no', seen.state == 'download' ? tr("not yet") : tr('no'), seen.message, seen.download);
+          finding('video', 'no', tr("needs pictures"), seen.message);
         }
       }
       if (!plays(command)) {
-        finding('chess', 'no', 'not offered', 'Its adapter does not offer chess.');
+        finding('chess', 'no', tr("not offered"), tr("Its adapter does not offer chess."));
         return;
       }
       final pos = rules.start();
@@ -254,13 +275,18 @@ class Analyze {
       );
       final (move, written) = rules.findMove(pos, reply.text);
       if (move != null) {
-        finding('chess', 'yes', '1. $written · ${_seconds(reply.seconds)}', 'It answered with a legal opening move.');
+        finding(
+          'chess',
+          'yes',
+          '1. $written · ${_seconds(reply.seconds)}',
+          tr("It answered with a legal opening move."),
+        );
       } else {
         finding(
           'chess',
           'no',
-          reply.error.isEmpty ? 'no legal move' : reply.error,
-          reply.text.isEmpty ? reply.error : 'Answer: ${_short(reply.text, 200)}',
+          reply.error.isEmpty ? tr("no legal move") : reply.error,
+          reply.text.isEmpty ? reply.error : trf("Answer: {0}", [_short(reply.text, 200)]),
         );
       }
     } finally {
@@ -270,5 +296,5 @@ class Analyze {
 }
 
 String _short(String s, int n) => s.trim().substring(0, s.trim().length.clamp(0, n));
-String _seconds(double s) => '${s.toStringAsFixed(1)} s';
+String _seconds(double s) => trf("{0} s", [s.toStringAsFixed(1)]);
 String _commas(int value) => value.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');

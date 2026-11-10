@@ -1,3 +1,5 @@
+import 'package:maprisma_playground_core/maprisma_playground_core.dart' show tr;
+
 import 'dart:async';
 import 'dart:io';
 
@@ -10,8 +12,9 @@ import '../contestants.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
-const visionPrompt = 'Describe what you see in two or three sentences.';
-const videoPrompt = 'These are frames of one video, in order. Describe what happens in two or three sentences.';
+String get visionPrompt => tr("Describe what you see in two or three sentences.");
+String get videoPrompt =>
+    tr("These are frames of one video, in order. Describe what happens in two or three sentences.");
 
 /// A picture handed over by another tab (Generate's Ask about it): the Vision tab takes it.
 final visionInbox = ValueNotifier<String?>(null);
@@ -27,6 +30,7 @@ class VisionPage extends StatefulWidget {
 }
 
 class _VisionPageState extends State<VisionPage> {
+  String _defaultPrompt = visionPrompt;
   final _prompt = TextEditingController(text: visionPrompt);
   final Set<String> _ticked = {};
   bool _tickedSet = false;
@@ -46,6 +50,14 @@ class _VisionPageState extends State<VisionPage> {
   ];
 
   @override
+  void didUpdateWidget(covariant VisionPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final translated = visionPrompt;
+    if (_prompt.text == _defaultPrompt) _prompt.text = translated;
+    _defaultPrompt = translated;
+  }
+
+  @override
   void initState() {
     super.initState();
     widget.playground.addListener(_changed);
@@ -59,7 +71,13 @@ class _VisionPageState extends State<VisionPage> {
     final path = visionInbox.value;
     if (path == null) return;
     visionInbox.value = null;
-    _loadPictures(() async => [await _prepare({'path': path})], 'That picture cannot be read.', visionPrompt);
+    _loadPictures(
+      () async => [
+        await _prepare({'path': path}),
+      ],
+      tr("That picture cannot be read."),
+      visionPrompt,
+    );
   }
 
   @override
@@ -120,48 +138,69 @@ class _VisionPageState extends State<VisionPage> {
 
   Future<void> _pickPicture() async {
     final file = await openFile(
-      acceptedTypeGroups: const [
-        XTypeGroup(label: 'A picture', mimeTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif']),
+      acceptedTypeGroups: [
+        XTypeGroup(label: tr("A picture"), mimeTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif']),
       ],
     );
     if (file == null || !mounted) return;
-    await _loadPictures(() async => [await _prepare({'path': file.path})], 'That picture cannot be read.', visionPrompt);
+    await _loadPictures(
+      () async => [
+        await _prepare({'path': file.path}),
+      ],
+      tr("That picture cannot be read."),
+      visionPrompt,
+    );
   }
 
   Future<void> _screenshot() async {
     await _clear();
     if (!mounted) return;
     final mine = _load;
-    widget.host.toast('The screenshot is taken in 3 seconds.');
+    widget.host.toast(tr("The screenshot is taken in 3 seconds."));
     await Future<void>.delayed(const Duration(seconds: 3));
     if (!mounted || mine != _load) return; // the page went away, or something else was loaded
-    await _loadPictures(() async {
-      final r = await widget.playground.backend.call('pictures.screenshot');
-      return [r['path'] as String?];
-    }, 'The screenshot did not work.', visionPrompt);
+    await _loadPictures(
+      () async {
+        final r = await widget.playground.backend.call('pictures.screenshot');
+        return [r['path'] as String?];
+      },
+      tr("The screenshot did not work."),
+      visionPrompt,
+    );
   }
 
   Future<void> _pickVideo() async {
-    final file = await openFile(acceptedTypeGroups: const [XTypeGroup(label: 'A video', mimeTypes: ['video/*'])]);
+    final file = await openFile(
+      acceptedTypeGroups: [
+        XTypeGroup(label: tr("A video"), mimeTypes: ['video/*']),
+      ],
+    );
     if (file == null || !mounted) return;
-    widget.host.toast('Taking frames from the video…');
-    await _loadPictures(() async {
-      final r = await widget.playground.backend.call('pictures.video_frames', {'path': file.path});
-      return [for (final p in (r['paths'] as List? ?? const [])) '$p'];
-    }, 'No frames could be taken from that video.', videoPrompt);
+    widget.host.toast(tr("Taking frames from the video…"));
+    await _loadPictures(
+      () async {
+        final r = await widget.playground.backend.call('pictures.video_frames', {'path': file.path});
+        return [for (final p in (r['paths'] as List? ?? const [])) '$p'];
+      },
+      tr("No frames could be taken from that video."),
+      videoPrompt,
+    );
   }
 
   Set<String> get _chosenIds {
     if (!_tickedSet) {
       final saved = widget.host.settings.texts('playground_agents');
-      return {for (final c in _agents) if (saved.isEmpty || saved.contains(c.id)) c.id};
+      return {
+        for (final c in _agents)
+          if (saved.isEmpty || saved.contains(c.id)) c.id,
+      };
     }
     return _ticked;
   }
 
   Future<void> _ask() async {
     if (_images.isEmpty) {
-      widget.host.toast('Pick a picture, a screenshot or a video first.');
+      widget.host.toast(tr("Pick a picture, a screenshot or a video first."));
       return;
     }
     final prompt = _prompt.text.trim();
@@ -203,32 +242,32 @@ class _VisionPageState extends State<VisionPage> {
     final chosen = _chosenIds;
     return PageScroll(
       children: [
-        const TabIntro(
-          'Vision',
-          'A picture, a screenshot or frames of a video for the agents that can see and run without tools (Claude '
-              'Code, Pi): text in a picture cannot make them read your files. Pictures are scaled down and saved again '
-              'first, so no photo metadata goes out.',
+        TabIntro(
+          tr("Vision"),
+          tr(
+            "A picture, a screenshot or frames of a video for the agents that can see and run without tools (Claude Code, Pi): text in a picture cannot make them read your files. Pictures are scaled down and saved again first, so no photo metadata goes out.",
+          ),
         ),
         vgap,
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            SmallButton('Picture…', onPressed: _busy || _asking ? null : _pickPicture),
+            SmallButton(tr("Picture…"), onPressed: _busy || _asking ? null : _pickPicture),
             SmallButton(
-              'Screenshot in 3 s',
+              tr("Screenshot in 3 s"),
               onPressed: _busy || _asking ? null : _screenshot,
-              tooltip: 'The whole screen, three seconds after the click',
+              tooltip: tr("The whole screen, three seconds after the click"),
             ),
             SmallButton(
-              'Video…',
+              tr("Video…"),
               onPressed: _busy || _asking ? null : _pickVideo,
-              tooltip: 'Four frames spread over the video',
+              tooltip: tr("Four frames spread over the video"),
             ),
             SmallButton(
-              'Clear',
+              tr("Clear"),
               onPressed: _images.isEmpty || _asking ? null : _clear,
-              tooltip: 'Remove the pictures (the answers stay)',
+              tooltip: tr("Remove the pictures (the answers stay)"),
             ),
           ],
         ),
@@ -256,7 +295,7 @@ class _VisionPageState extends State<VisionPage> {
         PromptField(controller: _prompt, minLines: 2, onSubmit: _ask),
         vgap,
         if (agents.isEmpty)
-          const Hint('No agent that can see and runs without tools is set up (Claude Code or Pi).')
+          Hint(tr("No agent that can see and runs without tools is set up (Claude Code or Pi)."))
         else
           Wrap(
             spacing: 24,
@@ -278,9 +317,9 @@ class _VisionPageState extends State<VisionPage> {
           ),
         vgap,
         ActionButton(
-          'Ask',
+          tr("Ask"),
           onPressed: agents.isEmpty ? null : _ask,
-          tooltip: 'Every ticked agent gets the pictures and the question',
+          tooltip: tr("Every ticked agent gets the pictures and the question"),
         ),
         vgap,
         for (final r in _runs) RunCard(r),

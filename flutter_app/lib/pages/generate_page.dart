@@ -1,3 +1,5 @@
+import 'package:maprisma_playground_core/maprisma_playground_core.dart' show tr, trf;
+
 import 'dart:io';
 import 'dart:math';
 
@@ -11,14 +13,14 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'vision_page.dart';
 
-const generatePrompt = 'A red fox sitting in a snowy forest at dawn, soft light, photograph';
-const sizeChoices = <(String, String)>[
-  ('square', 'Square · 1024 × 1024'),
-  ('landscape', 'Landscape · 1280 × 768'),
-  ('portrait', 'Portrait · 768 × 1280'),
+String get generatePrompt => tr("A red fox sitting in a snowy forest at dawn, soft light, photograph");
+List<(String, String)> get sizeChoices => <(String, String)>[
+  ('square', tr("Square · 1024 × 1024")),
+  ('landscape', tr("Landscape · 1280 × 768")),
+  ('portrait', tr("Portrait · 768 × 1280")),
 ];
 
-String _gigabytes(num size) => '${(size / (1 << 30)).toStringAsFixed(1)} GB';
+String _gigabytes(num size) => trf("{0} GB", [(size / (1 << 30)).toStringAsFixed(1)]);
 
 final class _Picture {
   _Picture(this.path, this.prompt, this.seconds, this.seed);
@@ -38,6 +40,7 @@ class GeneratePage extends StatefulWidget {
 }
 
 class _GeneratePageState extends State<GeneratePage> {
+  String _defaultPrompt = generatePrompt;
   final _prompt = TextEditingController(text: generatePrompt);
   Map<String, dynamic>? _status;
   String _size = 'square';
@@ -46,6 +49,14 @@ class _GeneratePageState extends State<GeneratePage> {
   double _fraction = 0;
   int _saving = 0; // Save as… copies still running: Clear waits for them
   String _progress = '';
+
+  @override
+  void didUpdateWidget(covariant GeneratePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final translated = generatePrompt;
+    if (_prompt.text == _defaultPrompt) _prompt.text = translated;
+    _defaultPrompt = translated;
+  }
 
   @override
   void initState() {
@@ -89,7 +100,11 @@ class _GeneratePageState extends State<GeneratePage> {
       return await _job!.result;
     } on CoreFailure catch (e) {
       if (!e.cancelled && mounted) {
-        widget.host.toast(method == 'generate.setup' ? 'Setting up stopped: ${e.message}' : 'No picture: ${e.message}');
+        widget.host.toast(
+          method == 'generate.setup'
+              ? trf("Setting up stopped: {0}", [e.message])
+              : trf("No picture: {0}", [e.message]),
+        );
       }
       return null;
     } finally {
@@ -100,23 +115,25 @@ class _GeneratePageState extends State<GeneratePage> {
   }
 
   Future<void> _setup() async {
-    final r = await _run('Downloading…', 'generate.setup', const {});
-    if (r != null && mounted) widget.host.toast('Generate is set up.');
+    final r = await _run(tr("Downloading…"), 'generate.setup', const {});
+    if (r != null && mounted) widget.host.toast(tr("Generate is set up."));
   }
 
   Future<void> _generate() async {
     final prompt = _prompt.text.trim();
     if (prompt.isEmpty) {
-      widget.host.toast('Write what the picture should show first.');
+      widget.host.toast(tr("Write what the picture should show first."));
       return;
     }
     final seed = 1 + Random().nextInt((1 << 31) - 2); // a new picture each time
-    final r = await _run('Generating…', 'generate.run', {'prompt': prompt, 'size': _size, 'seed': seed});
+    final r = await _run(tr("Generating…"), 'generate.run', {'prompt': prompt, 'size': _size, 'seed': seed});
     if (r == null || !mounted) return;
-    setState(() => _pictures.insert(
-      0, // the newest first
-      _Picture('${r['path']}', prompt, ((r['seconds'] as num?) ?? 0).toDouble(), (r['seed'] as int?) ?? seed),
-    ));
+    setState(
+      () => _pictures.insert(
+        0, // the newest first
+        _Picture('${r['path']}', prompt, ((r['seconds'] as num?) ?? 0).toDouble(), (r['seed'] as int?) ?? seed),
+      ),
+    );
   }
 
   Future<void> _clear() async {
@@ -131,13 +148,15 @@ class _GeneratePageState extends State<GeneratePage> {
   Future<void> _save(_Picture p) async {
     final to = await getSaveLocation(
       suggestedName: 'picture.png',
-      acceptedTypeGroups: const [XTypeGroup(label: 'PNG', extensions: ['png'])],
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'PNG', extensions: ['png']),
+      ],
     );
     if (to == null || !mounted) return;
     setState(() => _saving++);
     try {
       await File(p.path).copy(to.path);
-      widget.host.toast('Saved: ${to.path.split('/').last}');
+      widget.host.toast(trf("Saved: {0}", [to.path.split('/').last]));
     } on FileSystemException catch (e) {
       widget.host.toast(e.message);
     } finally {
@@ -153,14 +172,17 @@ class _GeneratePageState extends State<GeneratePage> {
   String _setupText() {
     final s = _status ?? const {};
     final parts = <String>[
-      if (s['program'] != true) 'stable-diffusion.cpp (its Vulkan build from GitHub, about 40 MB)',
+      if (s['program'] != true) tr("stable-diffusion.cpp (its Vulkan build from GitHub, about 40 MB)"),
       if (s['to_download'] is num && (s['to_download'] as num) > 0)
-        'the Z-Image-Turbo model with its text encoder (${_gigabytes(s['to_download'] as num)} from Hugging Face)',
+        trf("the Z-Image-Turbo model with its text encoder ({0} from Hugging Face)", [
+          _gigabytes(s['to_download'] as num),
+        ]),
     ];
     final folder = '${s['folder'] ?? '~/.local/share/maprisma-playground'}';
-    return 'Needed first: ${parts.isEmpty ? 'the program and the model' : parts.join('; ')}. Every file is checked '
-        'against its published SHA-256 before it is kept; they go to $folder. A cancelled download goes on where it '
-        'stopped.';
+    return trf(
+      "Needed first: {0}. Every file is checked against its published SHA-256 before it is kept; they go to {1}. A cancelled download goes on where it stopped.",
+      [parts.isEmpty ? tr("the program and the model") : parts.join('; '), folder],
+    );
   }
 
   @override
@@ -175,10 +197,11 @@ class _GeneratePageState extends State<GeneratePage> {
     );
     return PageScroll(
       children: [
-        const TabIntro(
-          'Generate',
-          "A picture from a text, made on this computer's graphics card with stable-diffusion.cpp and the "
-              'Z-Image-Turbo model: nothing leaves the computer.',
+        TabIntro(
+          tr("Generate"),
+          tr(
+            "A picture from a text, made on this computer's graphics card with stable-diffusion.cpp and the Z-Image-Turbo model: nothing leaves the computer.",
+          ),
         ),
         vgap,
         if (_status != null && !_ready) ...[
@@ -191,7 +214,7 @@ class _GeneratePageState extends State<GeneratePage> {
               children: [
                 AnswerText(_status!['error'] is String ? '${_status!['error']}' : _setupText()),
                 const SizedBox(height: 8),
-                ActionButton('Set up', onPressed: busy ? null : _setup),
+                ActionButton(tr("Set up"), onPressed: busy ? null : _setup),
               ],
             ),
           ),
@@ -210,17 +233,17 @@ class _GeneratePageState extends State<GeneratePage> {
               onChanged: (k) => setState(() => _size = k),
             ),
             SmallButton(
-              'Clear',
+              tr("Clear"),
               onPressed: _pictures.isEmpty || _saving > 0 || busy ? null : _clear,
-              tooltip: 'Remove the pictures',
+              tooltip: tr("Remove the pictures"),
             ),
           ],
         ),
         vgap,
         ActionButton(
-          'Generate',
+          tr("Generate"),
           onPressed: _ready && !busy ? _generate : null,
-          tooltip: 'Makes one picture; a new one each time (another seed)',
+          tooltip: tr("Makes one picture; a new one each time (another seed)"),
         ),
         if (busy) ...[
           vgap,
@@ -237,7 +260,7 @@ class _GeneratePageState extends State<GeneratePage> {
                 ),
               ),
               const SizedBox(width: 8),
-              SmallButton('Cancel', onPressed: () => _job?.cancel()),
+              SmallButton(tr("Cancel"), onPressed: () => _job?.cancel()),
             ],
           ),
         ],
@@ -267,17 +290,17 @@ class _GeneratePageState extends State<GeneratePage> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Hint('${p.seconds.toStringAsFixed(1)} s · seed ${p.seed}'),
+                        Hint(trf("{0} s · seed {1}", [p.seconds.toStringAsFixed(1), p.seed])),
                         const SizedBox(height: 6),
                         Wrap(
                           spacing: 6,
                           runSpacing: 6,
                           children: [
-                            SmallButton('Save as…', onPressed: () => _save(p)),
+                            SmallButton(tr("Save as…"), onPressed: () => _save(p)),
                             SmallButton(
-                              'Ask about it',
+                              tr("Ask about it"),
                               onPressed: () => _toVision(p),
-                              tooltip: 'Opens it on the Vision tab, for the agents that can see',
+                              tooltip: tr("Opens it on the Vision tab, for the agents that can see"),
                             ),
                           ],
                         ),

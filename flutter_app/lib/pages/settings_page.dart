@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:maprisma_playground_core/maprisma_playground_core.dart';
 
 import '../app.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'page_head.dart';
 
-/// build_settings_page: General (Corners, Text in choice boxes), then how it works, in cards that
-/// fold. No Language and no Look: Maprisma Playground speaks English and follows the desktop.
+/// build_settings_page: General (Language, Corners, Text in choice boxes), then how it works, in
+/// cards that fold. No Look: Maprisma Playground follows the desktop's colours.
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key, required this.host, required this.onBack, required this.onLookChanged, this.rounding});
   final Host host;
@@ -21,7 +22,7 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       widget.host.settings.update({key: value});
     } on Object catch (e) {
-      widget.host.toast('The setting could not be saved: $e');
+      widget.host.toast(trf("The setting could not be saved: {0}", [e]));
     }
     setState(() {});
     widget.onLookChanged();
@@ -54,9 +55,9 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final look = Look.of(context);
     final s = widget.host.settings;
-    final like = widget.rounding == null ? 'Like windows' : 'Like windows (${widget.rounding} px)';
+    final like = widget.rounding == null ? tr("Like windows") : trf("Like windows ({0} px)", [widget.rounding]);
     const cornerValues = ['windows', 'rounded', 'square'];
-    final cornerLabels = [like, 'Rounded', 'Square'];
+    final cornerLabels = [like, tr("Rounded"), tr("Square")];
     final group = Container(
       decoration: BoxDecoration(
         color: look.fg.withValues(alpha: .03),
@@ -66,8 +67,23 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Column(
         children: [
           _row(
-            'Corners',
-            "The corners of cards and buttons: like the desktop's windows, rounded or square.",
+            tr(tr("Language")),
+            tr(tr("Maprisma Playground switches to the new language at once.")),
+            Choice<String>(
+              value: s.text('language'),
+              items: ['auto', for (final l in languages) l.$1],
+              label: (v) => v == 'auto' ? trf(tr("System ({0})"), [languageName(systemLanguage())]) : languageName(v),
+              onChanged: (v) {
+                setLanguage(resolveLanguage(v));
+                widget.host.onLanguage?.call(v); // the core and every page follow
+                _save('language', v);
+              },
+            ),
+          ),
+          Divider(color: look.fg.withValues(alpha: .08)),
+          _row(
+            tr("Corners"),
+            tr("The corners of cards and buttons: like the desktop's windows, rounded or square."),
             Choice<String>(
               value: s.text('corners'),
               items: cornerValues,
@@ -77,12 +93,12 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           Divider(color: look.fg.withValues(alpha: .08)),
           _row(
-            'Text in choice boxes',
-            "The chosen value in drop-down boxes: bright (the theme's text colour) or dimmed.",
+            tr("Text in choice boxes"),
+            tr("The chosen value in drop-down boxes: bright (the theme's text colour) or dimmed."),
             Choice<String>(
               value: s.text('choice_text'),
               items: const ['bright', 'dim'],
-              label: (v) => v == 'dim' ? 'Dimmed' : 'Bright',
+              label: (v) => v == 'dim' ? tr("Dimmed") : tr("Bright"),
               onChanged: (v) => _save('choice_text', v),
             ),
           ),
@@ -95,54 +111,56 @@ class _SettingsPageState extends State<SettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PageHead(title: 'Settings', onBack: widget.onBack),
+        PageHead(title: tr("Settings"), onBack: widget.onBack),
         Expanded(
           child: PageScroll(
             children: [
-              const SectionTitle('General'),
+              SectionTitle(tr("General")),
               vgap,
               group,
               vgap,
               FoldCard(
-                title: 'One agent or none',
+                title: tr("One agent or none"),
                 initiallyOpen: true,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: lines(const [
-                    'Most tests compare, but one agent is enough:',
-                    'Chess: play against it, or let it play itself (Agent against agent), each side with its own '
-                        'strength, for example Master against Beginner.',
-                    'Speed and cost, Head to head: the models of the local LLM servers running here (see Local LLMs) '
-                        'take part next to the agents, so your agent can meet a local model, or two local models each '
-                        'other. The same one twice in Head to head keeps no score.',
-                    'Vision: only agents that take pictures and run without tools (Claude Code, Pi). Local LLMs and '
-                        'the Automaton: no agent needed.',
-                    'No agent offered: install one and sign in, or connect it to a local LLM (Maprisma does both). An '
-                        'agent that is installed but not signed in is not offered, since it could not answer.',
+                  children: lines([
+                    tr("Most tests compare, but one agent is enough:"),
+                    tr(
+                      "Chess: play against it, or let it play itself (Agent against agent), each side with its own strength, for example Master against Beginner.",
+                    ),
+                    tr(
+                      "Speed and cost, Head to head: the models of the local LLM servers running here (see Local LLMs) take part next to the agents, so your agent can meet a local model, or two local models each other. The same one twice in Head to head keeps no score.",
+                    ),
+                    tr(
+                      "Vision: only agents that take pictures and run without tools (Claude Code, Pi). Local LLMs and the Automaton: no agent needed.",
+                    ),
+                    tr(
+                      "No agent offered: install one and sign in, or connect it to a local LLM (Maprisma does both). An agent that is installed but not signed in is not offered, since it could not answer.",
+                    ),
                   ]),
                 ),
               ),
               vgap,
               FoldCard(
-                title: 'Several local models at once',
+                title: tr("Several local models at once"),
                 initiallyOpen: true,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: lines(const [
-                    'When a test would use two or more different local models at the same time (two models on the '
-                        'Local LLMs tab, local models or agents that use a local LLM in Speed and cost or Head to head, '
-                        'such agents in Vision or agent against agent chess), Maprisma Playground first checks whether '
-                        'they fit in the GPU memory.',
-                    'Free GPU memory: what the graphics card reports (AMD through the kernel, NVIDIA through '
-                        'nvidia-smi). A model that is loaded already needs nothing more. Any other model needs about its '
-                        'file size plus a tenth, and half a GB for its context. The size comes from Ollama, or from the '
-                        '.gguf file in the usual model folders.',
-                    'Which local model an agent uses comes from its own settings, as Maprisma Playground reads them.',
-                    'When they fit, the test simply starts. When they do not, or when a size could not be found, you '
-                        'choose: One after the other (the next model is asked only when the one before has answered; '
-                        'Ollama is asked to unload it first), Both at once, or Cancel. In chess the agents answer in '
-                        'turn anyway: there you choose Play anyway or Cancel.',
-                    'Without GPU figures (no AMD or NVIDIA card found) nothing is checked.',
+                  children: lines([
+                    tr(
+                      "When a test would use two or more different local models at the same time (two models on the Local LLMs tab, local models or agents that use a local LLM in Speed and cost or Head to head, such agents in Vision or agent against agent chess), Maprisma Playground first checks whether they fit in the GPU memory.",
+                    ),
+                    tr(
+                      "Free GPU memory: what the graphics card reports (AMD through the kernel, NVIDIA through nvidia-smi). A model that is loaded already needs nothing more. Any other model needs about its file size plus a tenth, and half a GB for its context. The size comes from Ollama, or from the .gguf file in the usual model folders.",
+                    ),
+                    tr(
+                      "Which local model an agent uses comes from its own settings, as Maprisma Playground reads them.",
+                    ),
+                    tr(
+                      "When they fit, the test simply starts. When they do not, or when a size could not be found, you choose: One after the other (the next model is asked only when the one before has answered; Ollama is asked to unload it first), Both at once, or Cancel. In chess the agents answer in turn anyway: there you choose Play anyway or Cancel.",
+                    ),
+                    tr("Without GPU figures (no AMD or NVIDIA card found) nothing is checked."),
                   ]),
                 ),
               ),

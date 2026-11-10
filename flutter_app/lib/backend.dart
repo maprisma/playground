@@ -59,7 +59,7 @@ final class Backend {
     final b = Backend._();
     b._ready.future.ignore();
     b._inbox.listen(b._receive);
-    b._errors.listen((_) => b._fail(CoreFailure('failed', 'The core stopped.')));
+    b._errors.listen((_) => b._fail(CoreFailure('failed', tr("The core stopped."))));
     b._isolate = await Isolate.spawn(
       _serve,
       (b._inbox.sendPort, Map<String, String>.of(Platform.environment)),
@@ -108,7 +108,7 @@ final class Backend {
     final id = ++_id;
     final pending = Completer<Map<String, dynamic>>();
     if (_down) {
-      pending.completeError(CoreFailure('failed', 'The core is closed.'));
+      pending.completeError(CoreFailure('failed', tr("The core is closed.")));
       return Job._(id, this, pending.future);
     }
     _pending[id] = pending;
@@ -130,7 +130,7 @@ final class Backend {
     if (_down) return;
     _send?.send(null);
     await _closed.future.timeout(const Duration(seconds: 4), onTimeout: () {});
-    _fail(CoreFailure('cancelled', 'The app is closing.'));
+    _fail(CoreFailure('cancelled', tr("The app is closing.")));
   }
 
   void _fail(CoreFailure error) {

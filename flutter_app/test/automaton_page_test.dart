@@ -11,6 +11,7 @@ void main() {
   late Directory home;
   late Settings settings;
   setUp(() {
+    setLanguage('en');
     home = Directory.systemTemp.createTempSync('playground-test-');
     settings = Settings(Places(config: '${home.path}/config', data: '${home.path}/data', cache: '${home.path}/cache'));
   });
@@ -21,12 +22,30 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final host = Host(settings: settings, toast: (_) {}, show: (_) {});
-    await tester.pumpWidget(MaterialApp(
-      theme: appTheme(Brightness.dark, const {}, 8),
-      home: Scaffold(body: AutomatonPage(host: host, active: true)),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: appTheme(Brightness.dark, const {}, 8),
+        home: Scaffold(body: AutomatonPage(host: host, active: true)),
+      ),
+    );
     await tester.pump();
   }
+
+  testWidgets('language changes labels while rule and drawing keys stay usable', (tester) async {
+    await pump(tester);
+    setLanguage('de');
+    await pump(tester);
+    expect(find.text(tr('Play')), findsOneWidget);
+    expect(find.textContaining("Conway's Life"), findsOneWidget);
+    expect(find.text(tr('Draw cells')), findsOneWidget);
+    await tester.tap(find.text(tr('Clear')));
+    await tester.pump();
+    expect(find.textContaining('0 lebendig'), findsOneWidget);
+    await tester.tap(find.text(tr('Step')));
+    await tester.pump();
+    expect(find.textContaining('Generation 1'), findsOneWidget);
+    setLanguage('en');
+  });
 
   testWidgets('starts filled, Play runs generations, Pause stops them', (tester) async {
     await pump(tester);

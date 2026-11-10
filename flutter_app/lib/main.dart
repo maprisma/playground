@@ -7,10 +7,12 @@ import 'contestants.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  final settings = Settings(Places.fromEnv());
+  setLanguage(resolveLanguage(settings.text('language'))); // the core sets its own the same way
   final backend = await Backend.launch();
   final playground = Playground(backend);
   // The agents set up here and the local LLM servers running: every tab offers them.
   playground.loadAgents();
   playground.scan();
-  runApp(PlaygroundApp(settings: Settings(Places.fromEnv()), playground: playground, args: args));
+  runApp(PlaygroundApp(settings: settings, playground: playground, args: args));
 }

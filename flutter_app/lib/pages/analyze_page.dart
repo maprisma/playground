@@ -1,3 +1,4 @@
+import 'package:maprisma_playground_core/maprisma_playground_core.dart' show tr, trf;
 import 'package:flutter/material.dart';
 
 import '../app.dart';
@@ -7,21 +8,50 @@ import '../theme.dart';
 import '../widgets.dart';
 
 /// The capability cards, in order: key, title, what it means (analyze.CARDS).
-const analyzeCards = <(String, String, String)>[
-  ('text', 'Text', 'Answers a question in writing: the base of everything else. One small sum is asked; the time, and '
-      'tokens and cost where the agent reports them, are shown.'),
-  ('pictures', 'Pictures', 'Sees a picture sent with the question (screenshots, photos, the Vision tab). One test '
-      'picture is sent: a red square, and the agent is asked for its colour. A local model is set up for it first '
-      'where it can be.'),
-  ('video', 'Chess videos', 'Reads the moves from a chess video frame by frame (Chess tab › Import video). Each frame '
-      'is one question with a picture, so it needs pictures and quick answers; the time of the test picture tells.'),
-  ('thinking', 'Thinking time', 'Can be told to think briefly or long (Thinking time on the Chess tab, quick answers '
-      "for video frames). Read from the agent's settings and the model's own description."),
-  ('chess', 'Chess', 'Plays chess on the Chess tab: one legal opening move is asked.'),
-  ('context', 'Context', 'How much text it keeps in mind at once (prompt, files, the conversation), in tokens; a page '
-      "of text is about 500. Read from the model's description."),
-  ('making', 'Making pictures', 'Draws a new picture from a text. Agents asked for one answer here have no drawing '
-      "tool; the Generate tab makes pictures on this computer's graphics card."),
+List<(String, String, String)> get analyzeCards => <(String, String, String)>[
+  (
+    'text',
+    tr("Text"),
+    tr(
+      "Answers a question in writing: the base of everything else. One small sum is asked; the time, and tokens and cost where the agent reports them, are shown.",
+    ),
+  ),
+  (
+    'pictures',
+    tr("Pictures"),
+    tr(
+      "Sees a picture sent with the question (screenshots, photos, the Vision tab). One test picture is sent: a red square, and the agent is asked for its colour. A local model is set up for it first where it can be.",
+    ),
+  ),
+  (
+    'video',
+    tr("Chess videos"),
+    tr(
+      "Reads the moves from a chess video frame by frame (Chess tab › Import video). Each frame is one question with a picture, so it needs pictures and quick answers; the time of the test picture tells.",
+    ),
+  ),
+  (
+    'thinking',
+    tr("Thinking time"),
+    tr(
+      "Can be told to think briefly or long (Thinking time on the Chess tab, quick answers for video frames). Read from the agent's settings and the model's own description.",
+    ),
+  ),
+  ('chess', tr("Chess"), tr("Plays chess on the Chess tab: one legal opening move is asked.")),
+  (
+    'context',
+    tr("Context"),
+    tr(
+      "How much text it keeps in mind at once (prompt, files, the conversation), in tokens; a page of text is about 500. Read from the model's description.",
+    ),
+  ),
+  (
+    'making',
+    tr("Making pictures"),
+    tr(
+      "Draws a new picture from a text. Agents asked for one answer here have no drawing tool; the Generate tab makes pictures on this computer's graphics card.",
+    ),
+  ),
 ];
 
 Mark markOf(String? state) => switch (state) {
@@ -39,8 +69,10 @@ final class Finding {
     : state = '${j['state'] ?? j['mark'] ?? 'unknown'}',
       summary = '${j['summary'] ?? ''}',
       detail = '${j['detail'] ?? j['text'] ?? ''}',
-      download = (j['download'] ?? j['offer']) is Map ? ((j['download'] ?? j['offer']) as Map).cast<String, dynamic>() : null;
-  Finding.waiting() : state = 'waiting', summary = 'waiting…', detail = '', download = null;
+      download = (j['download'] ?? j['offer']) is Map
+          ? ((j['download'] ?? j['offer']) as Map).cast<String, dynamic>()
+          : null;
+  Finding.waiting() : state = 'waiting', summary = tr('waiting…'), detail = '', download = null;
   final String state, summary, detail;
   final Map<String, dynamic>? download;
 }
@@ -102,7 +134,11 @@ class _AnalyzePageState extends State<AnalyzePage> {
     }
     if (!mounted || _agent != asked) return;
     setState(() {
-      _choices = found.isEmpty ? [{'label': 'Its own model'}] : found;
+      _choices = found.isEmpty
+          ? [
+              {'label': tr("Its own model")},
+            ]
+          : found;
       _choice = 0;
     });
   }
@@ -127,15 +163,14 @@ class _AnalyzePageState extends State<AnalyzePage> {
       _running = true;
       _findings = {for (final c in analyzeCards) c.$1: Finding.waiting()};
     });
-    _job = widget.playground.backend.start(
-      'analyze.run',
-      {'command': _agent, 'choice': choices[_choice]},
-      (event, data) {
-        if (event != 'finding' || run != _run || !mounted) return;
-        final key = '${data['key']}';
-        setState(() => _findings[key] = Finding(data));
-      },
-    );
+    _job = widget.playground.backend.start('analyze.run', {'command': _agent, 'choice': choices[_choice]}, (
+      event,
+      data,
+    ) {
+      if (event != 'finding' || run != _run || !mounted) return;
+      final key = '${data['key']}';
+      setState(() => _findings[key] = Finding(data));
+    });
     try {
       await _job!.result;
     } on CoreFailure catch (e) {
@@ -147,14 +182,14 @@ class _AnalyzePageState extends State<AnalyzePage> {
   /// The pictures card offers a vision file (a local model's projector): fetch it, then all again.
   Future<void> _download(Map<String, dynamic> wanted) async {
     final run = _run;
-    setState(() => _fetchText = 'Downloading the vision file… 0 %');
+    setState(() => _fetchText = trf("Downloading the vision file… {0:.0f} %", [0]));
     _fetch = widget.playground.backend.start(
       'vision.setup',
       {'command': _agent, 'choice': _choices![_choice], 'download': wanted},
       (event, data) {
         if (event == 'progress' && run == _run && mounted) {
           final f = (data['fraction'] as num?) ?? 0;
-          setState(() => _fetchText = 'Downloading the vision file… ${(f * 100).toStringAsFixed(0)} %');
+          setState(() => _fetchText = trf("Downloading the vision file… {0:.0f} %", [(f * 100).toStringAsFixed(0)]));
         }
       },
     );
@@ -163,7 +198,7 @@ class _AnalyzePageState extends State<AnalyzePage> {
       if (run == _run && mounted) _start(); // all again, now with the vision file
     } on CoreFailure catch (e) {
       if (run == _run && mounted) {
-        setState(() => _fetchText = e.cancelled ? null : 'The vision file could not be set up: ${e.message}');
+        setState(() => _fetchText = e.cancelled ? null : trf("The vision file could not be set up: {0}", [e.message]));
       }
     }
   }
@@ -183,7 +218,11 @@ class _AnalyzePageState extends State<AnalyzePage> {
             Flexible(
               child: Tooltip(
                 message: f.summary,
-                child: Text(f.summary, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: look.dim)),
+                child: Text(
+                  f.summary,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, color: look.dim),
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -205,9 +244,11 @@ class _AnalyzePageState extends State<AnalyzePage> {
               const SizedBox(height: 8),
               SmallButton(
                 size is num
-                    ? 'Download the vision file (${(size / (1 << 30)).toStringAsFixed(1)} GB)'
-                    : 'Download the vision file',
-                onPressed: _fetchText != null && _fetchText!.startsWith('Downloading') ? null : () => _download(f.download!),
+                    ? trf("Download the vision file ({0:.1f} GB)", [(size / (1 << 30)).toStringAsFixed(1)])
+                    : tr("Download the vision file"),
+                onPressed: _fetchText != null && _fetchText!.startsWith(tr("Downloading…"))
+                    ? null
+                    : () => _download(f.download!),
               ),
             ],
           ],
@@ -224,11 +265,11 @@ class _AnalyzePageState extends State<AnalyzePage> {
     final none = ready.isEmpty;
     return PageScroll(
       children: [
-        const TabIntro(
-          'Analyze',
-          'What an agent can do with one of its models: text, pictures, chess videos, thinking time, chess, how much '
-              'it keeps in mind. A few short test questions are asked (they may count against your plan); a local '
-              'model is set up for pictures where it can be.',
+        TabIntro(
+          tr("Analyze"),
+          tr(
+            "What an agent can do with one of its models: text, pictures, chess videos, thinking time, chess, how much it keeps in mind. A few short test questions are asked (they may count against your plan); a local model is set up for pictures where it can be.",
+          ),
         ),
         vgap,
         Wrap(
@@ -239,8 +280,8 @@ class _AnalyzePageState extends State<AnalyzePage> {
               value: agent,
               items: ready,
               label: (a) => a.name,
-              empty: widget.playground.loaded ? 'No agent is set up' : 'Looking…',
-              tooltip: 'The agent to analyze',
+              empty: widget.playground.loaded ? tr("No agent is set up") : tr("Looking…"),
+              tooltip: tr("The agent to analyze"),
               onChanged: _running
                   ? null
                   : (a) {
@@ -252,8 +293,8 @@ class _AnalyzePageState extends State<AnalyzePage> {
               value: choices == null || choices.isEmpty ? null : _choice,
               items: [for (var i = 0; i < (choices?.length ?? 0); i++) i],
               label: (i) => '${choices![i]['label']}',
-              empty: none ? 'No agent is set up here yet' : 'Looking…',
-              tooltip: 'The model it is asked with (its own, or another one it lists)',
+              empty: none ? tr("No agent is set up here yet") : tr("Looking…"),
+              tooltip: tr("The model it is asked with (its own, or another one it lists)"),
               onChanged: _running
                   ? null
                   : (i) {
@@ -264,9 +305,10 @@ class _AnalyzePageState extends State<AnalyzePage> {
           ],
         ),
         vgap,
-        ActionButton('Analyze', onPressed: none || choices == null || _running ? null : _start),
+        ActionButton(tr("Analyze"), onPressed: none || choices == null || _running ? null : _start),
         vgap,
-        if (_findings.isNotEmpty) for (final (k, t, m) in analyzeCards) _card(k, t, m),
+        if (_findings.isNotEmpty)
+          for (final (k, t, m) in analyzeCards) _card(k, t, m),
       ],
     );
   }

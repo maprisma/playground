@@ -1,3 +1,5 @@
+import 'package:maprisma_playground_core/maprisma_playground_core.dart' show tr, trf;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -7,7 +9,8 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:maprisma_playground_core/maprisma_playground_core.dart' as rules;
-import 'package:maprisma_playground_core/maprisma_playground_core.dart' show ChessGame, ChessMode, Move, Position, Settings;
+import 'package:maprisma_playground_core/maprisma_playground_core.dart'
+    show ChessGame, ChessMode, Move, Position, Settings;
 
 import '../app.dart';
 import '../backend.dart';
@@ -60,10 +63,12 @@ class _ChessPageState extends State<ChessPage> {
     s.addListener(_changed);
     ChessPage._paste = _paste;
     _subscriptions
-      ..add(AppWindow.instance.dragging.stream.listen((at) {
-        final over = at != null && _visible;
-        if (over != _dragOver && mounted) setState(() => _dragOver = over);
-      }))
+      ..add(
+        AppWindow.instance.dragging.stream.listen((at) {
+          final over = at != null && _visible;
+          if (over != _dragOver && mounted) setState(() => _dragOver = over);
+        }),
+      )
       ..add(AppWindow.instance.drops.stream.listen(_dropped));
   }
 
@@ -94,7 +99,7 @@ class _ChessPageState extends State<ChessPage> {
     setState(() => _dragOver = false);
     if (!drop.type.startsWith('text/')) return;
     if (drop.data.length > _maxDrop) {
-      widget.host.toast('That drop was too large or too slow to read.');
+      widget.host.toast(tr("That drop was too large or too slow to read."));
       return;
     }
     _droppedText(utf8.decode(drop.data, allowMalformed: true));
@@ -110,7 +115,7 @@ class _ChessPageState extends State<ChessPage> {
     if (url.isEmpty && lines.isNotEmpty && lines.first.startsWith('file://')) {
       final path = localPath(lines.first);
       if (path == null) {
-        widget.host.toast('That is not a video file (MP4, MKV, WebM, MOV, AVI).');
+        widget.host.toast(tr("That is not a video file (MP4, MKV, WebM, MOV, AVI)."));
         return;
       }
       _importAsk(path: path);
@@ -129,16 +134,16 @@ class _ChessPageState extends State<ChessPage> {
     } else if (youtubeUrl(text).isNotEmpty || text.startsWith('file://')) {
       _droppedText(text);
     } else {
-      widget.host.toast('Copy a YouTube link first, then press Ctrl+V on the chess tab.');
+      widget.host.toast(tr("Copy a YouTube link first, then press Ctrl+V on the chess tab."));
     }
   }
 
   Future<void> _pickVideo() async {
     final file = await openFile(
-      acceptedTypeGroups: const [
-        XTypeGroup(label: 'Videos', mimeTypes: ['video/*']),
+      acceptedTypeGroups: [
+        XTypeGroup(label: tr("Videos"), mimeTypes: ['video/*']),
       ],
-      confirmButtonText: 'Open',
+      confirmButtonText: tr("Open"),
     );
     if (file != null) _importAsk(path: file.path);
   }
@@ -147,16 +152,16 @@ class _ChessPageState extends State<ChessPage> {
   Future<void> _importAsk({String path = '', String url = ''}) async {
     final toast = widget.host.toast;
     if (s.importing) {
-      toast('A video is being read already.');
+      toast(tr("A video is being read already."));
       return;
     }
     if (path.isNotEmpty &&
         (!videoTypes.any((t) => path.toLowerCase().endsWith(t)) || !FileSystemEntity.isFileSync(path))) {
-      toast('That is not a video file (MP4, MKV, WebM, MOV, AVI).');
+      toast(tr("That is not a video file (MP4, MKV, WebM, MOV, AVI)."));
       return;
     }
     if (path.isEmpty && url.isEmpty) {
-      toast('Drop a video file or a YouTube link.');
+      toast(tr("Drop a video file or a YouTube link."));
       return;
     }
     List<String> seeingCommands, textCommands;
@@ -177,27 +182,37 @@ class _ChessPageState extends State<ChessPage> {
     final seeing = ready.where((a) => seeingCommands.contains(a.command)).toList();
     final everyone = ready.where((a) => textCommands.contains(a.command)).toList();
     if ((url.isNotEmpty ? everyone : seeing).isEmpty) {
-      final blind = [for (final a in ready) if (a.readsUntrusted) a.name];
-      final tools = [for (final a in ready) if (!a.readsUntrusted) a.name];
+      final blind = [
+        for (final a in ready)
+          if (a.readsUntrusted) a.name,
+      ];
+      final tools = [
+        for (final a in ready)
+          if (!a.readsUntrusted) a.name,
+      ];
       final body = StringBuffer(
-        'Reading the moves needs an agent that sees pictures and runs without tools: Claude Code or Pi, signed in '
-        'or connected to a local vision model.\n\n',
+        tr(
+          "Reading the moves needs an agent that sees pictures and runs without tools: Claude Code or Pi, signed in or connected to a local vision model.",
+        ),
       );
-      if (blind.isNotEmpty) body.write('Set up here: ${blind.join(', ')}. They cannot see pictures.\n\n');
+      body.write('\n\n');
+      if (blind.isNotEmpty) body.write('${trf("Set up here: {0}. They cannot see pictures.", [blind.join(', ')])}\n\n');
       if (tools.isNotEmpty) {
         body.write(
-          'Left out: ${tools.join(', ')}. It can read files on this computer, and a video\'s text or pictures could '
-          'ask it to.\n\n',
+          '${trf("Left out: {0}. It can read files on this computer, and a video's text or pictures could ask it to.", [tools.join(', ')])}\n\n',
         );
       }
-      if (ready.isEmpty) body.write('No agent is set up here yet.\n\n');
-      body.write('Set up one of them (AI Agents Map can install it and sign you in), then drop the video again.');
+      if (ready.isEmpty) body.write('${tr("No agent is set up here yet.")}\n\n');
+      body.write(tr("Set up one of them (AI Agents Map can install it and sign you in), then drop the video again."));
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('No agent here can read a video', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          title: Text(
+            tr("No agent here can read a video"),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
           content: SizedBox(width: 460, child: AnswerText(body.toString())),
-          actions: [SmallButton('OK', onPressed: () => Navigator.pop(context))],
+          actions: [SmallButton(tr("OK"), onPressed: () => Navigator.pop(context))],
         ),
       );
       return;
@@ -312,23 +327,23 @@ class _ChessPageState extends State<ChessPage> {
     final agents = s.playable;
     return Row(
       children: [
-        Text('Opponent', style: TextStyle(fontSize: 13, color: look.fg)),
+        Text(tr("Opponent"), style: TextStyle(fontSize: 13, color: look.fg)),
         const SizedBox(width: 8),
         Choice<String>(
           value: s.opponent?.command,
           items: [for (final a in agents) a.command],
           label: s.nameOf,
-          empty: 'No agent is set up',
-          tooltip: 'The agent you play against; with “Agent against agent” it plays Black',
+          empty: tr("No agent is set up"),
+          tooltip: tr("The agent you play against; with “Agent against agent” it plays Black"),
           onChanged: (c) => s.open(agents.firstWhere((a) => a.command == c)),
         ),
         const SizedBox(width: 8),
         SmallButton(
-          'Import video…',
+          tr("Import video…"),
           onPressed: _pickVideo,
-          tooltip:
-              'A chess video (a file, or a YouTube link dropped here): an agent that sees reads the moves, and the '
-              'game is saved to replay',
+          tooltip: tr(
+            "A chess video (a file, or a YouTube link dropped here): an agent that sees reads the moves, and the game is saved to replay",
+          ),
         ),
       ],
     );
@@ -345,8 +360,9 @@ class _ChessPageState extends State<ChessPage> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Drop a chess video here, a file or a YouTube link, anywhere on this tab, or copy a YouTube link and press '
-              'Ctrl+V: an agent that sees reads its moves and the game is saved below to replay.',
+              tr(
+                "Drop a chess video here, a file or a YouTube link, anywhere on this tab, or copy a YouTube link and press Ctrl+V: an agent that sees reads its moves and the game is saved below to replay.",
+              ),
               style: TextStyle(fontSize: 12, color: look.dim, height: 1.3),
             ),
           ),
@@ -390,7 +406,7 @@ class _ChessPageState extends State<ChessPage> {
           ),
         ),
         const SizedBox(width: 10),
-        SmallButton('Cancel', onPressed: s.importStopping ? null : s.cancelImport),
+        SmallButton(tr("Cancel"), onPressed: s.importStopping ? null : s.cancelImport),
       ],
     ),
   );
@@ -402,7 +418,7 @@ class _ChessPageState extends State<ChessPage> {
     menuChildren: [_LookMenu(session: s)],
     child: IconSmallButton(
       Icons.palette,
-      tooltip: 'Board and pieces',
+      tooltip: tr("Board and pieces"),
       onPressed: () => _look.isOpen ? _look.close() : _look.open(),
     ),
   );
@@ -419,7 +435,7 @@ class _ChessPageState extends State<ChessPage> {
           value: s.choice,
           items: [for (final c in choices) c.$1],
           label: (k) => labelOf(choices, k),
-          tooltip: 'A new game, or a position set up by hand',
+          tooltip: tr("A new game, or a position set up by hand"),
           onChanged: (k) {
             s.choice = k;
             s.start(context);
@@ -430,7 +446,7 @@ class _ChessPageState extends State<ChessPage> {
             value: s.rivalPick?.command,
             items: [for (final a in rivals) a.command],
             label: s.nameOf,
-            tooltip: 'The agent that plays White against it',
+            tooltip: tr("The agent that plays White against it"),
             onChanged: (c) {
               s.rivalPick = rivals.firstWhere((a) => a.command == c);
               s.start(context);
@@ -440,7 +456,7 @@ class _ChessPageState extends State<ChessPage> {
             value: s.rivalStrength,
             items: [for (final e in strengthLabels) e.$1],
             label: (k) => labelOf(strengthLabels, k),
-            tooltip: "White's strength: how strongly the agent playing White is asked to play",
+            tooltip: tr("White's strength: how strongly the agent playing White is asked to play"),
             onChanged: (k) {
               s.rivalStrength = k;
               s.save({'chess_rival_strength': k});
@@ -452,7 +468,9 @@ class _ChessPageState extends State<ChessPage> {
           value: s.thinking,
           items: [for (final e in thinkingLabels) e.$1],
           label: (k) => labelOf(thinkingLabels, k),
-          tooltip: 'Thinking time: how long the agent may take for a move. Longer also lets its model think harder.',
+          tooltip: tr(
+            "Thinking time: how long the agent may take for a move. Longer also lets its model think harder.",
+          ),
           onChanged: (k) {
             s.thinking = k;
             s.save({'chess_thinking': k});
@@ -464,21 +482,22 @@ class _ChessPageState extends State<ChessPage> {
           items: [for (final e in strengthLabels) e.$1],
           label: (k) => labelOf(strengthLabels, k),
           tooltip: agents
-              ? "Black's strength: how strongly the agent playing Black is asked to play"
-              : 'Strength: how strongly the agent is asked to play. A beginner makes mistakes now and then; the '
-                    'strongest play also wants a long thinking time.',
+              ? tr("Black's strength: how strongly the agent playing Black is asked to play")
+              : tr(
+                  "Strength: how strongly the agent is asked to play. A beginner makes mistakes now and then; the strongest play also wants a long thinking time.",
+                ),
           onChanged: (k) {
             s.strength = k;
             s.save({'chess_strength': k});
             setState(() {});
           },
         ),
-        SmallButton('Start', onPressed: () => s.start(context)),
+        SmallButton(tr("Start"), onPressed: () => s.start(context)),
         if (s.rival != null && s.game.mode == ChessMode.game)
           _Toggle(
-            label: 'Pause',
+            label: tr("Pause"),
             on: s.game.paused,
-            tooltip: 'Agent against agent: no new move is asked for until you go on',
+            tooltip: tr("Agent against agent: no new move is asked for until you go on"),
             onChanged: s.setPaused,
           ),
         if (s.game.thinking)
@@ -496,13 +515,13 @@ class _ChessPageState extends State<ChessPage> {
       Choice<String>(
         value: s.turnChoice,
         items: const ['w', 'b'],
-        label: (k) => k == 'w' ? 'White to move' : 'Black to move',
+        label: (k) => k == 'w' ? tr("White to move") : tr("Black to move"),
         onChanged: s.setTurn,
       ),
-      SmallButton('Empty board', onPressed: () => s.fill(empty: true)),
-      SmallButton('Start position', onPressed: () => s.fill(empty: false)),
-      SmallButton('Play it with White', onPressed: () => s.playSetup('w')),
-      SmallButton('Play it with Black', onPressed: () => s.playSetup('b')),
+      SmallButton(tr("Empty board"), onPressed: () => s.fill(empty: true)),
+      SmallButton(tr("Start position"), onPressed: () => s.fill(empty: false)),
+      SmallButton(tr("Play it with White"), onPressed: () => s.playSetup('w')),
+      SmallButton(tr("Play it with Black"), onPressed: () => s.playSetup('b')),
     ],
   );
 
@@ -520,7 +539,7 @@ class _ChessPageState extends State<ChessPage> {
           children: [
             for (final p in mine)
               Tooltip(
-                message: '${kindNames[p.toUpperCase()]} captured',
+                message: trf("{0} captured", [kindNames[p.toUpperCase()]]),
                 child: SizedBox(height: 26, child: PieceGlyph(p, size: 24)),
               ),
           ],
@@ -587,10 +606,7 @@ class _ChessPageState extends State<ChessPage> {
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         decoration: BoxDecoration(
           color: picked ? look.accent.withValues(alpha: .16) : look.fg.withValues(alpha: .04),
-          border: Border.all(
-            color: picked ? look.accent : look.fg.withValues(alpha: .12),
-            width: picked ? 2 : 1,
-          ),
+          border: Border.all(color: picked ? look.accent : look.fg.withValues(alpha: .12), width: picked ? 2 : 1),
           borderRadius: BorderRadius.circular(radius),
         ),
         child: Column(
@@ -607,12 +623,12 @@ class _ChessPageState extends State<ChessPage> {
       );
       if (!define) {
         return Tooltip(
-          message: '${kindNames[kind]} on the board',
+          message: trf("{0} on the board", [kindNames[kind]]),
           child: Opacity(opacity: count == 0 ? .4 : 1, child: inner),
         );
       }
       return Tooltip(
-        message: 'Place: ${kindNames[kind]}',
+        message: trf("Place: {0}", [kindNames[kind]]),
         child: Draggable<String>(
           data: piece,
           dragAnchorStrategy: pointerDragAnchorStrategy,
@@ -641,19 +657,19 @@ class _ChessPageState extends State<ChessPage> {
     runSpacing: 4,
     alignment: WrapAlignment.center,
     children: [
-      IconSmallButton(Icons.first_page, tooltip: 'First move', onPressed: () => s.step('first')),
-      IconSmallButton(Icons.chevron_left, tooltip: 'Back one move', onPressed: () => s.step('back')),
-      IconSmallButton(Icons.chevron_right, tooltip: 'Next move', onPressed: () => s.step('next')),
-      IconSmallButton(Icons.last_page, tooltip: 'Last move', onPressed: () => s.step('last')),
+      IconSmallButton(Icons.first_page, tooltip: tr("First move"), onPressed: () => s.step('first')),
+      IconSmallButton(Icons.chevron_left, tooltip: tr("Back one move"), onPressed: () => s.step('back')),
+      IconSmallButton(Icons.chevron_right, tooltip: tr("Next move"), onPressed: () => s.step('next')),
+      IconSmallButton(Icons.last_page, tooltip: tr("Last move"), onPressed: () => s.step('last')),
       SmallButton(
-        s.autoPlaying ? 'Pause' : 'Auto',
+        s.autoPlaying ? tr("Pause") : tr("Auto"),
         icon: s.autoPlaying ? Icons.pause : Icons.play_arrow,
-        tooltip: s.autoPlaying ? 'Stop at this move' : 'Play the moves one after another',
+        tooltip: s.autoPlaying ? tr("Stop at this move") : tr("Play the moves one after another"),
         onPressed: () => s.setAuto(!s.autoPlaying),
       ),
       SmallButton(
-        'Play from here',
-        tooltip: 'Go on from the move in view against the opponent; you play the side to move',
+        tr("Play from here"),
+        tooltip: tr("Go on from the move in view against the opponent; you play the side to move"),
         onPressed: s.playFromHere,
       ),
     ],
@@ -666,14 +682,17 @@ class _ChessPageState extends State<ChessPage> {
     final said = [g.comment, g.error].where((t) => t.isNotEmpty).join('\n');
     final status = s.status;
     return FoldCard(
-      title: 'Game',
+      title: tr("Game"),
       icon: Icons.sports_esports,
       summary: status,
       initiallyOpen: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(status, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: look.fg)),
+          Text(
+            status,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: look.fg),
+          ),
           if (said.isNotEmpty && !define) ...[
             const SizedBox(height: gap),
             Container(
@@ -688,14 +707,14 @@ class _ChessPageState extends State<ChessPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${s.saidBy} says',
+                    trf("{0} says", [s.saidBy]),
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: look.fg),
                   ),
                   const SizedBox(height: 4),
                   AnswerText(said),
                   if (g.error.isNotEmpty && !g.thinking) ...[
                     const SizedBox(height: 4),
-                    SmallButton('Ask again', onPressed: s.askAgain),
+                    SmallButton(tr("Ask again"), onPressed: s.askAgain),
                   ],
                 ],
               ),
@@ -708,10 +727,10 @@ class _ChessPageState extends State<ChessPage> {
           if (g.mode == ChessMode.game && g.moves.isNotEmpty) ...[
             const SizedBox(height: gap),
             SmallButton(
-              s.savedId.isEmpty ? 'Save game' : 'Save again',
-              tooltip:
-                  'Keep this game with the saved games (with who played and the result); a finished game is kept by '
-                  'itself',
+              s.savedId.isEmpty ? tr("Save game") : tr("Save again"),
+              tooltip: tr(
+                "Keep this game with the saved games (with who played and the result); a finished game is kept by itself",
+              ),
               onPressed: () => s.saveCurrent(),
             ),
           ],
@@ -724,21 +743,21 @@ class _ChessPageState extends State<ChessPage> {
   Widget _savedCard(Look look) {
     final games = s.games;
     final total = s.gamesTotal;
-    const none = 'None yet. Drop a chess video or a YouTube link on this tab, or use Import video…';
+    final none = tr("None yet. Drop a chess video or a YouTube link on this tab, or use Import video…");
     return FoldCard(
-      title: 'Saved games',
+      title: tr("Saved games"),
       icon: Icons.history,
-      summary: total == 1 ? '1 game' : '$total games',
+      summary: total == 1 ? tr("1 game") : trf("{0} games", [total]),
       initiallyOpen: true,
       action: IconSmallButton(
         Icons.format_list_bulleted,
-        tooltip: 'Manage saved games: search, rename, save as PGN, delete',
+        tooltip: tr("Manage saved games: search, rename, save as PGN, delete"),
         onPressed: () => widget.host.show('games'),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (games.isEmpty) const Hint(none),
+          if (games.isEmpty) Hint(none),
           if (s.gamesError.isNotEmpty) ...[const SizedBox(height: 4), Hint(s.gamesError, error: true)],
           for (final g in games)
             Padding(
@@ -768,14 +787,17 @@ class _ChessPageState extends State<ChessPage> {
                   ],
                   IconSmallButton(
                     Icons.play_arrow,
-                    tooltip: 'Replay game: on the board, with the controls beneath it',
+                    tooltip: tr("Replay game: on the board, with the controls beneath it"),
                     onPressed: () => s.openReplay(g),
                   ),
                 ],
               ),
             ),
           if (total > onCard)
-            SmallButton(total == 1 ? 'All 1 game…' : 'All $total games…', onPressed: () => widget.host.show('games')),
+            SmallButton(
+              total == 1 ? tr("All 1 game…") : trf("All {0} games…", [total]),
+              onPressed: () => widget.host.show('games'),
+            ),
         ],
       ),
     );
@@ -816,8 +838,7 @@ class _Dashed extends CustomPainter {
   final double radius;
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)).deflate(.5));
+    final path = Path()..addRRect(RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)).deflate(.5));
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
@@ -889,7 +910,7 @@ class _LookMenuState extends State<_LookMenu> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          heading('Board'),
+          heading(tr("Board")),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -898,7 +919,7 @@ class _LookMenuState extends State<_LookMenu> {
             ],
           ),
           const SizedBox(height: 8),
-          heading('Pieces'),
+          heading(tr("Pieces")),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -916,7 +937,9 @@ class _LookMenuState extends State<_LookMenu> {
             width: 5 * 70,
             child: Row(
               children: [
-                Expanded(child: Text('Coordinates', style: TextStyle(fontSize: 11, color: look.fg))),
+                Expanded(
+                  child: Text(tr("Coordinates"), style: TextStyle(fontSize: 11, color: look.fg)),
+                ),
                 Switch(value: s.coordinates, onChanged: (v) => _set({'chess_coordinates': v})),
               ],
             ),
@@ -936,7 +959,7 @@ class OriginalButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => IconSmallButton(
     Icons.open_in_new,
-    tooltip: 'Open the original video: ${game.source}',
+    tooltip: trf("Open the original video: {0}", [game.source]),
     onPressed: () => openOriginal(game.source, toast),
   );
 }
@@ -949,7 +972,7 @@ Future<void> openOriginal(String source, void Function(String) toast) async {
   } else if (source.startsWith('/') && FileSystemEntity.isFileSync(source)) {
     target = source;
   } else {
-    toast('The original video is not there any more: $source');
+    toast(trf("The original video is not there any more: {0}", [source]));
     return;
   }
   try {
@@ -1019,21 +1042,26 @@ class _ImportDialogState extends State<_ImportDialog> {
       final gap = _intervals[_every], limit = _limits[_part] * 60;
       final span = limit > 0 && limit < seconds ? limit.toDouble() : seconds;
       final most = math.min(_maxFrames, span ~/ gap + 1);
-      final spoken = seconds < 90 ? '${seconds.toStringAsFixed(0)} s' : '${(seconds / 60).toStringAsFixed(0)} min';
-      length =
-          '$spoken of video: at most $most frames. Only frames where the picture changed are sent, each one question '
-          'to the agent (it may count against your plan).';
+      final spoken = seconds < 90
+          ? trf("{0} s", [seconds.toStringAsFixed(0)])
+          : trf("{0} min", [(seconds / 60).toStringAsFixed(0)]);
+      length = trf(
+        "{0} of video: at most {1} frames. Only frames where the picture changed are sent, each one question to the agent (it may count against your plan).",
+        [spoken, most],
+      );
     }
-    final note = length ??
+    final note =
+        length ??
         (!_watching
-        ? 'No download: the moves come from the description, or from one question to the agent about the '
-              'description and what is said. Only if no game is found there, the video is downloaded and its frames '
-              'are watched.'
-        : 'The video is downloaded first (at most 480p, 1 GB). Only frames where the picture changed are sent, each '
-              'one question to the agent (it may count against your plan).');
+            ? tr(
+                "No download: the moves come from the description, or from one question to the agent about the description and what is said. Only if no game is found there, the video is downloaded and its frames are watched.",
+              )
+            : tr(
+                "The video is downloaded first (at most 480p, 1 GB). Only frames where the picture changed are sent, each one question to the agent (it may count against your plan).",
+              ));
     Widget line(Widget w) => Padding(padding: const EdgeInsets.only(bottom: 8), child: w);
     return AlertDialog(
-      title: const Text('Read the moves from this video?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+      title: Text(tr("Read the moves from this video?"), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
       content: SizedBox(
         width: 460,
         child: Column(
@@ -1042,53 +1070,72 @@ class _ImportDialogState extends State<_ImportDialog> {
           children: [
             line(AnswerText(widget.path.isNotEmpty ? widget.path.split('/').last : widget.url)),
             if (widget.url.isNotEmpty)
-              line(Choice<int>(
-                value: _way,
-                items: const [0, 1],
-                label: (i) => i == 0 ? 'Fast: the description and the commentary' : 'Watch the board, frame by frame (slower)',
-                tooltip:
-                    'Fast: no download; the moves come from the video\'s description (often a PGN) or from what is said, '
-                    'in seconds. If no game is found there, the frames are watched.',
-                onChanged: (i) => setState(() => _way = i),
-              )),
-            line(Choice<String>(
-              value: chosen,
-              items: [for (final a in readers) a.command],
-              label: (c) => readers.firstWhere((a) => a.command == c).name,
-              empty: 'No agent sees pictures',
-              onChanged: (c) => setState(() => _reader = c),
-            )),
-            line(Choice<int>(
-              value: _every,
-              items: const [0, 1, 2],
-              label: (i) => 'A frame every ${_intervals[i]} s',
-              onChanged: (i) => setState(() => _every = i),
-            )),
-            line(Choice<int>(
-              value: _part,
-              items: const [0, 1, 2, 3],
-              label: (i) => i == 0 ? 'The whole video' : 'The first ${_limits[i]} minutes',
-              tooltip: 'Long videos: only their start is read (faster, fewer questions)',
-              onChanged: (i) => setState(() => _part = i),
-            )),
+              line(
+                Choice<int>(
+                  value: _way,
+                  items: const [0, 1],
+                  label: (i) => i == 0
+                      ? tr("Fast: the description and the commentary")
+                      : tr("Watch the board, frame by frame (slower)"),
+                  tooltip: tr(
+                    "Fast: no download; the moves come from the video's description (often a PGN) or from what is said, in seconds. If no game is found there, the frames are watched.",
+                  ),
+                  onChanged: (i) => setState(() => _way = i),
+                ),
+              ),
+            line(
+              Choice<String>(
+                value: chosen,
+                items: [for (final a in readers) a.command],
+                label: (c) => readers.firstWhere((a) => a.command == c).name,
+                empty: tr("No agent sees pictures"),
+                onChanged: (c) => setState(() => _reader = c),
+              ),
+            ),
+            line(
+              Choice<int>(
+                value: _every,
+                items: const [0, 1, 2],
+                label: (i) => trf("A frame every {0} s", [_intervals[i]]),
+                onChanged: (i) => setState(() => _every = i),
+              ),
+            ),
+            line(
+              Choice<int>(
+                value: _part,
+                items: const [0, 1, 2, 3],
+                label: (i) => i == 0 ? tr("The whole video") : trf("The first {0} minutes", [_limits[i]]),
+                tooltip: tr("Long videos: only their start is read (faster, fewer questions)"),
+                onChanged: (i) => setState(() => _part = i),
+              ),
+            ),
             line(AnswerText(note)),
             if (blind)
-              line(Text(
-                '${widget.opponent!.name}, your opponent, cannot see pictures: the agent chosen here reads the video.',
-                style: TextStyle(fontSize: 13, color: look.fg),
-              )),
+              line(
+                Text(
+                  trf("{0}, your opponent, cannot see pictures: the agent chosen here reads the video.", [
+                    widget.opponent!.name,
+                  ]),
+                  style: TextStyle(fontSize: 13, color: look.fg),
+                ),
+              ),
             if (widget.before != null)
-              line(Text(
-                'Read before: ${widget.before!.title} (${widget.before!.date}); its game is replaced by the new reading.',
-                style: TextStyle(fontSize: 13, color: look.fg),
-              )),
+              line(
+                Text(
+                  trf("Read before: {0} ({1}); its game is replaced by the new reading.", [
+                    widget.before!.title,
+                    widget.before!.date,
+                  ]),
+                  style: TextStyle(fontSize: 13, color: look.fg),
+                ),
+              ),
           ],
         ),
       ),
       actions: [
-        SmallButton('Cancel', onPressed: () => Navigator.pop(context)),
+        SmallButton(tr("Cancel"), onPressed: () => Navigator.pop(context)),
         ActionButton(
-          'Read the moves',
+          tr("Read the moves"),
           onPressed: chosen == null
               ? null
               : () => Navigator.pop(
@@ -1120,32 +1167,35 @@ final class CoreCall {
 }
 
 /// How the chess tab speaks to the core (Backend.start, or a fake in tests).
-typedef CoreStarter =
-    CoreCall Function(String method, Map<String, dynamic> params, [void Function(String, Map<String, dynamic>)? onEvent]);
+typedef CoreStarter = CoreCall Function(
+  String method,
+  Map<String, dynamic> params, [
+  void Function(String, Map<String, dynamic>)? onEvent,
+]);
 
 CoreStarter backendStarter(Backend backend) => (method, params, [onEvent]) {
   final job = backend.start(method, params, onEvent);
   return CoreCall(job.result, job.cancel);
 };
 
-const choices = <(String, String)>[
-  ('white', 'New game with White'),
-  ('black', 'New game with Black'),
-  ('agents', 'Agent against agent'),
-  ('define', 'Define position'),
+List<(String, String)> get choices => <(String, String)>[
+  ('white', tr("New game with White")),
+  ('black', tr("New game with Black")),
+  ('agents', tr("Agent against agent")),
+  ('define', tr("Define position")),
 ];
-const thinkingLabels = <(String, String)>[
-  ('quick', 'Quick (30 s)'),
-  ('normal', 'Normal (1½ min)'),
-  ('deep', 'Deep (3 min)'),
-  ('max', 'Maximum (6 min)'),
+List<(String, String)> get thinkingLabels => <(String, String)>[
+  ('quick', tr("Quick (30 s)")),
+  ('normal', tr("Normal (1½ min)")),
+  ('deep', tr("Deep (3 min)")),
+  ('max', tr("Maximum (6 min)")),
 ];
-const strengthLabels = <(String, String)>[
-  ('beginner', 'Beginner'),
-  ('casual', 'Casual player'),
-  ('club', 'Club player'),
-  ('master', 'Master'),
-  ('max', 'As strong as it can'),
+List<(String, String)> get strengthLabels => <(String, String)>[
+  ('beginner', tr("Beginner")),
+  ('casual', tr("Casual player")),
+  ('club', tr("Club player")),
+  ('master', tr("Master")),
+  ('max', tr("As strong as it can")),
 ];
 String labelOf(List<(String, String)> table, String key) =>
     table.firstWhere((e) => e.$1 == key, orElse: () => table.first).$2;
@@ -1221,7 +1271,7 @@ final class SavedGame {
   }
 }
 
-String movesCount(int n) => n == 1 ? '1 move' : '$n moves';
+String movesCount(int n) => n == 1 ? tr("1 move") : trf("{0} moves", [n]);
 
 final class ChessSession extends ChangeNotifier {
   ChessSession({required this.core, required this.settings, required this.agentsOf, this.playground}) {
@@ -1398,10 +1448,10 @@ final class ChessSession extends ChangeNotifier {
 
   /// chess_title_text: Chess · the agent, or Chess · White's agent – Black's agent.
   String get title {
-    if (game.mode == ChessMode.replay && replayTitle.isNotEmpty) return 'Chess · $replayTitle';
-    if (opponent == null) return 'Chess';
-    if (rival != null) return 'Chess · ${rival!.name} – ${opponent!.name}';
-    return 'Chess · ${opponent!.name}';
+    if (game.mode == ChessMode.replay && replayTitle.isNotEmpty) return trf("Chess · {0}", [replayTitle]);
+    if (opponent == null) return tr("Chess");
+    if (rival != null) return trf("Chess · {0} – {1}", [rival!.name, opponent!.name]);
+    return trf("Chess · {0}", [opponent!.name]);
   }
 
   // --- starting -------------------------------------------------------------------------------
@@ -1594,11 +1644,14 @@ final class ChessSession extends ChangeNotifier {
     if (notice != null) return notice!;
     if (opponent == null && game.mode == ChessMode.game) {
       return agentsLoaded
-          ? 'No agent that plays chess is set up: Claude Code, Codex, Hermes or Pi, signed in or connected to a '
-                'local LLM.'
+          ? tr(
+              "No agent that plays chess is set up: Claude Code, Codex, Hermes or Pi, signed in or connected to a local LLM.",
+            )
           : '';
     }
-    if (game.mode == ChessMode.replay) return '$replayTitle: move ${game.moves.length} of ${game.replayLength}';
+    if (game.mode == ChessMode.replay) {
+      return trf("{0}: move {1} of {2}", [replayTitle, game.moves.length, game.replayLength]);
+    }
     return game.status(elapsed: thinkingFor);
   }
 
@@ -1610,7 +1663,7 @@ final class ChessSession extends ChangeNotifier {
   void openReplay(SavedGame saved) {
     final (start, moves) = saved.replay();
     if (start == null || moves.isEmpty) {
-      toast('That game cannot be replayed.');
+      toast(tr("That game cannot be replayed."));
       return;
     }
     _stopAsking();
@@ -1619,7 +1672,7 @@ final class ChessSession extends ChangeNotifier {
     try {
       game.replay(start, moves);
     } on Object {
-      toast('That game cannot be replayed.');
+      toast(tr("That game cannot be replayed."));
       return;
     }
     replayId = saved.id;
@@ -1669,7 +1722,7 @@ final class ChessSession extends ChangeNotifier {
   /// chess_play_from_here: the game goes on from the move in view; you play the side to move.
   void playFromHere() {
     if (opponent == null) {
-      toast('Choose an opponent first.');
+      toast(tr("Choose an opponent first."));
       return;
     }
     _leaveReplay();
@@ -1701,7 +1754,7 @@ final class ChessSession extends ChangeNotifier {
     _changed();
   }
 
-  String _player(String side) => nameOf(game.agentFor(side)).isEmpty ? 'You' : nameOf(game.agentFor(side));
+  String _player(String side) => nameOf(game.agentFor(side)).isEmpty ? tr("You") : nameOf(game.agentFor(side));
 
   String get _result {
     final state = rules.status(game.position);
@@ -1731,11 +1784,11 @@ final class ChessSession extends ChangeNotifier {
       final r = await core('games.save', {'game': record}).result;
       savedId = '${r['id'] ?? savedId}';
     } on CoreFailure catch (e) {
-      toast(e.message.isEmpty ? 'The game could not be saved.' : e.message);
+      toast(e.message.isEmpty ? tr("The game could not be saved.") : e.message);
       return;
     }
     await refreshGames();
-    toast(auto ? 'Game over: saved as $name' : 'Saved: $name');
+    toast(auto ? trf("Game over: saved as {0}", [name]) : trf("Saved: {0}", [name]));
   }
 
   // --- reading a video ------------------------------------------------------------------------
@@ -1752,11 +1805,11 @@ final class ChessSession extends ChangeNotifier {
   }) async {
     if (_import != null) return;
     final name = path.isNotEmpty ? path.split('/').last.replaceFirst(RegExp(r'\.[^.]*$'), '') : url;
-    importTitle = 'Reading a video: $name';
-    importText = 'Starting…';
+    importTitle = trf("Reading a video: {0}", [name]);
+    importText = tr("Starting…");
     importFraction = null;
     importStopping = false;
-    toast('Reading the moves from the video; the bar at the top of the chess tab shows how far.');
+    toast(tr("Reading the moves from the video; the bar at the top of the chess tab shows how far."));
     final call = core(
       'import.start',
       {
@@ -1782,18 +1835,18 @@ final class ChessSession extends ChangeNotifier {
       final raw = r['game'];
       if (raw is Map) {
         final saved = SavedGame(raw.cast<String, dynamic>());
-        var note = 'Saved: ${saved.title}, ${movesCount(saved.moveTexts.length)}';
+        var note = trf("Saved: {0}, {1}", [saved.title, movesCount(saved.moveTexts.length)]);
         final how = {
-          'description': 'read from the description',
-          'commentary': 'read from the commentary',
-          'frames': 'read from the frames',
+          'description': tr("read from the description"),
+          'commentary': tr("read from the commentary"),
+          'frames': tr("read from the frames"),
         }['${raw['read'] ?? ''}'];
         if (how != null) note += ' · $how';
         toast(note);
         await refreshGames();
         openReplay(saved);
       } else {
-        toast('No moves could be read from that video.');
+        toast(tr("No moves could be read from that video."));
       }
     } on CoreFailure catch (e) {
       if (!e.cancelled) toast(e.message);
@@ -1808,7 +1861,7 @@ final class ChessSession extends ChangeNotifier {
   void cancelImport() {
     if (_import == null) return;
     importStopping = true;
-    importText = 'Stopping after this frame…';
+    importText = tr("Stopping after this frame…");
     _import!.cancel();
     _changed();
   }

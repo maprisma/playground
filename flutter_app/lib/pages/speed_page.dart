@@ -1,3 +1,5 @@
+import 'package:maprisma_playground_core/maprisma_playground_core.dart' show tr;
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -6,9 +8,9 @@ import '../app.dart';
 import '../contestants.dart';
 import '../widgets.dart';
 
-const speedPrompt =
-    'Write a Python function that tells whether a string is a palindrome, ignoring case and spaces. '
-    'Answer with the code only.';
+String get speedPrompt => tr(
+  "Write a Python function that tells whether a string is a palindrome, ignoring case and spaces. Answer with the code only.",
+);
 
 /// SpeedTab: the same question to several agents and local models at once.
 class SpeedPage extends StatefulWidget {
@@ -20,10 +22,19 @@ class SpeedPage extends StatefulWidget {
 }
 
 class _SpeedPageState extends State<SpeedPage> {
+  String _defaultPrompt = speedPrompt;
   final _prompt = TextEditingController(text: speedPrompt);
   List<Run> _runs = const [];
   int _run = 0;
   Timer? _clock;
+
+  @override
+  void didUpdateWidget(covariant SpeedPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final translated = speedPrompt;
+    if (_prompt.text == _defaultPrompt) _prompt.text = translated;
+    _defaultPrompt = translated;
+  }
 
   @override
   void initState() {
@@ -94,16 +105,17 @@ class _SpeedPageState extends State<SpeedPage> {
     final ticked = _ticked;
     return PageScroll(
       children: [
-        const TabIntro(
-          'Speed and cost',
-          'The same question to several agents and local models at once: how long each one takes, and its tokens '
-              'and cost where it reports them (Claude Code and the local LLMs do).',
+        TabIntro(
+          tr("Speed and cost"),
+          tr(
+            "The same question to several agents and local models at once: how long each one takes, and its tokens and cost where it reports them (Claude Code and the local LLMs do).",
+          ),
         ),
         vgap,
         PromptField(controller: _prompt, onSubmit: _ask),
         vgap,
         if (all.isEmpty)
-          Hint(widget.playground.loaded ? 'No agent that can be asked is set up.' : 'Looking…')
+          Hint(widget.playground.loaded ? tr("No agent that can be asked is set up.") : tr("Looking…"))
         else
           LayoutBuilder(
             builder: (context, box) {
@@ -122,7 +134,11 @@ class _SpeedPageState extends State<SpeedPage> {
             },
           ),
         vgap,
-        ActionButton('Ask', onPressed: all.isEmpty ? null : _ask, tooltip: 'Every ticked agent gets the question'),
+        ActionButton(
+          tr("Ask"),
+          onPressed: all.isEmpty ? null : _ask,
+          tooltip: tr("Every ticked agent gets the question"),
+        ),
         vgap,
         for (final r in _runs) RunCard(r),
       ],

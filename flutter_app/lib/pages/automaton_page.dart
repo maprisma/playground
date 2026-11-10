@@ -227,9 +227,9 @@ class _AutomatonPageState extends State<AutomatonPage> {
         Choice<String>(
           value: _ruleChoice,
           items: [...namedRules.keys, _ownRule],
-          label: (n) => n == _ownRule ? n : '$n  ${namedRules[n]}',
+          label: (n) => n == _ownRule ? tr('Own rule…') : '$n  ${namedRules[n]}',
           onChanged: _pickRule,
-          tooltip: 'Rule',
+          tooltip: tr("Rule"),
         ),
         SizedBox(
           width: 150,
@@ -245,15 +245,30 @@ class _AutomatonPageState extends State<AutomatonPage> {
             onTapOutside: (_) => FocusScope.of(context).unfocus(),
           ),
         ),
-        SmallButton('Use rule', onPressed: () => _applyRule(_ruleText.text), tooltip: 'B: neighbours a dead cell '
-            'needs to be born, S: neighbours a live cell needs to stay, C: states of a Generations rule'),
+        SmallButton(
+          tr("Use rule"),
+          onPressed: () => _applyRule(_ruleText.text),
+          tooltip: tr(
+            "B: neighbours a dead cell needs to be born, S: neighbours a live cell needs to stay, C: states of a Generations rule",
+          ),
+        ),
         const SizedBox(width: 8),
         Choice<String>(
           value: _tool,
           items: [_paint, ...patterns.map((p) => p.name)],
-          label: (n) => n,
+          label: (n) => switch (n) {
+            _paint => tr('Draw cells'),
+            'Glider' => tr('Glider'),
+            'Lightweight spaceship' => tr('Lightweight spaceship'),
+            'Pulsar' => tr('Pulsar'),
+            'Gosper glider gun' => tr('Gosper glider gun'),
+            'R-pentomino' => tr('R-pentomino'),
+            'Acorn' => tr('Acorn'),
+            'Diehard' => tr('Diehard'),
+            _ => n,
+          },
           onChanged: (n) => setState(() => _tool = n),
-          tooltip: 'What a click does: draw (the right button erases) or place a pattern',
+          tooltip: tr("What a click does: draw (the right button erases) or place a pattern"),
         ),
       ],
     );
@@ -263,19 +278,19 @@ class _AutomatonPageState extends State<AutomatonPage> {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        ActionButton(_playing ? 'Pause' : 'Play', onPressed: _playPause, tooltip: 'Space'),
-        SmallButton('Step', icon: Icons.skip_next, onPressed: _step, tooltip: 'One generation (→)'),
-        SmallButton('Clear', onPressed: _clear),
-        SmallButton('Random', onPressed: _random, tooltip: 'Fill at random with the density beside it'),
+        ActionButton(_playing ? tr("Pause") : tr("Play"), onPressed: _playPause, tooltip: tr("Space")),
+        SmallButton(tr("Step"), icon: Icons.skip_next, onPressed: _step, tooltip: tr("One generation (→)")),
+        SmallButton(tr("Clear"), onPressed: _clear),
+        SmallButton(tr("Random"), onPressed: _random, tooltip: tr("Fill at random with the density beside it")),
         Choice<double>(
           value: _density,
           items: _densities,
           label: (d) => '${(d * 100).round()} %',
           onChanged: (d) => setState(() => _density = d),
-          tooltip: 'Density of a random fill',
+          tooltip: tr("Density of a random fill"),
         ),
         const SizedBox(width: 8),
-        Text('Speed', style: TextStyle(fontSize: 13, color: look.fg)),
+        Text(tr("Speed"), style: TextStyle(fontSize: 13, color: look.fg)),
         SizedBox(
           width: 160,
           child: Slider(
@@ -283,7 +298,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
             min: 1,
             max: 60,
             divisions: 59,
-            label: '$_speed / s',
+            label: trf("{0} / s", [_speed]),
             onChanged: (v) {
               setState(() => _speed = v.round());
               _schedule();
@@ -291,12 +306,12 @@ class _AutomatonPageState extends State<AutomatonPage> {
             onChangeEnd: (v) => _save({'automaton_speed': v.round()}),
           ),
         ),
-        Text('$_speed / s', style: TextStyle(fontSize: 12, color: look.muted)),
+        Text(trf("{0} / s", [_speed]), style: TextStyle(fontSize: 12, color: look.muted)),
         const SizedBox(width: 8),
         CheckLabel(
-          label: 'Edges wrap',
+          label: tr("Edges wrap"),
           value: _grid.wrap,
-          tooltip: 'On: what leaves at one edge comes back at the other. Off: outside the grid is dead.',
+          tooltip: tr("On: what leaves at one edge comes back at the other. Off: outside the grid is dead."),
           onChanged: (v) {
             setState(() => _grid.wrap = v);
             _save({'automaton_wrap': v});
@@ -308,7 +323,12 @@ class _AutomatonPageState extends State<AutomatonPage> {
     final status = Row(
       children: [
         Text(
-          'Generation ${_grid.generation}  ·  ${_grid.population} alive  ·  ${_grid.width} × ${_grid.height} cells',
+          trf("Generation {0}  ·  {1} alive  ·  {2} × {3} cells", [
+            _grid.generation,
+            _grid.population,
+            _grid.width,
+            _grid.height,
+          ]),
           style: TextStyle(fontSize: 12, color: look.muted),
         ),
         const SizedBox(width: 12),
@@ -322,7 +342,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
           ),
         ),
         const SizedBox(width: 12),
-        Text('Ctrl + wheel: cell size ($_cell px)', style: TextStyle(fontSize: 12, color: look.dim)),
+        Text(trf("Ctrl + wheel: cell size ({0} px)", [_cell]), style: TextStyle(fontSize: 12, color: look.dim)),
       ],
     );
 
@@ -334,12 +354,11 @@ class _AutomatonPageState extends State<AutomatonPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const TabIntro(
-              'Automaton',
-              'A cellular automaton: each cell lives or dies by how many of its eight neighbours are alive. Draw '
-                  'cells with the mouse (the right button erases), place a pattern, or fill at random, then Play. '
-                  'The rule can be changed while it runs: B is how many neighbours bring a cell to life, S how many '
-                  'keep it alive.',
+            TabIntro(
+              tr("Automaton"),
+              tr(
+                "A cellular automaton: each cell lives or dies by how many of its eight neighbours are alive. Draw cells with the mouse (the right button erases), place a pattern, or fill at random, then Play. The rule can be changed while it runs: B is how many neighbours bring a cell to life, S how many keep it alive.",
+              ),
             ),
             vgap,
             controls,

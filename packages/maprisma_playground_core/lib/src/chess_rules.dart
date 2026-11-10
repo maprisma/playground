@@ -6,6 +6,8 @@
 /// Positions never change: a move gives a new one.
 library;
 
+import 'i18n.dart';
+
 import 'dart:collection';
 
 const files = 'abcdefgh';
@@ -98,10 +100,10 @@ Position fromFen(String? fen) {
   final text = (fen ?? '').trim();
   final parts = text.isEmpty ? <String>[] : text.split(RegExp(r'\s+'));
   if (parts.isEmpty || parts.length > 6) {
-    throw const FenError('FEN has the wrong number of fields');
+    throw FenError(tr("FEN has the wrong number of fields"));
   }
   final rows = parts[0].split('/');
-  if (rows.length != 8) throw const FenError('FEN needs eight ranks');
+  if (rows.length != 8) throw FenError(tr("FEN needs eight ranks"));
   final board = List.filled(64, '');
   for (var r = 0; r < 8; r++) {
     var f = 0;
@@ -109,41 +111,41 @@ Position fromFen(String? fen) {
       if (_fullMatch(r'[0-9]', ch)) {
         f += int.parse(ch);
       } else if ('PNBRQKpnbrqk'.contains(ch)) {
-        if (f > 7) throw const FenError('a rank has more than eight squares');
+        if (f > 7) throw FenError(tr("a rank has more than eight squares"));
         board[(7 - r) * 8 + f++] = ch;
       } else {
-        throw FenError('unknown piece “$ch”');
+        throw FenError(trf("unknown piece “{0}”", [ch]));
       }
     }
-    if (f != 8) throw const FenError('a rank does not have eight squares');
+    if (f != 8) throw FenError(tr("a rank does not have eight squares"));
   }
   final turn = parts.length > 1 ? parts[1] : 'w';
   if (turn != 'w' && turn != 'b') {
-    throw const FenError('side to move must be w or b');
+    throw FenError(tr("side to move must be w or b"));
   }
   final castling = parts.length > 2 ? parts[2] : '-';
   if (castling != '-' && !_fullMatch(r'K?Q?k?q?', castling)) {
-    throw const FenError('bad castling field');
+    throw FenError(tr("bad castling field"));
   }
   final ep = parts.length > 3 ? parts[3] : '-';
   if (ep != '-' && !_fullMatch(r'[a-h][36]', ep)) {
-    throw const FenError('bad en passant field');
+    throw FenError(tr("bad en passant field"));
   }
   int counter(String s) {
     if (!_fullMatch(r'[+-]?[0-9](?:_?[0-9])*', s)) {
-      throw const FenError('move counters must be numbers');
+      throw FenError(tr("move counters must be numbers"));
     }
     // Parse as BigInt so arbitrarily large Python counters report the same error.
     final n = BigInt.parse(s.replaceAll('_', ''));
     if (n < BigInt.zero || n > BigInt.from(10000)) {
-      throw const FenError('move counters out of range');
+      throw FenError(tr("move counters out of range"));
     }
     return n.toInt();
   }
 
   final half = parts.length > 4 ? counter(parts[4]) : 0;
   final full = parts.length > 5 ? counter(parts[5]) : 1;
-  if (full < 1) throw const FenError('move counters out of range');
+  if (full < 1) throw FenError(tr("move counters out of range"));
   final pos = Position(board, turn, castling == '-' ? '' : castling, ep == '-' ? null : square(ep), half, full);
   return Position(board, turn, _possibleCastling(pos), pos.enPassant, half, full);
 }
@@ -188,24 +190,24 @@ String _possibleCastling(Position pos) {
 /// Why a position set up by hand cannot be played (empty when it can).
 List<String> problems(Position pos) {
   final out = <String>[];
-  for (final (king, side) in [('K', 'White'), ('k', 'Black')]) {
+  for (final king in ['K', 'k']) {
     if (pos.board.where((p) => p == king).length != 1) {
-      out.add('$side needs exactly one king');
+      out.add(king == 'K' ? tr('White needs exactly one king') : tr('Black needs exactly one king'));
     }
   }
   if ([
     ...List.generate(8, (i) => i),
     ...List.generate(8, (i) => i + 56),
   ].any((sq) => ['P', 'p'].contains(pos.board[sq]))) {
-    out.add('Pawns cannot stand on the first or last rank');
+    out.add(tr("Pawns cannot stand on the first or last rank"));
   }
   for (final piece in ['P', 'p']) {
     if (pos.board.where((p) => p == piece).length > 8) {
-      out.add('A side cannot have more than eight pawns');
+      out.add(tr("A side cannot have more than eight pawns"));
     }
   }
   if (out.isEmpty && inCheck(pos, pos.turn == 'w' ? 'b' : 'w')) {
-    out.add('The side not to move must not be in check');
+    out.add(tr("The side not to move must not be in check"));
   }
   return out;
 }

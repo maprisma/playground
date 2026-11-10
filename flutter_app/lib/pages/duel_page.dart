@@ -1,3 +1,5 @@
+import 'package:maprisma_playground_core/maprisma_playground_core.dart' show tr, trf;
+
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -8,7 +10,7 @@ import '../contestants.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
-const duelPrompt = 'Explain in three sentences why the sky is blue, for a ten-year-old.';
+String get duelPrompt => tr("Explain in three sentences why the sky is blue, for a ten-year-old.");
 
 /// DuelTab: one question to two agents or local models; you pick the better answer and the score
 /// is kept. Blind: who wrote which shows only after the vote.
@@ -21,6 +23,7 @@ class DuelPage extends StatefulWidget {
 }
 
 class _DuelPageState extends State<DuelPage> {
+  String _defaultPrompt = duelPrompt;
   final _prompt = TextEditingController(text: duelPrompt);
   String? _a, _b; // contestant ids
   bool _blind = true;
@@ -31,6 +34,14 @@ class _DuelPageState extends State<DuelPage> {
   bool _voted = false;
   String _score = '';
   int _run = 0;
+
+  @override
+  void didUpdateWidget(covariant DuelPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final translated = duelPrompt;
+    if (_prompt.text == _defaultPrompt) _prompt.text = translated;
+    _defaultPrompt = translated;
+  }
 
   @override
   void initState() {
@@ -87,7 +98,7 @@ class _DuelPageState extends State<DuelPage> {
         final answer = await _jobs[s]!.result;
         if (run == _run && mounted) setState(() => _answers[s] = answer);
       } on CoreFailure catch (e) {
-        if (run == _run && mounted) setState(() => _errors[s] = e.cancelled ? 'Stopped.' : e.message);
+        if (run == _run && mounted) setState(() => _errors[s] = e.cancelled ? tr("Stopped.") : e.message);
       }
       if (oneByOne && run == _run && mounted) {
         try {
@@ -107,7 +118,7 @@ class _DuelPageState extends State<DuelPage> {
   }
 
   String _name(int s, {bool reveal = false}) =>
-      _blind && !reveal && !_voted ? (s == 0 ? 'Left' : 'Right') : _pair![s].name;
+      _blind && !reveal && !_voted ? (s == 0 ? tr("Left") : tr("Right")) : _pair![s].name;
 
   String _title(int s) {
     final answer = _answers[s];
@@ -122,7 +133,7 @@ class _DuelPageState extends State<DuelPage> {
     final ids = [pair[0].id, pair[1].id]..sort();
     final first = ids[0], second = ids[1];
     if (first == second) {
-      setState(() => _score = 'The same one twice: no score is kept.');
+      setState(() => _score = tr("The same one twice: no score is kept."));
       return;
     }
     final scores = Map<String, Object?>.from(widget.host.settings.get('duel_scores') as Map);
@@ -137,12 +148,22 @@ class _DuelPageState extends State<DuelPage> {
       score[pair[winner].id == first ? 0 : 2]++;
     }
     try {
-      widget.host.settings.update({'duel_scores': {...scores, key: score}});
+      widget.host.settings.update({
+        'duel_scores': {...scores, key: score},
+      });
     } on Object {
       // the score is shown but not kept
     }
     final names = {for (final c in pair) c.id: c.name};
-    setState(() => _score = 'Score: ${names[first]} ${score[0]} · ties ${score[1]} · ${names[second]} ${score[2]}');
+    setState(
+      () => _score = trf("Score: {0} {1} · ties {2} · {3} {4}", [
+        names[first],
+        score[0],
+        score[1],
+        names[second],
+        score[2],
+      ]),
+    );
   }
 
   @override
@@ -163,9 +184,12 @@ class _DuelPageState extends State<DuelPage> {
           SectionTitle(_title(s)),
           const SizedBox(height: 6),
           AnswerText(
-            _errors[s] ?? (_answers[s] == null ? 'asking…' : '${_answers[s]!['text'] ?? ''}'.isEmpty
-                ? '${_answers[s]!['error'] ?? ''}'
-                : '${_answers[s]!['text']}'),
+            _errors[s] ??
+                (_answers[s] == null
+                    ? tr('asking…')
+                    : '${_answers[s]!['text'] ?? ''}'.isEmpty
+                    ? '${_answers[s]!['error'] ?? ''}'
+                    : '${_answers[s]!['text']}'),
             error: _errors[s] != null,
           ),
         ],
@@ -173,10 +197,11 @@ class _DuelPageState extends State<DuelPage> {
     );
     return PageScroll(
       children: [
-        const TabIntro(
-          'Head to head',
-          'One question to two agents or local models; you pick the better answer and the score is kept. Blind: you '
-              'see which one wrote which only after you have chosen.',
+        TabIntro(
+          tr("Head to head"),
+          tr(
+            "One question to two agents or local models; you pick the better answer and the score is kept. Blind: you see which one wrote which only after you have chosen.",
+          ),
         ),
         vgap,
         PromptField(controller: _prompt, onSubmit: _ask),
@@ -190,28 +215,32 @@ class _DuelPageState extends State<DuelPage> {
               value: a,
               items: all,
               label: (c) => c.name,
-              empty: 'No agent is set up',
+              empty: tr("No agent is set up"),
               onChanged: (c) => setState(() => _a = c.id),
             ),
-            Text('against', style: TextStyle(fontSize: 13, color: look.fg)),
+            Text(tr('against'), style: TextStyle(fontSize: 13, color: look.fg)),
             Choice<Contestant>(
               value: b,
               items: all,
               label: (c) => c.name,
-              empty: 'No agent is set up',
+              empty: tr("No agent is set up"),
               onChanged: (c) => setState(() => _b = c.id),
             ),
-            CheckLabel(label: 'Blind', value: _blind, onChanged: (v) => setState(() => _blind = v)),
+            CheckLabel(label: tr("Blind"), value: _blind, onChanged: (v) => setState(() => _blind = v)),
           ],
         ),
         vgap,
-        ActionButton('Ask', onPressed: all.isEmpty ? null : _ask, tooltip: 'Both get the same question'),
+        ActionButton(tr("Ask"), onPressed: all.isEmpty ? null : _ask, tooltip: tr("Both get the same question")),
         if (_pair != null) ...[
           vgap,
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [Expanded(child: card(0)), const SizedBox(width: gap), Expanded(child: card(1))],
+              children: [
+                Expanded(child: card(0)),
+                const SizedBox(width: gap),
+                Expanded(child: card(1)),
+              ],
             ),
           ),
         ],
@@ -220,9 +249,9 @@ class _DuelPageState extends State<DuelPage> {
           Wrap(
             spacing: 8,
             children: [
-              SmallButton('Left is better', onPressed: () => _vote(0)),
-              SmallButton('A tie', onPressed: () => _vote(null)),
-              SmallButton('Right is better', onPressed: () => _vote(1)),
+              SmallButton(tr("Left is better"), onPressed: () => _vote(0)),
+              SmallButton(tr("A tie"), onPressed: () => _vote(null)),
+              SmallButton(tr("Right is better"), onPressed: () => _vote(1)),
             ],
           ),
         ],

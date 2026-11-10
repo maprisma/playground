@@ -31,7 +31,10 @@ final class FakeCore {
     return CoreCall(Future.value(<String, dynamic>{}), () {});
   }
 
-  List<Map<String, dynamic>> get chessAsks => [for (final c in calls) if (c.$1 == 'chess.ask') c.$2];
+  List<Map<String, dynamic>> get chessAsks => [
+    for (final c in calls)
+      if (c.$1 == 'chess.ask') c.$2,
+  ];
 }
 
 void main() {
@@ -51,6 +54,7 @@ void main() {
   });
 
   setUp(() {
+    setLanguage('en');
     home = Directory.systemTemp.createTempSync('playground-chess-test-');
     settings = Settings(Places(config: '${home.path}/config', data: '${home.path}/data', cache: '${home.path}/cache'));
     core = FakeCore();
@@ -66,7 +70,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: appTheme(Brightness.dark, const {}, 8),
-        home: Scaffold(body: ChessPage(host: host, session: session, active: active)),
+        home: Scaffold(
+          body: ChessPage(host: host, session: session, active: active),
+        ),
       ),
     );
     await tester.pump();
@@ -98,9 +104,7 @@ void main() {
       if (call.method == 'Clipboard.getData') return {'text': text};
       return null;
     });
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null),
-    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
   }
 
   String at(String name) => session.game.position.at(square(name));
@@ -194,8 +198,9 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('define mode: a picked card places a piece, a right click empties a square, a card drags in',
-      (tester) async {
+  testWidgets('define mode: a picked card places a piece, a right click empties a square, a card drags in', (
+    tester,
+  ) async {
     await pump(tester);
     await tester.tap(find.text('New game with White'));
     await tester.pumpAndSettle();
@@ -289,7 +294,11 @@ void main() {
     core.asks.first.complete({'move': 'e2e4', 'written': 'e4', 'comment': '', 'error': ''});
     await tester.pump();
     expect(session.game.moves, isEmpty);
-    core.asks.last.complete({'written': '', 'comment': 'Hmm.', 'error': 'Claude Code did not name one of its legal moves.'});
+    core.asks.last.complete({
+      'written': '',
+      'comment': 'Hmm.',
+      'error': 'Claude Code did not name one of its legal moves.',
+    });
     await tester.pump();
     expect(find.text('Hmm.\nClaude Code did not name one of its legal moves.'), findsOneWidget);
     expect(core.chessAsks.length, 2); // no second ask by itself: the core retries inside chess.ask
@@ -331,8 +340,9 @@ void main() {
     expect(localPath('https://example.com/x.mp4'), isNull);
   });
 
-  testWidgets('Ctrl+V with a video file asks the core about it and offers the replacement and the length',
-      (tester) async {
+  testWidgets('Ctrl+V with a video file asks the core about it and offers the replacement and the length', (
+    tester,
+  ) async {
     final video = File('${home.path}/My game #1 %.mp4')..writeAsStringSync('x');
     core.readers = {
       'readers': ['claude'],

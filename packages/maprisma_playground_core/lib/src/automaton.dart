@@ -1,3 +1,4 @@
+import 'i18n.dart';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -12,7 +13,7 @@ final class Rule {
   Rule(Iterable<int> born, Iterable<int> survive, {this.states = 2})
     : born = Set.unmodifiable(born),
       survive = Set.unmodifiable(survive) {
-    if (states < 2 || states > 25) throw const FormatException('2 to 25 states');
+    if (states < 2 || states > 25) throw FormatException(tr("2 to 25 states"));
   }
 
   final Set<int> born, survive;
@@ -30,7 +31,7 @@ final class Rule {
     }
     final old = RegExp(r'^([0-8]*)/([0-8]+)$').firstMatch(t);
     if (old != null) return Rule(_digits(old[2]!), _digits(old[1]!));
-    throw FormatException('Not a rule: write it as B3/S23 (born with / survive with neighbours).', text);
+    throw FormatException(tr("Not a rule: write it as B3/S23 (born with / survive with neighbours)."), text);
   }
 
   static Iterable<int> _digits(String s) => s.split('').map(int.parse);
@@ -88,9 +89,9 @@ final class CellPattern {
   }
 }
 
-const patterns = <CellPattern>[
-  CellPattern('Glider', ['.O.', '..O', 'OOO'], about: 'flies diagonally, 4 generations per step'),
-  CellPattern('Lightweight spaceship', ['.O..O', 'O....', 'O...O', 'OOOO.'], about: 'flies sideways'),
+List<CellPattern> get patterns => <CellPattern>[
+  CellPattern('Glider', ['.O.', '..O', 'OOO'], about: tr("flies diagonally, 4 generations per step")),
+  CellPattern('Lightweight spaceship', ['.O..O', 'O....', 'O...O', 'OOOO.'], about: tr("flies sideways")),
   CellPattern('Pulsar', [
     '..OOO...OOO..',
     '.............',
@@ -105,7 +106,7 @@ const patterns = <CellPattern>[
     'O....O.O....O',
     '.............',
     '..OOO...OOO..',
-  ], about: 'blinks with period 3'),
+  ], about: tr("blinks with period 3")),
   CellPattern('Gosper glider gun', [
     '........................O...........',
     '......................O.O...........',
@@ -116,17 +117,16 @@ const patterns = <CellPattern>[
     '..........O.....O.......O...........',
     '...........O...O....................',
     '............OO......................',
-  ], about: 'shoots a glider every 30 generations'),
-  CellPattern('R-pentomino', ['.OO', 'OO.', '.O.'], about: 'five cells, settles after 1103 generations'),
-  CellPattern('Acorn', ['.O.....', '...O...', 'OO..OOO'], about: 'seven cells, 5206 generations'),
-  CellPattern('Diehard', ['......O.', 'OO......', '.O...OOO'], about: 'vanishes after 130 generations'),
+  ], about: tr("shoots a glider every 30 generations")),
+  CellPattern('R-pentomino', ['.OO', 'OO.', '.O.'], about: tr("five cells, settles after 1103 generations")),
+  CellPattern('Acorn', ['.O.....', '...O...', 'OO..OOO'], about: tr("seven cells, 5206 generations")),
+  CellPattern('Diehard', ['......O.', 'OO......', '.O...OOO'], about: tr("vanishes after 130 generations")),
 ];
 
 /// The grid and its history. Cells: 0 dead, 1 alive, 2 … states-1 dying (Generations rules).
 final class Automaton {
-  Automaton(this.width, this.height, {required this.rule, this.wrap = true})
-    : _cells = Uint8List(width * height) {
-    if (width < 1 || height < 1) throw ArgumentError('empty grid');
+  Automaton(this.width, this.height, {required this.rule, this.wrap = true}) : _cells = Uint8List(width * height) {
+    if (width < 1 || height < 1) throw ArgumentError(tr("empty grid"));
   }
 
   int width, height;

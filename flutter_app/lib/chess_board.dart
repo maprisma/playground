@@ -1,3 +1,5 @@
+import 'package:maprisma_playground_core/maprisma_playground_core.dart' show tr;
+
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -13,17 +15,28 @@ import 'theme.dart';
 const glyphs = {'K': '♚', 'Q': '♛', 'R': '♜', 'B': '♝', 'N': '♞', 'P': '♟'}; // solid shapes
 const outlines = {'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙'}; // contours and details
 const kinds = ['K', 'Q', 'R', 'B', 'N', 'P'];
-const kindNames = {'K': 'King', 'Q': 'Queen', 'R': 'Rook', 'B': 'Bishop', 'N': 'Knight', 'P': 'Pawn'};
+Map<String, String> get kindNames => {
+  'K': tr("King"),
+  'Q': tr("Queen"),
+  'R': tr("Rook"),
+  'B': tr("Bishop"),
+  'N': tr("Knight"),
+  'P': tr("Pawn"),
+};
 
 /// Board and pieces › Board: the squares' colours (light, dark); "theme" from the desktop's colours.
-const boards = <(String, String, (Color, Color)?)>[
-  ('theme', 'Theme colours', null),
-  ('wood', 'Wood', (Color(0xfff0d9b5), Color(0xffb58863))),
-  ('green', 'Green', (Color(0xffeeeed2), Color(0xff769656))),
-  ('blue', 'Blue', (Color(0xffdee3e6), Color(0xff8ca2ad))),
-  ('grey', 'Grey', (Color(0xffe6e6e6), Color(0xff9a9a9a))),
+List<(String, String, (Color, Color)?)> get boards => <(String, String, (Color, Color)?)>[
+  ('theme', tr("Theme colours"), null),
+  ('wood', tr("Wood"), (Color(0xfff0d9b5), Color(0xffb58863))),
+  ('green', tr("Green"), (Color(0xffeeeed2), Color(0xff769656))),
+  ('blue', tr("Blue"), (Color(0xffdee3e6), Color(0xff8ca2ad))),
+  ('grey', tr("Grey"), (Color(0xffe6e6e6), Color(0xff9a9a9a))),
 ];
-const pieceStyles = <(String, String)>[('classic', 'Classic'), ('flat', 'Flat'), ('theme', 'Theme colours')];
+List<(String, String)> get pieceStyles => <(String, String)>[
+  ('classic', tr("Classic")),
+  ('flat', tr("Flat")),
+  ('theme', tr("Theme colours")),
+];
 const boardMin = 320.0, boardMax = 560.0;
 
 /// Fonts whose chess glyphs are solid shapes (PIECE_FONTS).
@@ -66,15 +79,17 @@ void paintPiece(Canvas canvas, String piece, Offset c, double cell, String style
     final fill = white ? light : dark;
     final edge = theme ? (white ? look.bg : light) : (white ? _ink : _light);
     canvas.save();
-    at(_glyph(
-      glyphs[kind]!,
-      size,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = math.max(1.2, cell / 30)
-        ..strokeJoin = StrokeJoin.round
-        ..color = edge.withValues(alpha: .9),
-    ));
+    at(
+      _glyph(
+        glyphs[kind]!,
+        size,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(1.2, cell / 30)
+          ..strokeJoin = StrokeJoin.round
+          ..color = edge.withValues(alpha: .9),
+      ),
+    );
     at(_glyph(glyphs[kind]!, size, Paint()..color = fill));
     if (theme && white) {
       canvas
@@ -95,15 +110,17 @@ void paintPiece(Canvas canvas, String piece, Offset c, double cell, String style
     at(_glyph(glyphs[kind]!, size, Paint()..color = _light));
     at(_glyph(outlines[kind]!, size, Paint()..color = _ink));
   } else {
-    at(_glyph(
-      glyphs[kind]!,
-      size,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = math.max(1.5, cell / 22)
-        ..strokeJoin = StrokeJoin.round
-        ..color = _halo,
-    ));
+    at(
+      _glyph(
+        glyphs[kind]!,
+        size,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(1.5, cell / 22)
+          ..strokeJoin = StrokeJoin.round
+          ..color = _halo,
+      ),
+    );
     at(_glyph(glyphs[kind]!, size, Paint()..color = _ink));
   }
   canvas.restore();
@@ -126,7 +143,10 @@ class PieceGlyph extends StatelessWidget {
         fontSize: size,
         height: 1.15,
         color: white ? const Color(0xfff7f5ee) : const Color(0xff19191e),
-        shadows: [Shadow(color: shade, blurRadius: 1), Shadow(color: shade, blurRadius: 2)],
+        shadows: [
+          Shadow(color: shade, blurRadius: 1),
+          Shadow(color: shade, blurRadius: 2),
+        ],
       ),
     );
   }
@@ -136,7 +156,11 @@ class PieceGlyph extends StatelessWidget {
 ({double x0, double y0, double cell}) boardGeometry(Size size) {
   final side = math.max(8.0, math.min(math.min(size.width, size.height), boardMax));
   final cell = (side / 8).floorToDouble();
-  return (x0: ((size.width - cell * 8) / 2).floorToDouble(), y0: ((size.height - cell * 8) / 2).floorToDouble(), cell: cell);
+  return (
+    x0: ((size.width - cell * 8) / 2).floorToDouble(),
+    y0: ((size.height - cell * 8) / 2).floorToDouble(),
+    cell: cell,
+  );
 }
 
 /// The board: [game] is drawn, a human move goes to [onMove], a define-mode edit to [onEdit].
@@ -294,7 +318,7 @@ class ChessBoardState extends State<ChessBoard> {
     final chosen = await showGeneralDialog<Move>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'Promotion',
+      barrierLabel: tr("Promotion"),
       barrierColor: Colors.transparent,
       transitionDuration: Duration.zero,
       pageBuilder: (context, _, _) {
@@ -417,7 +441,10 @@ class _BoardPainter extends CustomPainter {
     final last = game.mode == ChessMode.define ? null : game.lastMove;
     final targets = selected == null
         ? const <int>{}
-        : {for (final m in rules.legalMoves(pos)) if (m.start == selected) m.end};
+        : {
+            for (final m in rules.legalMoves(pos))
+              if (m.start == selected) m.end,
+          };
     int? check;
     final king = pos.turn == 'w' ? 'K' : 'k';
     if (pos.board.contains(king) && rules.inCheck(pos, pos.turn)) check = pos.board.indexOf(king);
@@ -471,7 +498,15 @@ class _BoardPainter extends CustomPainter {
         ..color = look.fg.withValues(alpha: .35),
     );
     if (drag != null && dragAt != null) {
-      paintPiece(canvas, drag!.piece, dragAt!, cell * 1.1, pieceStyle, look, fontSize: math.max(8, cell * .62).toDouble());
+      paintPiece(
+        canvas,
+        drag!.piece,
+        dragAt!,
+        cell * 1.1,
+        pieceStyle,
+        look,
+        fontSize: math.max(8, cell * .62).toDouble(),
+      );
     }
   }
 
@@ -522,8 +557,15 @@ class _TilePainter extends CustomPainter {
     final half = size.width / 2;
     for (var i = 0; i < 2; i++) {
       canvas.drawRect(Rect.fromLTWH(i * half, 0, half + .5, size.height), Paint()..color = i == 0 ? light : dark);
-      paintPiece(canvas, i == 0 ? 'N' : 'n', Offset(i * half + half / 2, size.height / 2), half, pieces!, look,
-          fontSize: (half * 1.15).floorToDouble());
+      paintPiece(
+        canvas,
+        i == 0 ? 'N' : 'n',
+        Offset(i * half + half / 2, size.height / 2),
+        half,
+        pieces!,
+        look,
+        fontSize: (half * 1.15).floorToDouble(),
+      );
     }
   }
 
