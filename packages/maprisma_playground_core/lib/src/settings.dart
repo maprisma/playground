@@ -69,6 +69,7 @@ final Map<String, Setting> schema = {
   'window_size': Setting(null, _size, "the window's size when it was last closed: [width, height]"),
   'automaton_rule': Setting('B3/S23', _text, 'Automaton › Rule'),
   'automaton_speed': Setting(10, (v) => v is int && v >= 1 && v <= 60, 'Automaton › Speed (generations per second)'),
+  'automaton_colors': Setting('age', _oneOf(['age', 'plain']), 'Automaton › Colours: by age or one colour'),
   'automaton_wrap': Setting(true, _bool, 'Automaton › Edges wrap'),
   'automaton_cell': Setting(10, (v) => v is int && v >= 4 && v <= 24, 'Automaton › Cell size'),
   'playground_tab': Setting('chess', _text, 'the tab open when the window was last closed'),

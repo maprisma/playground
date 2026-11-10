@@ -125,7 +125,10 @@ List<CellPattern> get patterns => <CellPattern>[
 
 /// The grid and its history. Cells: 0 dead, 1 alive, 2 … states-1 dying (Generations rules).
 final class Automaton {
-  Automaton(this.width, this.height, {required this.rule, this.wrap = true}) : _cells = Uint8List(width * height) {
+  Automaton(this.width, this.height, {required this.rule, this.wrap = true})
+    : _cells = Uint8List(width * height),
+      _ages = Uint16List(width * height),
+      _died = Uint8List(width * height) {
     if (width < 1 || height < 1) throw ArgumentError(tr("empty grid"));
   }
 
@@ -133,6 +136,13 @@ final class Automaton {
   Rule rule;
   bool wrap;
   Uint8List _cells;
+
+  /// For each live cell: the generations it has been alive (1: born in the last one). It colours
+  /// the cells: what moves is young, what stands still grows old.
+  Uint16List _ages;
+
+  /// 1 where a live cell died in the last generation (its trace shows where things vanish).
+  Uint8List _died;
   int generation = 0;
 
   /// Population after each of the last [historyLength] generations (for the sparkline).
@@ -141,9 +151,20 @@ final class Automaton {
 
   int cell(int x, int y) => _cells[y * width + x];
 
+  /// Generations a live cell has been alive (1: just born); 0 for a cell that is not alive.
+  int age(int x, int y) => _ages[y * width + x];
+
+  /// Whether a cell was alive before the last generation and is not now.
+  bool justDied(int x, int y) => _died[y * width + x] == 1;
+
   void set(int x, int y, int state) {
     if (x < 0 || y < 0 || x >= width || y >= height) return;
-    _cells[y * width + x] = state.clamp(0, rule.states - 1);
+    final i = y * width + x;
+    final v = state.clamp(0, rule.states - 1);
+    if (v == 1 && _cells[i] != 1) _ages[i] = 1; // drawn: a newborn
+    if (v != 1) _ages[i] = 0;
+    _died[i] = 0;
+    _cells[i] = v;
   }
 
   int get population {
@@ -159,6 +180,8 @@ final class Automaton {
   /// One generation. Returns whether anything changed.
   bool step() {
     final next = Uint8List(_cells.length);
+    final ages = Uint16List(_cells.length);
+    final died = Uint8List(_cells.length);
     var changed = false;
     for (var y = 0; y < height; y++) {
       for (var x = 0; x < width; x++) {
@@ -179,10 +202,17 @@ final class Automaton {
           v = c + 1 >= rule.states ? 0 : c + 1;
         }
         next[i] = v;
+        if (v == 1) {
+          ages[i] = c == 1 ? min(_ages[i] + 1, 65535) : 1;
+        } else if (c == 1) {
+          died[i] = 1;
+        }
         if (v != c) changed = true;
       }
     }
     _cells = next;
+    _ages = ages;
+    _died = died;
     generation++;
     _remember();
     return changed;
@@ -213,6 +243,8 @@ final class Automaton {
 
   void clear() {
     _cells = Uint8List(width * height);
+    _ages = Uint16List(width * height);
+    _died = Uint8List(width * height);
     generation = 0;
     history.clear();
   }
@@ -222,6 +254,8 @@ final class Automaton {
     final r = Random(seed);
     for (var i = 0; i < _cells.length; i++) {
       _cells[i] = r.nextDouble() < density ? 1 : 0;
+      _ages[i] = _cells[i];
+      _died[i] = 0;
     }
     generation = 0;
     history
@@ -245,12 +279,18 @@ final class Automaton {
   void resize(int newWidth, int newHeight) {
     if (newWidth < 1 || newHeight < 1 || (newWidth == width && newHeight == height)) return;
     final next = Uint8List(newWidth * newHeight);
+    final ages = Uint16List(newWidth * newHeight);
+    final died = Uint8List(newWidth * newHeight);
     for (var y = 0; y < min(height, newHeight); y++) {
       for (var x = 0; x < min(width, newWidth); x++) {
         next[y * newWidth + x] = _cells[y * width + x];
+        ages[y * newWidth + x] = _ages[y * width + x];
+        died[y * newWidth + x] = _died[y * width + x];
       }
     }
     _cells = next;
+    _ages = ages;
+    _died = died;
     width = newWidth;
     height = newHeight;
   }

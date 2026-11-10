@@ -107,4 +107,37 @@ void main() {
     final gun = patterns.firstWhere((p) => p.name == 'Gosper glider gun');
     expect(gun.cells.length, 36);
   });
+
+  group('ages and traces (the colours)', () {
+    test('a block grows old, a blinker stays young, its lost ends leave a trace', () {
+      final block = grid(['....', '.OO.', '.OO.', '....']);
+      expect(block.age(1, 1), 1);
+      for (var i = 0; i < 5; i++) {
+        block.step();
+      }
+      expect(block.age(1, 1), 6);
+      final blinker = grid(['.....', '.....', '.OOO.', '.....', '.....']);
+      blinker.step();
+      expect(blinker.age(2, 2), 2, reason: 'the middle stays');
+      expect(blinker.age(2, 1), 1, reason: 'the new ends are born');
+      expect(blinker.justDied(1, 2), isTrue, reason: 'the old ends died');
+      expect(blinker.justDied(2, 2), isFalse);
+      blinker.step();
+      expect(blinker.justDied(1, 2), isFalse, reason: 'a trace lasts one generation');
+    });
+    test('drawing makes a newborn, erasing and clear leave no age', () {
+      final a = Automaton(4, 4, rule: Rule.parse('B3/S23'));
+      a.set(1, 1, 1);
+      expect(a.age(1, 1), 1);
+      a.set(1, 1, 0);
+      expect(a.age(1, 1), 0);
+      a.randomize(.5, seed: 2);
+      a.clear();
+      for (var y = 0; y < 4; y++) {
+        for (var x = 0; x < 4; x++) {
+          expect(a.age(x, y), 0);
+        }
+      }
+    });
+  });
 }

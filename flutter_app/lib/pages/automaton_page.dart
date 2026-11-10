@@ -35,6 +35,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
   bool _playing = false;
   bool _seeded = false;
   late int _speed, _cell;
+  late bool _byAge;
   String _ruleChoice = "Conway's Life";
   String _tool = _paint;
   double _density = .3;
@@ -47,6 +48,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
     final s = widget.host.settings;
     _speed = s.get('automaton_speed') as int;
     _cell = s.get('automaton_cell') as int;
+    _byAge = s.text('automaton_colors') == 'age';
     Rule rule;
     try {
       rule = Rule.parse(s.text('automaton_rule'));
@@ -308,6 +310,17 @@ class _AutomatonPageState extends State<AutomatonPage> {
         ),
         Text(trf("{0} / s", [_speed]), style: TextStyle(fontSize: 12, color: look.muted)),
         const SizedBox(width: 8),
+        Choice<bool>(
+          value: _byAge,
+          items: const [true, false],
+          label: (v) => v ? tr("Colours by age") : tr("One colour"),
+          tooltip: tr("By age: what is born, moves or stands still and what has just died, each in its own colour"),
+          onChanged: (v) {
+            setState(() => _byAge = v);
+            _save({'automaton_colors': v ? 'age' : 'plain'});
+            _repaint.value++;
+          },
+        ),
         CheckLabel(
           label: tr("Edges wrap"),
           value: _grid.wrap,
@@ -366,6 +379,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
             actions,
             vgap,
             status,
+            if (_byAge) ...[const SizedBox(height: 6), const _Legend()],
             const SizedBox(height: 8),
             Expanded(
               child: LayoutBuilder(
@@ -397,7 +411,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
                         onSecondaryTapDown: (_) {}, // keeps the right button for erasing
                         child: CustomPaint(
                           size: Size(cols * _cell.toDouble(), rows * _cell.toDouble()),
-                          painter: _GridPainter(_grid, _cell.toDouble(), look, corners(context), _repaint),
+                          painter: _GridPainter(_grid, _cell.toDouble(), look, corners(context), _repaint, byAge: _byAge),
                         ),
                       ),
                     ),
@@ -414,12 +428,73 @@ class _AutomatonPageState extends State<AutomatonPage> {
 
 /// The cells: live ones in the accent colour, dying ones fading towards the background, on a mat
 /// with faint grid lines when the cells are big enough to see them.
+/// The colours by age: they tell what a cell is doing. Born now is green; young cells (what moves,
+/// gliders, oscillators) go from yellow to orange; settled ones turn cyan; what has stood still a
+/// long time (still lifes) is violet. A cell that has just died leaves a faint red trace.
+const _born = Color(0xff4ade80), _young = Color(0xfffacc15), _active = Color(0xfffb923c);
+const _settled = Color(0xff22d3ee), _still = Color(0xffa78bfa), _died = Color(0xfff87171);
+const _stops = <(int, Color)>[(1, _born), (3, _young), (8, _active), (25, _settled), (80, _still)];
+
+Color ageColor(int age) {
+  if (age <= _stops.first.$1) return _stops.first.$2;
+  for (var i = 1; i < _stops.length; i++) {
+    final (a0, c0) = _stops[i - 1];
+    final (a1, c1) = _stops[i];
+    if (age <= a1) {
+      // On a log scale: the first generations change colour quickly, old age slowly.
+      final t = (log(age) - log(a0)) / (log(a1) - log(a0));
+      return Color.lerp(c0, c1, t)!;
+    }
+  }
+  return _stops.last.$2;
+}
+
+/// What the colours mean (shown under the grid while they are on).
+class _Legend extends StatelessWidget {
+  const _Legend();
+  @override
+  Widget build(BuildContext context) {
+    final look = Look.of(context);
+    Widget item(Color color, String text, {bool trace = false}) => Padding(
+      padding: const EdgeInsets.only(right: 16),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 11,
+            height: 11,
+            decoration: BoxDecoration(
+              color: trace ? color.withValues(alpha: .35) : color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(text, style: TextStyle(fontSize: 12, color: look.muted)),
+        ],
+      ),
+    );
+    return Wrap(
+      runSpacing: 4,
+      children: [
+        item(_born, tr("Born")),
+        item(_young, tr("Young: moves or changes")),
+        item(_active, tr("Active")),
+        item(_settled, tr("Settled")),
+        item(_still, tr("Standing still")),
+        item(_died, tr("Just died"), trace: true),
+      ],
+    );
+  }
+}
+
 class _GridPainter extends CustomPainter {
-  _GridPainter(this.grid, this.cell, this.look, this.radius, Listenable repaint) : super(repaint: repaint);
+  _GridPainter(this.grid, this.cell, this.look, this.radius, Listenable repaint, {this.byAge = true})
+    : super(repaint: repaint);
   final Automaton grid;
   final double cell;
   final Look look;
   final double radius;
+  final bool byAge;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -442,14 +517,29 @@ class _GridPainter extends CustomPainter {
     final paths = List.generate(states, (_) => Path());
     final inset = cell >= 8 ? 1.0 : 0.0;
     final r = Radius.circular(cell >= 10 ? 2 : 0);
+    // By age, live cells are grouped by their colour (a few dozen paths, not one per cell).
+    final byColor = <int, Path>{};
+    final traces = Path();
+    RRect box(int x, int y) =>
+        RRect.fromLTRBR(x * cell + inset, y * cell + inset, (x + 1) * cell - inset, (y + 1) * cell - inset, r);
     for (var y = 0; y < grid.height; y++) {
       for (var x = 0; x < grid.width; x++) {
         final c = grid.cell(x, y);
-        if (c == 0) continue;
-        paths[c].addRRect(
-          RRect.fromLTRBR(x * cell + inset, y * cell + inset, (x + 1) * cell - inset, (y + 1) * cell - inset, r),
-        );
+        if (c == 0) {
+          if (byAge && grid.justDied(x, y)) traces.addRRect(box(x, y));
+          continue;
+        }
+        if (c == 1 && byAge) {
+          final age = grid.age(x, y).clamp(1, 80);
+          byColor.putIfAbsent(age, Path.new).addRRect(box(x, y));
+        } else {
+          paths[c].addRRect(box(x, y));
+        }
       }
+    }
+    if (byAge) {
+      canvas.drawPath(traces, Paint()..color = _died.withValues(alpha: .35));
+      byColor.forEach((age, path) => canvas.drawPath(path, Paint()..color = ageColor(age)));
     }
     for (var s = 1; s < states; s++) {
       // State 1 is alive; the dying states fade from the accent to the background.
@@ -467,7 +557,8 @@ class _GridPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_GridPainter old) => old.cell != cell || old.look != look || old.grid != grid;
+  bool shouldRepaint(_GridPainter old) =>
+      old.cell != cell || old.look != look || old.grid != grid || old.byAge != byAge;
 }
 
 /// The population over the last generations.
