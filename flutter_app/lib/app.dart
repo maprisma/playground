@@ -5,10 +5,15 @@ import 'package:flutter/services.dart';
 import 'package:maprisma_playground_core/maprisma_playground_core.dart';
 
 import 'contestants.dart';
+import 'pages/analyze_page.dart';
 import 'pages/automaton_page.dart';
+import 'pages/chess_page.dart';
 import 'pages/duel_page.dart';
+import 'pages/games_page.dart';
+import 'pages/generate_page.dart';
 import 'pages/local_page.dart';
 import 'pages/speed_page.dart';
+import 'pages/vision_page.dart';
 import 'pages/info_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/todo_page.dart';
@@ -188,6 +193,10 @@ class _ShellState extends State<Shell> {
       _show(tabs[digits.indexOf(key)].$1);
       return KeyEventResult.handled;
     }
+    if (ctrl && key == LogicalKeyboardKey.keyV && _page == 'chess') {
+      ChessPage.paste(); // a YouTube link from the clipboard: a video import
+      return KeyEventResult.handled;
+    }
     if (ctrl && key == LogicalKeyboardKey.comma) {
       _show('settings');
       return KeyEventResult.handled;
@@ -204,7 +213,11 @@ class _ShellState extends State<Shell> {
 
   Widget _tabPage(String key) => switch (key) {
     'automaton' => AutomatonPage(host: _host, active: _page == 'automaton'),
+    'analyze' => AnalyzePage(host: _host, playground: widget.playground),
+    'chess' => ChessPage(host: _host, playground: widget.playground),
     'speed' => SpeedPage(host: _host, playground: widget.playground),
+    'vision' => VisionPage(host: _host, playground: widget.playground),
+    'generate' => GeneratePage(host: _host, playground: widget.playground),
     'duel' => DuelPage(host: _host, playground: widget.playground),
     'local' => LocalPage(host: _host, playground: widget.playground),
     _ => TodoPage(title: tabs.firstWhere((t) => t.$1 == key).$2),
@@ -232,6 +245,11 @@ class _ShellState extends State<Shell> {
                   onLookChanged: widget.onLookChanged,
                 ),
                 'info' => InfoPage(onBack: () => _show(_lastTab)),
+                'games' => GamesPage(
+                  host: _host,
+                  session: ChessSession.of(widget.playground, widget.settings),
+                  onBack: () => _show('chess'),
+                ),
                 // Every tab stays built, so a running game or automaton keeps its state.
                 _ => IndexedStack(index: index < 0 ? 0 : index, children: [for (final t in tabs) _tabPage(t.$1)]),
               },

@@ -111,7 +111,7 @@ class _DuelPageState extends State<DuelPage> {
   String _title(int s) {
     final answer = _answers[s];
     final showLine = answer != null && (!_blind || _voted);
-    return showLine ? '${_name(s)} · ${resultLine(answer)}' : _name(s);
+    return showLine ? '${_name(s)} · ${resultLine(answer, rate: !_pair![s].isAgent)}' : _name(s);
   }
 
   /// The names (and times) show; this pair's score goes up.

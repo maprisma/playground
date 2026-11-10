@@ -52,8 +52,8 @@ class TabIntro extends StatelessWidget {
 }
 
 /// The capability mark at the end of a card's heading (.am-an-mark): ✓ can, ✗ cannot,
-/// ! only slowly, ? not stated, … still running.
-enum Mark { yes, no, slow, unknown, running }
+/// ! only slowly, ? not stated, … still running, – skipped.
+enum Mark { yes, no, slow, unknown, running, skipped }
 
 class MarkText extends StatelessWidget {
   const MarkText(this.mark, {super.key});
@@ -67,6 +67,7 @@ class MarkText extends StatelessWidget {
       Mark.slow => ('!', look.yellow),
       Mark.unknown => ('?', look.dim),
       Mark.running => ('…', look.dim),
+      Mark.skipped => ('–', look.dim),
     };
     return SizedBox(
       width: 28,

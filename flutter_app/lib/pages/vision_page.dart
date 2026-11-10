@@ -1,0 +1,269 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/material.dart';
+
+import '../app.dart';
+import '../backend.dart';
+import '../contestants.dart';
+import '../theme.dart';
+import '../widgets.dart';
+
+const visionPrompt = 'Describe what you see in two or three sentences.';
+const videoPrompt = 'These are frames of one video, in order. Describe what happens in two or three sentences.';
+
+/// A picture handed over by another tab (Generate's Ask about it): the Vision tab takes it.
+final visionInbox = ValueNotifier<String?>(null);
+
+/// VisionTab: a picture, a screenshot or frames of a video, for the agents that see and run
+/// without tools. The core checks, scales and re-saves every picture first (no metadata goes out).
+class VisionPage extends StatefulWidget {
+  const VisionPage({super.key, required this.host, required this.playground});
+  final Host host;
+  final Playground playground;
+  @override
+  State<VisionPage> createState() => _VisionPageState();
+}
+
+class _VisionPageState extends State<VisionPage> {
+  final _prompt = TextEditingController(text: visionPrompt);
+  final Set<String> _ticked = {};
+  bool _tickedSet = false;
+  List<String> _images = []; // prepared copies in the core's private folder
+  List<Run> _runs = const [];
+  int _run = 0;
+  bool _busy = false;
+  Timer? _clock;
+
+  /// A picture may come from the web and carry planted words: only agents without tools see it
+  /// (Codex can read files, so not Codex).
+  List<Contestant> get _agents => [
+    for (final a in widget.playground.ready)
+      if (a.takesImages && a.readsUntrusted) Contestant.agent(a),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    widget.playground.addListener(_changed);
+    visionInbox.addListener(_inbox);
+    _inbox();
+  }
+
+  void _changed() => setState(() {});
+
+  void _inbox() {
+    final path = visionInbox.value;
+    if (path == null) return;
+    visionInbox.value = null;
+    _load(() async => [await _prepare({'path': path})], 'That picture cannot be read.', visionPrompt);
+  }
+
+  @override
+  void dispose() {
+    widget.playground.removeListener(_changed);
+    visionInbox.removeListener(_inbox);
+    _clock?.cancel();
+    for (final r in _runs) {
+      r.job?.cancel();
+    }
+    _prompt.dispose();
+    super.dispose();
+  }
+
+  Future<String?> _prepare(Map<String, dynamic> params) async {
+    try {
+      final r = await widget.playground.backend.call('pictures.prepare', params);
+      return r['path'] as String?;
+    } on CoreFailure {
+      return null;
+    }
+  }
+
+  Future<void> _clear() async {
+    setState(() => _images = []);
+    try {
+      await widget.playground.backend.call('pictures.clear');
+    } on Object {
+      // nothing to remove
+    }
+  }
+
+  /// Prepared pictures replace the ones shown; `failed` is shown when none could be read.
+  Future<void> _load(Future<List<String?>> Function() work, String failed, String prompt) async {
+    await _clear();
+    setState(() => _busy = true);
+    List<String> paths;
+    try {
+      paths = (await work()).whereType<String>().toList();
+    } on CoreFailure catch (e) {
+      paths = [];
+      failed = e.message.isEmpty ? failed : e.message;
+    }
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _images = paths;
+      if ([visionPrompt, videoPrompt, ''].contains(_prompt.text.trim())) _prompt.text = prompt;
+    });
+    if (paths.isEmpty) widget.host.toast(failed);
+  }
+
+  Future<void> _pickPicture() async {
+    final file = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'A picture', mimeTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif']),
+      ],
+    );
+    if (file == null) return;
+    await _load(() async => [await _prepare({'path': file.path})], 'That picture cannot be read.', visionPrompt);
+  }
+
+  Future<void> _screenshot() async {
+    await _clear();
+    widget.host.toast('The screenshot is taken in 3 seconds.');
+    await Future<void>.delayed(const Duration(seconds: 3));
+    await _load(() async {
+      final r = await widget.playground.backend.call('pictures.screenshot');
+      return [r['path'] as String?];
+    }, 'The screenshot did not work.', visionPrompt);
+  }
+
+  Future<void> _pickVideo() async {
+    final file = await openFile(acceptedTypeGroups: const [XTypeGroup(label: 'A video', mimeTypes: ['video/*'])]);
+    if (file == null) return;
+    widget.host.toast('Taking frames from the video…');
+    await _load(() async {
+      final r = await widget.playground.backend.call('pictures.video_frames', {'path': file.path});
+      return [for (final p in (r['paths'] as List? ?? const [])) '$p'];
+    }, 'No frames could be taken from that video.', videoPrompt);
+  }
+
+  Set<String> get _chosenIds {
+    if (!_tickedSet) {
+      final saved = widget.host.settings.texts('playground_agents');
+      return {for (final c in _agents) if (saved.isEmpty || saved.contains(c.id)) c.id};
+    }
+    return _ticked;
+  }
+
+  Future<void> _ask() async {
+    if (_images.isEmpty) {
+      widget.host.toast('Pick a picture, a screenshot or a video first.');
+      return;
+    }
+    final prompt = _prompt.text.trim();
+    final ids = _chosenIds;
+    final chosen = _agents.where((c) => ids.contains(c.id)).toList();
+    if (prompt.isEmpty || chosen.isEmpty) return;
+    final oneByOne = await widget.playground.gpuGuard(context, chosen);
+    if (oneByOne == null || !mounted) return;
+    for (final r in _runs) {
+      r.job?.cancel();
+    }
+    final run = ++_run;
+    setState(() => _runs = [for (final c in chosen) Run(c)]);
+    _clock?.cancel();
+    _clock = Timer.periodic(const Duration(milliseconds: 500), (_) => mounted ? setState(() {}) : null);
+    await askAll(
+      widget.playground.backend,
+      _runs,
+      prompt,
+      images: List.of(_images),
+      untrusted: true,
+      oneByOne: oneByOne,
+      current: () => mounted && run == _run,
+      update: () => setState(() {}),
+    );
+    if (run == _run) _clock?.cancel();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final look = Look.of(context);
+    final agents = _agents;
+    final chosen = _chosenIds;
+    return PageScroll(
+      children: [
+        const TabIntro(
+          'Vision',
+          'A picture, a screenshot or frames of a video for the agents that can see and run without tools (Claude '
+              'Code, Pi): text in a picture cannot make them read your files. Pictures are scaled down and saved again '
+              'first, so no photo metadata goes out.',
+        ),
+        vgap,
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            SmallButton('Picture…', onPressed: _busy ? null : _pickPicture),
+            SmallButton(
+              'Screenshot in 3 s',
+              onPressed: _busy ? null : _screenshot,
+              tooltip: 'The whole screen, three seconds after the click',
+            ),
+            SmallButton('Video…', onPressed: _busy ? null : _pickVideo, tooltip: 'Four frames spread over the video'),
+            SmallButton(
+              'Clear',
+              onPressed: _images.isEmpty ? null : _clear,
+              tooltip: 'Remove the pictures (the answers stay)',
+            ),
+          ],
+        ),
+        if (_busy) ...[const SizedBox(height: 8), const LinearProgressIndicator(minHeight: 2)],
+        if (_images.isNotEmpty) ...[
+          vgap,
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final p in _images)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(corners(context).clamp(0, 8)),
+                  child: Container(
+                    width: 160,
+                    height: 100,
+                    color: look.fg.withValues(alpha: .04),
+                    child: Image.file(File(p), fit: BoxFit.contain),
+                  ),
+                ),
+            ],
+          ),
+        ],
+        vgap,
+        PromptField(controller: _prompt, minLines: 2, onSubmit: _ask),
+        vgap,
+        if (agents.isEmpty)
+          const Hint('No agent that can see and runs without tools is set up (Claude Code or Pi).')
+        else
+          Wrap(
+            spacing: 24,
+            runSpacing: 4,
+            children: [
+              for (final c in agents)
+                CheckLabel(
+                  label: c.name,
+                  value: chosen.contains(c.id),
+                  onChanged: (v) => setState(() {
+                    if (!_tickedSet) {
+                      _ticked.addAll(chosen);
+                      _tickedSet = true;
+                    }
+                    v ? _ticked.add(c.id) : _ticked.remove(c.id);
+                  }),
+                ),
+            ],
+          ),
+        vgap,
+        ActionButton(
+          'Ask',
+          onPressed: agents.isEmpty ? null : _ask,
+          tooltip: 'Every ticked agent gets the pictures and the question',
+        ),
+        vgap,
+        for (final r in _runs) RunCard(r),
+      ],
+    );
+  }
+}

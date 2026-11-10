@@ -169,11 +169,12 @@ class _GpuDialog extends StatelessWidget {
 }
 
 /// 12.3 s · 450 tokens · $0.0210 · 35.2 tokens per second, as far as the answer reports them.
-String resultLine(Map<String, dynamic> a) {
+/// Tokens per second only for local models: an agent's time includes its own start-up.
+String resultLine(Map<String, dynamic> a, {bool rate = true}) {
   final parts = <String>['${((a['seconds'] as num?) ?? 0).toStringAsFixed(1)} s'];
   if (a['tokens_out'] is num) parts.add('${a['tokens_out']} tokens');
   if (a['cost'] is num) parts.add('\$${(a['cost'] as num).toStringAsFixed(4)}');
-  if (a['per_second'] is num) parts.add('${(a['per_second'] as num).toStringAsFixed(1)} tokens per second');
+  if (rate && a['per_second'] is num) parts.add('${(a['per_second'] as num).toStringAsFixed(1)} tokens per second');
   return parts.join(' · ');
 }
 
@@ -197,7 +198,7 @@ final class Run {
       return 'asking… ${s.toStringAsFixed(1)} s';
     }
     if (failed) return text;
-    return resultLine(answer!);
+    return resultLine(answer!, rate: !contestant.isAgent);
   }
 }
 
@@ -227,6 +228,7 @@ Future<void> askAll(
   required VoidCallback update,
   required bool Function() current,
   List<String> images = const [],
+  bool untrusted = false,
 }) async {
   Future<void> one(Run run) async {
     if (!current()) return;
@@ -234,6 +236,8 @@ Future<void> askAll(
       'target': run.contestant.target,
       'prompt': prompt,
       if (images.isNotEmpty) 'images': images,
+      // Pictures may carry planted words: only agents without tools take them (the core checks).
+      if (untrusted) 'untrusted': true,
     });
     try {
       run.answer = await run.job!.result;
