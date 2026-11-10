@@ -132,6 +132,11 @@ String sourceValue(Object? source) => source is Map
     ? source
     : '';
 
+String _gameDate(Object? value) {
+  final date = DateTime.tryParse('$value') ?? DateTime.now();
+  return date.toIso8601String().replaceFirst('T', ' ').substring(0, 16);
+}
+
 class GamesStore {
   GamesStore(this.path);
   final String path;
@@ -157,18 +162,19 @@ class GamesStore {
     final source = sourceValue(g['source']);
     return {
       ...g,
-      'id': g['id'] is String && RegExp(r'^[0-9a-f]{32}$').hasMatch(g['id']) ? g['id'] : _id(),
-      'name': cleanTitle('${g['name'] ?? g['title'] ?? ''}'),
+      'id': g['id'] is String && (g['id'] as String).isNotEmpty ? g['id'] : _id(),
+      'name': cleanTitle('${g['title'] ?? g['name'] ?? ''}'),
+      'title': cleanTitle('${g['title'] ?? g['name'] ?? ''}'),
+      'source': source,
+      'kind': g['kind'] == 'video' || source.isNotEmpty ? 'video' : 'played',
+      'result': ['1-0', '0-1', '1/2-1/2', '*'].contains(g['result']) ? g['result'] : '*',
+      'start': g['start'] ?? g['start_fen'] ?? rules.startFen,
+      'date': _gameDate(g['date'] ?? g['created']),
       'white': '${g['white'] ?? '?'}',
       'black': '${g['black'] ?? '?'}',
-      'start_fen': g['start_fen'] ?? g['start'] ?? rules.startFen,
+      'start_fen': g['start'] ?? g['start_fen'] ?? rules.startFen,
       'moves': g['moves'] ?? <String>[],
       'created': g['created'] ?? g['date'] ?? DateTime.now().toIso8601String(),
-      if (source.isNotEmpty)
-        'source': {
-          'kind': youtubeUrl(source).isEmpty ? 'file' : 'url',
-          'value': source.substring(0, source.length.clamp(0, 300)),
-        },
     };
   }
 
@@ -195,7 +201,7 @@ class GamesStore {
     );
     if (replaceId != null && replaceId.isNotEmpty) {
       game['id'] = replaceId;
-    } else if (same != null) {
+    } else if (!raw.containsKey('id') && same != null) {
       game['id'] = same['id'];
     }
     if (deduplicate) {
@@ -205,9 +211,15 @@ class GamesStore {
             g['start_fen'] == game['start_fen'] &&
             const ListEquality().equals(g['moves'], game['moves']),
       );
-      if (twin != null) return twin;
+      if (twin != null) return {...twin, 'duplicate': true, 'duplicate_of': twin['id']};
     }
-    write([game, ...games.where((g) => g['id'] != game['id'])]);
+    final index = games.indexWhere((g) => g['id'] == game['id']);
+    if (index >= 0) {
+      games[index] = game;
+      write(games);
+    } else {
+      write([game, ...games]);
+    }
     return game;
   }
 
@@ -223,7 +235,7 @@ class GamesStore {
     final title = cleanTitle(name);
     write([
       for (final g in load())
-        if (g['id'] == id && title.isNotEmpty) {...g, 'name': title} else g,
+        if (g['id'] == id && title.isNotEmpty) {...g, 'name': title, 'title': title} else g,
     ]);
   }
 

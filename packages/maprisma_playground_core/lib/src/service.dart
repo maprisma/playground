@@ -77,7 +77,7 @@ class CoreService {
       _jobs[id!] = token;
       try {
         final result = await _dispatch(decoded['method'], params, token, id);
-        token.check();
+        if (decoded['method'] != 'import.start') token.check();
         return jsonEncode({'id': id, 'result': result});
       } finally {
         _jobs.remove(id);
@@ -275,7 +275,9 @@ class CoreService {
           }
           answer = await LocalLlm(http).ask(t['port'], t['model'], prompt, images: images, cancel: token);
         }
-        return answer.toJson();
+        final json = answer.toJson();
+        if (t['kind'] == 'agent') json.remove('per_second');
+        return json;
       case 'analyze.choices':
         return {'choices': await analysis.choices(_string(p, 'command'), token)};
       case 'analyze.run':
@@ -328,7 +330,8 @@ class CoreService {
           limit: p['limit'] ?? 20,
         );
       case 'games.save':
-        return {'id': games.save(_object(p, 'game'))['id']};
+        final saved = games.save(_object(p, 'game'), deduplicate: true);
+        return {'id': saved['id'], if (saved['duplicate'] == true) 'duplicate': true};
       case 'games.rename':
         games.rename(_string(p, 'id'), _string(p, 'name'));
         return {};
@@ -339,15 +342,14 @@ class CoreService {
         games.export(_string(p, 'id'), _string(p, 'path'));
         return {};
       case 'import.readers':
-        return {'readers': await importer.readers(token)};
+        return importer.readerInfo(p, token);
       case 'import.start':
-        return {
-          'game': await importer.start(
-            p,
-            token,
-            (fraction, text) => _event(id, 'progress', {'fraction': fraction, 'text': text}),
-          ),
-        };
+        final game = await importer.start(
+          p,
+          token,
+          (fraction, text) => _event(id, 'progress', {if (fraction > 0) 'fraction': fraction, 'text': text}),
+        );
+        return {'game': game, 'read': game['read'], 'unmatched': game['unmatched']};
       case 'chess.ask':
         final command = _string(p, 'command');
         if (!plays(command)) {

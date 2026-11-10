@@ -186,6 +186,33 @@ void main() {
     expect(game['read'], 'frames');
     expect(store.load().single['id'], game['id']);
     expect(pictures.folder.listSync(), isEmpty);
+    late c.CoreService service;
+    service = c.CoreService(
+      e.env,
+      runner: e.runner,
+      http: http,
+      onEvent: (frame) {
+        final event = jsonDecode(frame);
+        if (event['data']['text'].toString().startsWith('Frame 2 of')) {
+          service.handleAsync('{"cancel": 41}');
+        }
+      },
+    );
+    final reply = jsonDecode(
+      await service.handleAsync(
+        jsonEncode({
+          'protocol': 1,
+          'id': 41,
+          'method': 'import.start',
+          'params': {'path': '${e.home}/game.mp4', 'reader': 'claude', 'way': 'frames', 'gap': 4},
+        }),
+      ),
+    );
+    expect(reply['result']['game']['moves'], ['e2e4']);
+    expect(reply['result']['read'], 'frames');
+    expect(reply['result']['unmatched'], 0);
+    expect(service.games.load().single['moves'], ['e2e4']);
+    await service.dispose();
   });
   test('text failure falls back to download and frames; cancellation kills tools', () async {
     fakeFrames();

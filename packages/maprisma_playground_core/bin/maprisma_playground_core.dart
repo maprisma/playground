@@ -3,7 +3,8 @@ import 'dart:io';
 import 'package:maprisma_playground_core/maprisma_playground_core.dart';
 
 Future<void> main(List<String> args) async {
-  final service = CoreService(Platform.environment);
+  // Events (progress, Analyze findings) go out as their own lines before the reply.
+  final service = CoreService(Platform.environment, onEvent: stdout.writeln);
   final signals = [
     ProcessSignal.sigint.watch().listen((_) => service.dispose()),
     ProcessSignal.sigterm.watch().listen((_) => service.dispose()),

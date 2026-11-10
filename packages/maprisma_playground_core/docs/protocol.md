@@ -1,4 +1,9 @@
-# Core protocol, step 2
+# Core protocol amendments
+
+The authoritative protocol, including step 2 and step 3 shapes, is now
+[`docs/protocol.md`](../../../docs/protocol.md).
+
+# Historical step 2 notes (superseded where shapes differ)
 
 This is the step 2 amendment to the repository's `docs/protocol.md`. It lives
 inside the core package because this implementation was restricted to editing

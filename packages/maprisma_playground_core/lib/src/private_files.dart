@@ -124,6 +124,18 @@ final _fsync = _libc.lookupFunction<Int32 Function(Int32), int Function(int)>('f
   }
 }
 
+final _access = _libc.lookupFunction<Int32 Function(Pointer<Uint8>, Int32), int Function(Pointer<Uint8>, int)>(
+  'access',
+);
+bool executableByUser(String path) {
+  final name = _text(path);
+  try {
+    return _access(name, 1) == 0;
+  } finally {
+    _free(name.cast());
+  }
+}
+
 int get fileOwnerUid => _getuid();
 bool ownRegularFile(String path) {
   final s = fileIdentity(path);

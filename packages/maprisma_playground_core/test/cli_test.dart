@@ -25,7 +25,7 @@ void main() {
     e.script('pi', "import sys\nassert sys.stdin.read()=='2+2'\nprint('4')");
     final result = await cli(['ask', 'pi', '2+2']);
     expect(result.exitCode, 0);
-    expect(jsonDecode(result.stdout)['result']['text'], '4');
+    expect(jsonDecode(const LineSplitter().convert(result.stdout as String).last)['result']['text'], '4');
   });
   test('CLI errors use a failing exit code', () async {
     expect((await cli(['call', 'unknown', '{}'])).exitCode, 1);

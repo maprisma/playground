@@ -119,6 +119,51 @@ class ChessImport {
     return result;
   }
 
+  Future<Map<String, Object?>> readerInfo(Map<String, dynamic> params, CancelToken token) async {
+    final source = params['path'] ?? params['url'] ?? '';
+    if (source is! String) throw ArgumentError('Invalid video source.');
+    final before = source.isEmpty
+        ? null
+        : games
+              .load()
+              .where(
+                (g) => sourceValue(g['source']).isNotEmpty && videoKey(sourceValue(g['source'])) == videoKey(source),
+              )
+              .firstOrNull;
+    final available = await readers(token);
+    final result = <String, Object?>{
+      'readers': [for (final r in available) r['command']],
+      'reader_details': available,
+      'text_readers': [
+        for (final a in adapters)
+          if (readsUntrusted(a.command) &&
+              agentSetUp(a.command, runner.environment) &&
+              executableOnPath(a.command, runner.environment) != null)
+            a.command,
+      ],
+      if (before != null)
+        'before': {
+          for (final k in ['id', 'title', 'date']) k: before[k],
+        },
+    };
+    if (params['path'] is String && source.isNotEmpty) {
+      if (!p.isAbsolute(source) || !File(source).existsSync()) throw ArgumentError('Choose a video file.');
+      final out = await runner.run(
+        mediaArgv(
+          runner,
+          'ffprobe',
+          ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1'],
+          source,
+          [],
+        ),
+        cancel: token,
+      );
+      final seconds = double.tryParse(out.text.trim());
+      if (out.ok && seconds != null && seconds.isFinite && seconds >= 0) result['seconds'] = seconds;
+    }
+    return result;
+  }
+
   Future<Map<String, dynamic>> videoInfo(String url, CancelToken token) async {
     if (youtubeUrl(url) != url) return {};
     final out = await runner.run(
@@ -356,11 +401,24 @@ class ChessImport {
     final hold = used == null ? null : LocalHold(serverKey(used.$1), http, runner);
     LocalHold? watcherHold;
     final folder = createPrivateTempDirectory(prefix: 'maprisma-video-');
+    var name = path.isEmpty ? url : p.basenameWithoutExtension(path), how = 'frames';
+    final reading = Reading();
+    Map<String, dynamic> saveReading() => games.save(
+      {
+        'name': name,
+        'source': url.isEmpty ? path : url,
+        'kind': 'video',
+        'start_fen': rules.fen(reading.start!),
+        'moves': reading.moves.map((m) => m.uci()).toList(),
+        'read': how,
+        'unmatched': reading.unmatched,
+      },
+      replaceId: params['replace_id'] as String?,
+      deduplicate: true,
+    );
     try {
       await hold?.open(cancel: token);
       if (hold != null && hold.error.isNotEmpty) throw StateError('The local LLM did not start: ${hold.error}');
-      var name = path.isEmpty ? url : p.basenameWithoutExtension(path), how = 'frames';
-      final reading = Reading();
       if (way == 'text' && url.isNotEmpty) {
         progress(0, "Reading the video's description…");
         final info = await videoInfo(url, token);
@@ -369,6 +427,16 @@ class ChessImport {
           final description = '${info['description'] ?? ''}';
           var moves = movesInText(description);
           how = 'description';
+          void remember(List<rules.Move> moves) {
+            reading.start = reading.pos = rules.start();
+            reading.moves.clear();
+            for (final move in moves) {
+              reading.moves.add(move);
+              reading.pos = rules.apply(reading.pos!, move);
+            }
+          }
+
+          remember(moves);
           if (moves.length < 6) {
             progress(0, 'Reading the commentary…');
             final spoken = await captions(info, token);
@@ -379,15 +447,14 @@ class ChessImport {
             if (said.length > moves.length) {
               moves = said;
               how = 'commentary';
+              remember(moves);
             }
           }
-          if (moves.length >= 6) {
-            reading.start = reading.pos = rules.start();
-            for (final m in moves) {
-              reading.moves.add(m);
-              reading.pos = rules.apply(reading.pos!, m);
-            }
-          }
+        }
+        token.check();
+        if (reading.moves.length < 6) {
+          reading.moves.clear();
+          reading.start = reading.pos = null;
         }
         if (reading.moves.isEmpty) progress(0, 'No game in the description or the commentary: watching the frames…');
       }
@@ -465,17 +532,10 @@ class ChessImport {
       }
       token.check();
       if (reading.moves.isEmpty) throw StateError('No moves could be read from that video.');
-      return games.save(
-        {
-          'name': name,
-          'source': {'kind': url.isEmpty ? 'file' : 'url', 'value': url.isEmpty ? path : url},
-          'start_fen': rules.fen(reading.start!),
-          'moves': reading.moves.map((m) => m.uci()).toList(),
-          'read': how,
-        },
-        replaceId: params['replace_id'] as String?,
-        deduplicate: true,
-      );
+      return saveReading();
+    } on Cancelled {
+      if (reading.moves.isEmpty) rethrow;
+      return saveReading();
     } finally {
       await watcherHold?.release();
       await hold?.release();

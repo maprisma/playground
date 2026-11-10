@@ -214,6 +214,7 @@ Future<Answer> askAgent(
     built.argv[0] = exe;
     final out = await runner.run(
       built.argv,
+      env: {...runner.environment, 'PATH': '${p.dirname(exe)}:${runner.environment['PATH'] ?? ''}'},
       stdin: built.stdin,
       cwd: folder.path,
       maxBytes: maxBytes,

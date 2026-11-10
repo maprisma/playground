@@ -89,11 +89,16 @@ void main() {
     final g = ChessGame()..replay(start(), moves, index: 2);
     expect(g.moves.length, 2);
     expect(g.replayLength, 3);
+    g.replayTitle = 'Opening';
+    expect(g.statusText, 'Opening: move 2 of 3');
     g.seek(3);
     expect(g.position, pos);
     expect(g.playFromHere(), isTrue);
-    expect(g.startPosition, pos);
-    expect(g.moves, isEmpty);
+    expect(g.startPosition, start());
+    expect(g.moves, moves);
+    expect(g.position, pos);
+    g.undo();
+    expect(g.moves.length, 2);
     expect(g.mode, ChessMode.game);
   });
   test('status text mate, check and draws', () {

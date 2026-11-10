@@ -36,11 +36,31 @@ bool takesImages(String command) => const ['claude', 'codex', 'pi'].contains(com
 bool readsUntrusted(String command) => const ['claude', 'hermes', 'pi'].contains(command);
 bool plays(String command, [String game = 'chess']) => adapter(command)?.games.contains(game) ?? false;
 String? executableOnPath(String command, Map<String, String> environment) {
-  for (final dir in (environment['PATH'] ?? '').split(':')) {
+  final home = environment['HOME'] ?? '/';
+  final folders = [
+    ...(environment['PATH'] ?? '').split(':'),
+    for (final folder in [
+      '.local/bin',
+      '.local/share/mise/shims',
+      '.bun/bin',
+      '.npm-global/bin',
+      '.cargo/bin',
+      '.deno/bin',
+      '.volta/bin',
+      '.asdf/shims',
+    ])
+      p.join(home, folder),
+    '/home/linuxbrew/.linuxbrew/bin',
+  ];
+  for (final dir in folders) {
     final path = p.join(dir.isEmpty ? '.' : dir, command);
     try {
-      final stat = File(path).statSync();
-      if (stat.type == FileSystemEntityType.file && stat.mode & 73 != 0) {
+      final stat = fileIdentity(path, noFollow: false);
+      if (stat != null &&
+          stat.mode & 0xf000 == 0x8000 &&
+          (stat.uid == 0 || stat.uid == fileOwnerUid) &&
+          stat.mode & 73 != 0 &&
+          executableByUser(path)) {
         return p.absolute(path);
       }
     } on FileSystemException {

@@ -25,7 +25,7 @@ class ChessGame {
   String playerSide, agent, strength, rivalStrength, level;
   String? rival;
   bool paused = false, thinking = false;
-  String comment = '', commentBy = '', error = '';
+  String comment = '', commentBy = '', error = '', replayTitle = '';
   int revision = 0;
   rules.Position get startPosition => _start;
   rules.Position get position => _position;
@@ -59,7 +59,9 @@ class ChessGame {
       return 'Pick a piece below or above, then click squares; a right click empties a square.';
     }
     if (mode == ChessMode.replay) {
-      return 'Move ${_moves.length} of ${_replay.length}';
+      return replayTitle.isEmpty
+          ? 'Move ${_moves.length} of ${_replay.length}'
+          : '$replayTitle: move ${_moves.length} of ${_replay.length}';
     }
     final mover = agentFor(_position.turn);
     if (thinking) {
@@ -85,6 +87,7 @@ class ChessGame {
     _position = _start;
     _moves.clear();
     _replay = [];
+    replayTitle = '';
     if (player != null) {
       _side(player);
       playerSide = player;
@@ -236,7 +239,18 @@ class ChessGame {
       error = 'In this position the game is already over.';
       return false;
     }
-    reset(position: pos, player: player ?? playerSide, rival: rival);
+    if (mode == ChessMode.replay) {
+      _side(player ?? playerSide);
+      playerSide = player ?? playerSide;
+      this.rival = rival;
+      mode = ChessMode.game;
+      _replay = [];
+      replayTitle = '';
+      paused = false;
+      _invalidate();
+    } else {
+      reset(position: pos, player: player ?? playerSide, rival: rival);
+    }
     return true;
   }
 
