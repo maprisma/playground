@@ -4,24 +4,32 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 /// Which desktop this is (XDG_CURRENT_DESKTOP).
-enum DesktopId { cosmic, kde, other }
+enum DesktopId { cosmic, kde, hyprland, other }
 
 DesktopId detectDesktop([Map<String, String>? env]) {
   final names = ((env ?? Platform.environment)['XDG_CURRENT_DESKTOP'] ?? '').toUpperCase().split(':');
   if (names.contains('COSMIC')) return DesktopId.cosmic;
   if (names.contains('KDE')) return DesktopId.kde;
+  if (names.contains('HYPRLAND')) return DesktopId.hyprland;
   return DesktopId.other;
 }
 
 /// Where the desktop's settings are (tests point it at a folder of their own).
 final class LookPaths {
-  LookPaths({required this.config, this.root = '/'});
+  LookPaths({required this.config, this.root = '/', String? state})
+      : state = state ?? p.join(p.dirname(config), '.local', 'state');
   factory LookPaths.fromEnv([Map<String, String>? env]) {
     final e = env ?? Platform.environment;
     final home = e['HOME'] ?? '/';
-    return LookPaths(config: e['XDG_CONFIG_HOME'] ?? p.join(home, '.config'));
+    return LookPaths(
+      config: e['XDG_CONFIG_HOME'] ?? p.join(home, '.config'),
+      state: e['XDG_STATE_HOME'] ?? p.join(home, '.local', 'state'),
+    );
   }
   final String config, root;
+
+  /// XDG_STATE_HOME (Caelestia keeps its colour scheme there).
+  final String state;
 }
 
 final class _Ctx {
@@ -40,6 +48,7 @@ Map<String, dynamic> _look(_Ctx ctx) {
   final colors = switch (ctx.desktop) {
     DesktopId.cosmic => _cosmicColors(ctx),
     DesktopId.kde => _kdeColors(ctx),
+    DesktopId.hyprland => _caelestiaColors(ctx),
     DesktopId.other => <String, String>{},
   };
   final bg = colors['background'];
@@ -49,6 +58,7 @@ Map<String, dynamic> _look(_Ctx ctx) {
     'rounding': switch (ctx.desktop) {
       DesktopId.cosmic => _cosmicRounding(ctx),
       DesktopId.kde => 8,
+      DesktopId.hyprland => null,
       DesktopId.other => null,
     },
     'is_dark': bg == null ? null : _dark(bg),
@@ -169,6 +179,40 @@ String? ronColor(String? value) {
   if (r == null || g == null || b == null) return null;
   String hex(int v) => v.toRadixString(16).padLeft(2, '0');
   return '#${hex(r)}${hex(g)}${hex(b)}';
+}
+
+// --- Hyprland with Caelestia ----------------------------------------------------------------
+
+/// Caelestia's colour scheme (XDG_STATE_HOME/caelestia/scheme.json, Material names, hex
+/// without '#'); empty without Caelestia, so the app keeps its own colours.
+Map<String, String> _caelestiaColors(_Ctx ctx) {
+  final text = _read(p.join(ctx.paths.state, 'caelestia', 'scheme.json'), 256 * 1024);
+  if (text == null) return {};
+  Object? data;
+  try {
+    data = jsonDecode(text);
+  } on FormatException {
+    return {};
+  }
+  final colours = data is Map ? data['colours'] : null;
+  if (colours is! Map) return {};
+  String? c(String key) {
+    final v = colours[key];
+    return v is String && RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(v) ? '#${v.toLowerCase()}' : null;
+  }
+
+  final out = {
+    'accent': c('primary'),
+    'background': c('surface') ?? c('background'),
+    'foreground': c('onSurface'),
+    'muted': c('outline'),
+    'selection': c('surfaceContainerHighest'),
+    'red': c('error') ?? c('red'),
+    'yellow': c('yellow'),
+    'orange': c('peach'),
+    'green': c('green'),
+  };
+  return {for (final e in out.entries) if (e.value != null) e.key: e.value!};
 }
 
 // --- KDE ---------------------------------------------------------------------------------
