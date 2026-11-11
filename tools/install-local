@@ -102,8 +102,8 @@ autostart="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
 mkdir -p "$autostart"
 tray=$(exec_of "$bin/maprisma-playground-tray")
 { grep -v '^Exec=' "$root/data/com.maprisma.Playground.Tray.desktop"; printf 'Exec=%s\n' "$tray"; } > "$autostart/com.maprisma.Playground.Tray.desktop"
-# The tray was stopped with the other running copies: start it again in a Plasma session.
-if [[ ":${XDG_CURRENT_DESKTOP:-}:" == *:KDE:* ]]; then
+# The tray was stopped with the other running copies: start it again in a Plasma or Hyprland session.
+if [[ ":${XDG_CURRENT_DESKTOP:-}:" == *:KDE:* || ":${XDG_CURRENT_DESKTOP:-}:" == *:Hyprland:* ]]; then
   setsid -f "$bin/maprisma-playground-tray" >/dev/null 2>&1 < /dev/null || true
 fi
 echo "Installed Maprisma Playground into $lib"

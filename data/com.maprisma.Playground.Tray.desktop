@@ -5,5 +5,5 @@ Comment=Maprisma Playground's gamepad in the KDE system tray
 Exec=maprisma-playground-tray
 Icon=io.github.ubruckhaus.CosmicMaprismaPlayground-symbolic
 Terminal=false
-OnlyShowIn=KDE;
+OnlyShowIn=KDE;Hyprland;
 X-KDE-autostart-phase=2
