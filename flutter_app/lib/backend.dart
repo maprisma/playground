@@ -124,6 +124,10 @@ final class Backend {
     return Job._(id, this, pending.future);
   }
 
+  /// A request is waiting for its reply: an agent, a generation, a download, an import, a model
+  /// load (Work: Esc then hides the window instead of closing it).
+  bool get busy => _pending.isNotEmpty;
+
   /// A request and its reply.
   Future<Map<String, dynamic>> call(String method, [Map<String, dynamic> params = const {}]) =>
       start(method, params).result;

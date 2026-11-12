@@ -20,6 +20,7 @@ import '../esc_close.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../window.dart';
+import '../work.dart';
 
 /// The Chess tab (ai_playground.build_chess_tab, chess_page.py, chess_import.py): the opponent
 /// and Import video…, the drop strip, the board with its piece cards, the Game and Saved games
@@ -1276,6 +1277,8 @@ String movesCount(int n) => n == 1 ? tr("1 move") : trf("{0} moves", [n]);
 
 final class ChessSession extends ChangeNotifier {
   ChessSession({required this.core, required this.settings, required this.agentsOf, this.playground}) {
+    // An agent thinking, a replay playing or an import: Esc hides the window, it does not quit.
+    Work.watch(this, () => _ask != null || _auto != null || _import != null);
     boardStyle = _text('chess_board');
     pieceStyle = _text('chess_pieces');
     coordinates = _flag('chess_coordinates');
@@ -1384,6 +1387,7 @@ final class ChessSession extends ChangeNotifier {
   void dispose() {
     if (_gone) return;
     _gone = true;
+    Work.unwatch(this);
     playground?.removeListener(syncAgents);
     _stopAsking();
     _auto?.cancel();

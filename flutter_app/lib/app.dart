@@ -25,6 +25,7 @@ import 'theme.dart';
 import 'widgets.dart';
 import 'window.dart';
 import 'window_size.dart';
+import 'work.dart';
 
 /// The tabs, in the plugin's order with the Automaton after Chess (Ctrl+1 … Ctrl+7). Analyze is
 /// not a tab: it is a header symbol's page, as Information and Settings.
@@ -73,13 +74,20 @@ class PlaygroundApp extends StatefulWidget {
   State<PlaygroundApp> createState() => _PlaygroundAppState();
 }
 
+/// Esc on a tab with nothing open: close as the close button does (what runs is stopped), but
+/// while anything runs only hide the window, so Esc never stops a game, generation or download.
+void closeOrHide() => switch (escWindow(running: Work.running)) {
+  EscWindow.hide => AppWindow.instance.hide(),
+  EscWindow.close => AppWindow.instance.close(),
+};
+
 class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserver {
   late Map<String, dynamic> _look = widget.look;
   StreamSubscription<bool>? _focus;
 
   /// Esc that no page took (rule 5a): leave a field, Back on a symbol page, then close the window
-  /// as its close button does.
-  late final _esc = EscFallback(onClose: () => AppWindow.instance.close());
+  /// as its close button does; while something runs, hide it instead (nothing is stopped).
+  late final _esc = EscFallback(onClose: closeOrHide);
 
   /// The window's size, saved half a second after the last resize (rule 5a).
   late final _windowSize = WindowSizeKeeper(
@@ -112,6 +120,8 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _esc.attach();
+    final backend = widget.playground.backend;
+    Work.watch(backend, () => backend.busy);
     _readLook(force: true);
     // Maprisma Theme can change the desktop's colours at any time: read them again every 5 s
     // and when the window gets the focus back (hyprctl's rounding at most every 30 s).
@@ -152,6 +162,7 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
     _lookTimer?.cancel();
     _focus?.cancel();
     _esc.detach();
+    Work.unwatch(widget.playground.backend);
     _windowSize.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();

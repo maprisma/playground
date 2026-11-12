@@ -11,6 +11,7 @@ import 'package:maprisma_playground_core/maprisma_playground_core.dart';
 import '../app.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../work.dart';
 
 const _ownRule = 'Own rule…';
 const _paint = 'Draw cells';
@@ -85,6 +86,8 @@ class _AutomatonPageState extends State<AutomatonPage> {
     _ruleChoice = ruleName(rule) ?? _ownRule;
     _ruleText.text = rule.notation;
     _grid = Automaton(80, 50, rule: rule, wrap: s.flag('automaton_wrap'));
+    // Playing: Esc hides the window instead of quitting.
+    Work.watch(this, () => _playing);
   }
 
   @override
@@ -95,6 +98,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
 
   @override
   void dispose() {
+    Work.unwatch(this);
     _timer?.cancel();
     _repaint.dispose();
     _ruleText.dispose();

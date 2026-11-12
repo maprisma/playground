@@ -72,6 +72,10 @@ final class AppWindow {
   /// quit; what runs is stopped, the state kept).
   Future<void> close() => _call('close');
 
+  /// Esc on a tab while something runs: the window steps aside, the work goes on (--toggle and
+  /// the tray bring it back).
+  Future<void> hide() => _call('hide');
+
   /// {width, height, free}: GTK's size (title bar included), free = shown and neither maximized,
   /// fullscreen nor tiled.
   Future<Object?> geometry() async {
