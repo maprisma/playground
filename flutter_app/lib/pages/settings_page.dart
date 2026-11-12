@@ -31,7 +31,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _row(String title, String hint, Widget choice) {
     final look = Look.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Row(
         children: [
           Expanded(
@@ -41,10 +41,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 // The rows as the cards' text: title 13 semi-bold, explanation 12 dimmed.
                 Text(
                   title,
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: look.fg),
+                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600, color: look.fg),
                 ),
-                const SizedBox(height: 2),
-                Text(hint, style: TextStyle(fontSize: 12, color: look.dim)),
+                const SizedBox(height: 4),
+                Text(hint, style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.dim)),
               ],
             ),
           ),
@@ -129,7 +129,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
     List<Widget> lines(List<String> texts) => [
-      for (final t in texts) Padding(padding: const EdgeInsets.only(bottom: 6), child: AnswerText(t)),
+      for (final t in texts) Padding(padding: const EdgeInsets.only(bottom: 8), child: AnswerText(t)),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -14,5 +14,7 @@ Future<void> main(List<String> args) async {
   // The agents set up here and the local LLM servers running: every tab offers them.
   playground.loadAgents();
   playground.scan();
-  runApp(PlaygroundApp(settings: settings, playground: playground, args: args));
+  // The desktop's colours and corners before the first frame (then again while it runs).
+  final look = await readDesktopLook().catchError((_) => <String, dynamic>{});
+  runApp(PlaygroundApp(settings: settings, playground: playground, args: args, look: look));
 }

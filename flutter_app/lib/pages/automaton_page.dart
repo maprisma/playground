@@ -338,7 +338,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
     final look = Look.of(context);
     final controls = Wrap(
       spacing: 12,
-      runSpacing: 6,
+      runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         _group([
@@ -379,11 +379,11 @@ class _AutomatonPageState extends State<AutomatonPage> {
             width: 150,
             child: TextField(
               controller: _ruleText,
-              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              style: Theme.of(context).textTheme.bodySmall!.copyWith(fontFamily: 'monospace'),
               decoration: InputDecoration(
                 hintText: 'B3/S23',
                 // A one-line field as high as the controls beside it.
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 errorText: _ruleError == null ? null : '',
                 errorStyle: const TextStyle(height: 0, fontSize: 0),
               ),
@@ -424,7 +424,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
 
     final actions = Wrap(
       spacing: 12,
-      runSpacing: 6,
+      runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         _group([
@@ -443,7 +443,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
           ),
         ]),
         _group([
-          Text(tr("Speed"), style: TextStyle(fontSize: 12, color: look.fg)),
+          Text(tr("Speed"), style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.fg)),
           SizedBox(
             width: 160,
             child: Slider(
@@ -459,7 +459,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
               onChangeEnd: (v) => _save({'automaton_speed': v.round()}),
             ),
           ),
-          Text(trf("{0} / s", [_speed]), style: TextStyle(fontSize: 12, color: look.muted)),
+          Text(trf("{0} / s", [_speed]), style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.muted)),
         ]),
         Choice<bool>(
           value: _byAge,
@@ -500,11 +500,11 @@ class _AutomatonPageState extends State<AutomatonPage> {
               _grid.width,
               _grid.height,
             ]),
-      style: TextStyle(fontSize: 12, color: look.muted),
+      style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.muted),
     );
     final cellHint = Text(
       trf("Ctrl + wheel: cell size ({0} px)", [_cell]),
-      style: TextStyle(fontSize: 12, color: look.dim),
+      style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.dim),
     );
     final spark = SizedBox(
       height: 22,
@@ -546,7 +546,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
       focusNode: _focus,
       onKeyEvent: _key,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(17, 6, 17, 17),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -558,10 +558,10 @@ class _AutomatonPageState extends State<AutomatonPage> {
             vgap,
             status,
             if (_grid.mixing) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               const _MixLegend(),
             ] else if (_byAge) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               const _Legend(),
             ],
             const SizedBox(height: 8),
@@ -660,8 +660,8 @@ class _MixLegend extends StatelessWidget {
             height: 11,
             decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(cornerSizes(context).small)),
           ),
-          const SizedBox(width: 6),
-          Text(text, style: TextStyle(fontSize: 12, color: look.muted)),
+          const SizedBox(width: 8),
+          Text(text, style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.muted)),
         ],
       ),
     );
@@ -688,8 +688,8 @@ class _Legend extends StatelessWidget {
               borderRadius: BorderRadius.circular(cornerSizes(context).small),
             ),
           ),
-          const SizedBox(width: 6),
-          Text(text, style: TextStyle(fontSize: 12, color: look.muted)),
+          const SizedBox(width: 8),
+          Text(text, style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.muted)),
         ],
       ),
     );
@@ -846,7 +846,7 @@ class _ScenarioDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final look = Look.of(context);
     Widget part(IconData icon, String heading, String text) => Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -854,7 +854,7 @@ class _ScenarioDialog extends StatelessWidget {
             padding: const EdgeInsets.only(top: 1),
             child: Icon(icon, size: 18, color: look.accent),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -868,18 +868,18 @@ class _ScenarioDialog extends StatelessWidget {
       title: Row(
         children: [
           Icon(Icons.info_outline, color: look.accent),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Flexible(
             child: Text(
               title,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: look.fg),
+              style: Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700, color: look.fg),
             ),
           ),
           if (notation.isNotEmpty) ...[
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Text(
               notation,
-              style: TextStyle(fontSize: 14, fontFamily: 'monospace', color: look.muted),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontFamily: 'monospace', color: look.muted),
             ),
           ],
         ],
@@ -904,7 +904,7 @@ class _ScenarioDialog extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 1),
                       child: Icon(Icons.public, size: 18, color: look.accent),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

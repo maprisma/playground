@@ -337,7 +337,7 @@ class ChessBoardState extends State<ChessBoard> {
                   side: BorderSide(color: look.fg.withValues(alpha: .2)),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(8),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -348,7 +348,7 @@ class ChessBoardState extends State<ChessBoard> {
                             borderRadius: BorderRadius.circular(cornerSizes(context).small),
                             onTap: () => Navigator.pop(context, m),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               child: PieceGlyph(white ? m.promotion.toUpperCase() : m.promotion, size: 28),
                             ),
                           ),

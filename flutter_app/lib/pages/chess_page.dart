@@ -209,7 +209,7 @@ class _ChessPageState extends State<ChessPage> {
         builder: (context) => AlertDialog(
           title: Text(
             tr("No agent here can read a video"),
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            style: Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700),
           ),
           content: SizedBox(width: 460, child: AnswerText(body.toString())),
           actions: [SmallButton(tr("OK"), onPressed: () => Navigator.pop(context))],
@@ -267,7 +267,7 @@ class _ChessPageState extends State<ChessPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(17, 6, 17, 0),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -291,7 +291,7 @@ class _ChessPageState extends State<ChessPage> {
             builder: (context, view) {
               _fit(view);
               return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(17, gap, 31, 17),
+                padding: const EdgeInsets.fromLTRB(16, gap, 32, 16),
                 child: Column(
                   key: _body,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -327,7 +327,7 @@ class _ChessPageState extends State<ChessPage> {
     final agents = s.playable;
     return Row(
       children: [
-        Text(tr("Opponent"), style: TextStyle(fontSize: 13, color: look.fg)),
+        Text(tr("Opponent"), style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: look.fg)),
         const SizedBox(width: 8),
         Choice<String>(
           value: s.opponent?.command,
@@ -353,7 +353,7 @@ class _ChessPageState extends State<ChessPage> {
   Widget _dropHint(Look look, double radius) => CustomPaint(
     painter: _Dashed(look.fg.withValues(alpha: .30), radius),
     child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
           Icon(Icons.upload_file_outlined, size: 18, color: look.dim),
@@ -363,7 +363,7 @@ class _ChessPageState extends State<ChessPage> {
               tr(
                 "Drop a chess video here, a file or a YouTube link, anywhere on this tab, or copy a YouTube link and press Ctrl+V: an agent that sees reads its moves and the game is saved below to replay.",
               ),
-              style: TextStyle(fontSize: 12, color: look.dim, height: 1.3),
+              style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.dim, height: 1.3),
             ),
           ),
         ],
@@ -382,7 +382,7 @@ class _ChessPageState extends State<ChessPage> {
     child: Row(
       children: [
         SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: look.fg)),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,21 +391,21 @@ class _ChessPageState extends State<ChessPage> {
                 s.importTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: look.fg),
+                style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600, color: look.fg),
               ),
               const SizedBox(height: 4),
               Text(
                 s.importText,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, color: look.fg),
+                style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: look.fg),
               ),
               const SizedBox(height: 4),
               LinearProgressIndicator(value: s.importFraction, color: look.accent),
             ],
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         SmallButton(tr("Cancel"), onPressed: s.importStopping ? null : s.cancelImport),
       ],
     ),
@@ -603,7 +603,7 @@ class _ChessPageState extends State<ChessPage> {
       final count = board.where((p) => p == piece).length;
       final picked = define && s.palette == piece;
       final inner = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         decoration: BoxDecoration(
           color: picked ? look.accent.withValues(alpha: .16) : look.fg.withValues(alpha: .04),
           border: Border.all(color: picked ? look.accent : look.fg.withValues(alpha: .12), width: picked ? 2 : 1),
@@ -616,7 +616,7 @@ class _ChessPageState extends State<ChessPage> {
               '${kindNames[kind]} ×$count',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 11, color: look.dim),
+              style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.dim),
             ),
           ],
         ),
@@ -644,7 +644,7 @@ class _ChessPageState extends State<ChessPage> {
     return Row(
       children: [
         for (var i = 0; i < kinds.length; i++) ...[
-          if (i > 0) const SizedBox(width: 6),
+          if (i > 0) const SizedBox(width: 8),
           Expanded(child: card(kinds[i])),
         ],
       ],
@@ -691,13 +691,13 @@ class _ChessPageState extends State<ChessPage> {
         children: [
           Text(
             status,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: look.fg),
+            style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600, color: look.fg),
           ),
           if (said.isNotEmpty && !define) ...[
             const SizedBox(height: gap),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: look.accent.withValues(alpha: .08),
                 border: Border(left: BorderSide(color: look.accent, width: 3)),
@@ -708,7 +708,7 @@ class _ChessPageState extends State<ChessPage> {
                 children: [
                   Text(
                     trf("{0} says", [s.saidBy]),
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: look.fg),
+                    style: Theme.of(context).textTheme.bodySmall!.copyWith(fontWeight: FontWeight.w700, color: look.fg),
                   ),
                   const SizedBox(height: 4),
                   AnswerText(said),
@@ -722,7 +722,7 @@ class _ChessPageState extends State<ChessPage> {
           ],
           if (g.moves.isNotEmpty && !define) ...[
             const SizedBox(height: gap),
-            SelectableText(g.notation, style: TextStyle(fontSize: 13, height: 1.4, color: look.dim)),
+            SelectableText(g.notation, style: Theme.of(context).textTheme.bodyMedium!.copyWith(height: 1.4, color: look.dim)),
           ],
           if (g.mode == ChessMode.game && g.moves.isNotEmpty) ...[
             const SizedBox(height: gap),
@@ -761,7 +761,7 @@ class _ChessPageState extends State<ChessPage> {
           if (s.gamesError.isNotEmpty) ...[const SizedBox(height: 4), Hint(s.gamesError, error: true)],
           for (final g in games)
             Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
                   Expanded(
@@ -769,9 +769,7 @@ class _ChessPageState extends State<ChessPage> {
                       g.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: look.fg,
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: look.fg,
                         fontWeight: g.id == s.replayId && s.game.mode == ChessMode.replay
                             ? FontWeight.w600
                             : FontWeight.w400,
@@ -821,9 +819,9 @@ class _Toggle extends StatelessWidget {
         backgroundColor: on ? look.accent.withValues(alpha: .14) : null,
         side: BorderSide(color: on ? look.accent : look.fg.withValues(alpha: .35)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(cornerSizes(context).control)),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         minimumSize: const Size(0, 30),
-        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        textStyle: Theme.of(context).textTheme.labelLarge!.copyWith(fontWeight: FontWeight.w700),
       ),
       child: Text(label),
     );
@@ -876,14 +874,14 @@ class _LookMenuState extends State<_LookMenu> {
     final look = Look.of(context);
     final radius = corners(context);
     Widget heading(String text) => Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text.toUpperCase(),
         style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: look.fg),
       ),
     );
     Widget tile(bool on, Widget picture, String name, VoidCallback pick) => Padding(
-      padding: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.only(right: 8),
       child: InkWell(
         onTap: pick,
         borderRadius: BorderRadius.circular(radius),
@@ -898,14 +896,14 @@ class _LookMenuState extends State<_LookMenu> {
             children: [
               picture,
               const SizedBox(height: 4),
-              Text(name, style: TextStyle(fontSize: 11, color: look.fg)),
+              Text(name, style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.fg)),
             ],
           ),
         ),
       ),
     );
     return Padding(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -938,7 +936,7 @@ class _LookMenuState extends State<_LookMenu> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(tr("Coordinates"), style: TextStyle(fontSize: 11, color: look.fg)),
+                  child: Text(tr("Coordinates"), style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.fg)),
                 ),
                 Switch(value: s.coordinates, onChanged: (v) => _set({'chess_coordinates': v})),
               ],
@@ -1061,7 +1059,7 @@ class _ImportDialogState extends State<_ImportDialog> {
               ));
     Widget line(Widget w) => Padding(padding: const EdgeInsets.only(bottom: 8), child: w);
     return AlertDialog(
-      title: Text(tr("Read the moves from this video?"), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+      title: Text(tr("Read the moves from this video?"), style: Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700)),
       content: SizedBox(
         width: 460,
         child: Column(
@@ -1116,7 +1114,7 @@ class _ImportDialogState extends State<_ImportDialog> {
                   trf("{0}, your opponent, cannot see pictures: the agent chosen here reads the video.", [
                     widget.opponent!.name,
                   ]),
-                  style: TextStyle(fontSize: 13, color: look.fg),
+                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: look.fg),
                 ),
               ),
             if (widget.before != null)
@@ -1126,7 +1124,7 @@ class _ImportDialogState extends State<_ImportDialog> {
                     widget.before!.title,
                     widget.before!.date,
                   ]),
-                  style: TextStyle(fontSize: 13, color: look.fg),
+                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: look.fg),
                 ),
               ),
           ],

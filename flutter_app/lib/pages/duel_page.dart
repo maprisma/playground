@@ -182,7 +182,7 @@ class _DuelPageState extends State<DuelPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionTitle(_title(s)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           AnswerText(
             _errors[s] ??
                 (_answers[s] == null
@@ -218,7 +218,7 @@ class _DuelPageState extends State<DuelPage> {
               empty: tr("No agent is set up"),
               onChanged: (c) => setState(() => _a = c.id),
             ),
-            Text(tr('against'), style: TextStyle(fontSize: 13, color: look.fg)),
+            Text(tr('against'), style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: look.fg)),
             Choice<Contestant>(
               value: b,
               items: all,

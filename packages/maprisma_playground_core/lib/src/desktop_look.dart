@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -41,10 +42,110 @@ final class _Ctx {
 /// The desktop's palette and window corners, as Maprisma Launcher and Manager read them
 /// (copied from maprisma_manager_core desktop_look.dart), so the Playground looks like them.
 /// `{desktop, colors: {accent, background, foreground, muted, selection, red, yellow, orange, green}, rounding, is_dark}`.
-Map<String, dynamic> desktopLook({DesktopId? desktop, LookPaths? paths}) =>
-    _look(_Ctx(desktop ?? detectDesktop(), paths ?? LookPaths.fromEnv()));
+/// On Hyprland the windows' rounding comes from `hyprctl` (a process): [hyprRounding] passes it
+/// in (see [readDesktopLook], which asks [HyprRounding] for it); without it it is null.
+Map<String, dynamic> desktopLook({DesktopId? desktop, LookPaths? paths, int? hyprRounding}) =>
+    _look(_Ctx(desktop ?? detectDesktop(), paths ?? LookPaths.fromEnv()), hyprRounding);
 
-Map<String, dynamic> _look(_Ctx ctx) {
+/// [desktopLook] with Hyprland's window rounding read from `hyprctl` (through [hypr], by default
+/// one shared reader that asks at most every 30 s).
+Future<Map<String, dynamic>> readDesktopLook({DesktopId? desktop, LookPaths? paths, HyprRounding? hypr}) async {
+  final id = desktop ?? detectDesktop();
+  final rounding = id == DesktopId.hyprland ? await (hypr ?? HyprRounding.shared).read() : null;
+  return desktopLook(desktop: id, paths: paths, hyprRounding: rounding);
+}
+
+/// Runs `hyprctl` with these arguments; its standard output, or null when it failed or took
+/// longer than [timeout].
+typedef HyprctlRun = Future<String?> Function(List<String> args, Duration timeout);
+
+/// Hyprland's window rounding (`hyprctl -j getoption decoration:rounding` → `.int`, 0–64):
+/// asked at most once per [every]; meanwhile the last answer stands. Tests inject [run] (or a
+/// PATH with a fake hyprctl in [environment]), never the session's hyprctl.
+final class HyprRounding {
+  HyprRounding({
+    HyprctlRun? run,
+    Map<String, String>? environment,
+    this.every = const Duration(seconds: 30),
+    this.timeout = const Duration(seconds: 2),
+    DateTime Function()? clock,
+  }) : _run = run ?? _processRun(environment ?? Platform.environment),
+       _clock = clock ?? DateTime.now;
+
+  /// The app's reader (the real hyprctl from PATH).
+  static final shared = HyprRounding();
+
+  final HyprctlRun _run;
+  final DateTime Function() _clock;
+  final Duration every, timeout;
+  DateTime? _asked;
+  int? _value;
+  Future<int?>? _running;
+
+  Future<int?> read() {
+    final running = _running;
+    if (running != null) return running;
+    final asked = _asked;
+    if (asked != null && _clock().difference(asked) < every) return Future.value(_value);
+    _asked = _clock();
+    return _running = () async {
+      try {
+        final out = await _run(const ['-j', 'getoption', 'decoration:rounding'], timeout);
+        final value = out == null ? null : parseHyprRounding(out);
+        if (value != null) _value = value; // a failed ask keeps the last answer
+        return _value;
+      } on Object {
+        return _value;
+      } finally {
+        _running = null;
+      }
+    }();
+  }
+}
+
+/// `hyprctl -j getoption decoration:rounding`'s answer as the radius (0–64), or null.
+int? parseHyprRounding(String text) {
+  try {
+    final data = jsonDecode(text);
+    final v = data is Map ? data['int'] : null;
+    return v is int ? v.clamp(0, 64) : null;
+  } on FormatException {
+    return null;
+  }
+}
+
+/// hyprctl from [environment]'s PATH, without a shell; killed after the timeout.
+HyprctlRun _processRun(Map<String, String> environment) => (args, timeout) async {
+  String? exe;
+  for (final dir in (environment['PATH'] ?? '').split(':')) {
+    if (dir.isEmpty) continue;
+    final candidate = p.join(dir, 'hyprctl');
+    if (FileSystemEntity.typeSync(candidate) == FileSystemEntityType.file) {
+      exe = candidate;
+      break;
+    }
+  }
+  if (exe == null) return null;
+  final Process process;
+  try {
+    process = await Process.start(exe, args, environment: environment, includeParentEnvironment: false);
+  } on ProcessException {
+    return null;
+  }
+  unawaited(process.stdin.close());
+  final out = process.stdout.transform(utf8.decoder).join();
+  process.stderr.drain<void>().ignore();
+  try {
+    final code = await process.exitCode.timeout(timeout);
+    final text = await out.timeout(const Duration(seconds: 1));
+    return code == 0 ? text : null;
+  } on TimeoutException {
+    process.kill(ProcessSignal.sigkill);
+    return null;
+  }
+};
+
+Map<String, dynamic> _look(_Ctx ctx, int? hyprRounding) {
   final colors = switch (ctx.desktop) {
     DesktopId.cosmic => _cosmicColors(ctx),
     DesktopId.kde => _kdeColors(ctx),
@@ -58,7 +159,7 @@ Map<String, dynamic> _look(_Ctx ctx) {
     'rounding': switch (ctx.desktop) {
       DesktopId.cosmic => _cosmicRounding(ctx),
       DesktopId.kde => 8,
-      DesktopId.hyprland => null,
+      DesktopId.hyprland => hyprRounding?.clamp(0, 64),
       DesktopId.other => null,
     },
     'is_dark': bg == null ? null : _dark(bg),

@@ -14,7 +14,7 @@ class InfoPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final look = Look.of(context);
     Widget card(IconData icon, String name, List<String> lines) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: look.fg.withValues(alpha: .03),
         border: Border.all(color: look.fg.withValues(alpha: .10)),
@@ -24,14 +24,14 @@ class InfoPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 30, color: look.accent),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   name,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: look.fg),
+                  style: Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700, color: look.fg),
                 ),
                 for (final l in lines) Padding(padding: const EdgeInsets.only(top: 4), child: AnswerText(l)),
               ],

@@ -91,7 +91,7 @@ class _GamesPageState extends State<GamesPage> {
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(tr("Rename the game"), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        title: Text(tr("Rename the game"), style: Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700)),
         content: SizedBox(
           width: 420,
           child: TextField(
@@ -117,7 +117,7 @@ class _GamesPageState extends State<GamesPage> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(tr("Delete this game?"), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        title: Text(tr("Delete this game?"), style: Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700)),
         content: AnswerText(g.title),
         actions: [
           SmallButton(tr("Cancel"), onPressed: () => Navigator.pop(context)),
@@ -184,7 +184,7 @@ class _GamesPageState extends State<GamesPage> {
           children: [
             SelectableText(
               summary + (g.source.isNotEmpty ? ' · ${g.source}' : ''),
-              style: TextStyle(fontSize: 13, color: Look.of(context).muted),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Look.of(context).muted),
             ),
             if (moves.isNotEmpty) ...[const SizedBox(height: gap), AnswerText(moves)],
             const SizedBox(height: gap),

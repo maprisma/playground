@@ -11,7 +11,7 @@ class PageHead extends StatelessWidget {
   final Widget? trailing;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(17, 4, 17, 8),
+    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
     child: Row(
       children: [
         IconSmallButton(Icons.arrow_back, tooltip: tr("Back (Esc)"), onPressed: onBack),

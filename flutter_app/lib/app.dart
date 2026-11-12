@@ -60,8 +60,11 @@ final class Host {
 }
 
 class PlaygroundApp extends StatefulWidget {
-  const PlaygroundApp({super.key, required this.settings, required this.playground, this.args = const []});
+  const PlaygroundApp({super.key, required this.settings, required this.playground, this.args = const [], this.look = const {}});
   final Settings settings;
+
+  /// The desktop's look read before the window opened (desktop_look.dart).
+  final Map<String, dynamic> look;
   final Playground playground;
   final List<String> args;
   @override
@@ -69,30 +72,54 @@ class PlaygroundApp extends StatefulWidget {
 }
 
 class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserver {
-  Map<String, dynamic> _look = const {};
+  late Map<String, dynamic> _look = widget.look;
   StreamSubscription<bool>? _focus;
+  Timer? _lookTimer;
+  DateTime? _lookRead;
+  bool _reading = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _readLook();
+    _readLook(force: true);
+    // Maprisma Theme can change the desktop's colours at any time: read them again every 5 s
+    // and when the window gets the focus back (hyprctl's rounding at most every 30 s).
+    _lookTimer = Timer.periodic(const Duration(seconds: 5), (_) => _readLook(force: true));
     _focus = AppWindow.instance.focus.stream.listen((on) {
-      if (on) _readLook(); // the desktop's colours may have changed meanwhile
+      if (on) _readLook();
     });
   }
 
-  void _readLook() {
-    if (!mounted) return;
-    final look = desktopLook();
-    if (look.toString() != _look.toString()) setState(() => _look = look);
+  /// The look again; rebuilt only when it changed. Focus and brightness reads count against
+  /// the timer's: the files at most every 2 s.
+  Future<void> _readLook({bool force = false}) async {
+    final last = _lookRead;
+    if (!mounted || _reading) return;
+    if (!force && last != null && DateTime.now().difference(last) < const Duration(seconds: 2)) return;
+    _reading = true;
+    _lookRead = DateTime.now();
+    try {
+      final look = await readDesktopLook();
+      if (mounted && look.toString() != _look.toString()) setState(() => _look = look);
+    } on Object {
+      // the old look stays
+    } finally {
+      _reading = false;
+    }
   }
 
   @override
-  void didChangePlatformBrightness() => _readLook();
+  void didChangePlatformBrightness() => _readLook(force: true);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _readLook();
+  }
 
   @override
   void dispose() {
+    _lookTimer?.cancel();
     _focus?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -435,7 +462,7 @@ class AppHeader extends StatelessWidget {
     // A narrow (tiled) window keeps the tabs and symbols in view: the name gives way first.
     final wide = MediaQuery.sizeOf(context).width >= 1300;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(17, 8, 12, 8),
+      padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
       child: Row(
         children: [
           Tooltip(
@@ -446,7 +473,7 @@ class AppHeader extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               'Maprisma Playground',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: look.fg),
+              style: Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700, color: look.fg),
             ),
           ],
           SizedBox(width: wide ? 16 : 10),
@@ -547,12 +574,12 @@ class HeaderTabs extends StatelessWidget {
   final String page;
   final ValueChanged<String> onShow;
 
-  static const spacing = 4.0, padding = 11.0;
-  static const style = TextStyle(fontSize: 14, fontWeight: FontWeight.w700);
+  static const spacing = 4.0, padding = 12.0;
 
   @override
   Widget build(BuildContext context) {
     final look = Look.of(context);
+    final style = Theme.of(context).textTheme.labelLarge!.copyWith(fontWeight: FontWeight.w700);
     final radius = cornerSizes(context).control;
     final scaler = MediaQuery.textScalerOf(context);
     final natural = [
@@ -642,7 +669,7 @@ class _ScreenshotNoteDialogState extends State<ScreenshotNoteDialog> {
       if (!didPop) _done(); // Esc or a click beside it: the note is kept too
     },
     child: AlertDialog(
-      title: Text(tr("Screenshot saved"), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+      title: Text(tr("Screenshot saved"), style: Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700)),
       content: SizedBox(
         width: 460,
         child: Column(
@@ -656,7 +683,7 @@ class _ScreenshotNoteDialogState extends State<ScreenshotNoteDialog> {
               controller: _note,
               autofocus: true,
               maxLength: screenshotNoteLimit,
-              style: const TextStyle(fontSize: 13),
+              style: Theme.of(context).textTheme.bodyMedium,
               decoration: InputDecoration(hintText: tr("What is wrong? (optional)"), counterText: ''),
               onSubmitted: (_) => _done(),
             ),

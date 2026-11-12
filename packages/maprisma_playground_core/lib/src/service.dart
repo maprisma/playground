@@ -41,6 +41,9 @@ class CoreService {
   late final games = GamesStore(settings.places.gamesFile);
   late final importer = ChessImport(runner, http, pictures, frames, games);
   final Map<String, String> environment;
+
+  /// Hyprland's window rounding for app.info's look (hyprctl from this environment's PATH).
+  late final HyprRounding _hypr = HyprRounding(environment: environment);
   final ProcessRunner runner;
   final LocalHttp http;
   final Settings settings;
@@ -181,7 +184,7 @@ class CoreService {
         return {
           'version': '0.1.0',
           'desktop': desktop.name,
-          'look': desktopLook(desktop: desktop, paths: LookPaths.fromEnv(environment)),
+          'look': await readDesktopLook(desktop: desktop, paths: LookPaths.fromEnv(environment), hypr: _hypr),
         };
       case 'settings.get':
         final keys = p.containsKey('keys') ? _strings(p['keys']) : schema.keys.toList();

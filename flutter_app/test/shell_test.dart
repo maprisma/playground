@@ -324,6 +324,31 @@ void main() {
       expect((appTheme(Brightness.dark, const {}, 0).sliderTheme.thumbShape! as KnobShape).square, isTrue);
       expect((theme.sliderTheme.thumbShape! as KnobShape).square, isFalse);
     });
+
+    testWidgets('a Hyprland look: the palette\'s colours and hyprctl\'s rounding (15)', (tester) async {
+      const look = {
+        'desktop': 'hyprland',
+        'colors': {'background': '#231a13', 'accent': '#e78a4e', 'foreground': '#e8d5b7'},
+        'rounding': 15,
+      };
+      final radius = cornerRadius('windows', look['rounding'] as int?);
+      late BuildContext ctx;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: appTheme(Brightness.light, look['colors'] as Map, radius),
+          home: Builder(builder: (context) => SizedBox.shrink(key: Key('${ctx = context}'))),
+        ),
+      );
+      final colors = Theme.of(ctx).colorScheme;
+      expect(colors.surface, const Color(0xff231a13));
+      expect(colors.primary, const Color(0xffe78a4e));
+      expect(colors.onPrimary, const Color(0xffffffff)); // luminance .36 (≤ .4): white text on it
+      expect(appTheme(Brightness.dark, const {'background': '#231a13', 'accent': '#f9e2af'}, 12).colorScheme.onPrimary, const Color(0xff000000));
+      expect(Theme.of(ctx).brightness, Brightness.dark);
+      expect(cornerSizes(ctx).radius, 15);
+      expect(cornerSizes(ctx).control, 8);
+      expect(cornerRadius('rounded', 15), 12);
+    });
   });
 }
 

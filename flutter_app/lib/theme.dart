@@ -121,8 +121,11 @@ ThemeData appTheme(Brightness platform, Map colors, double radius) {
   if (background != null) {
     final foreground = hexColor(colors, 'foreground') ?? scheme.onSurface;
     Color step(double amount) => Color.lerp(background, foreground, amount)!;
+    final accent = hexColor(colors, 'accent');
     scheme = scheme.copyWith(
-      primary: hexColor(colors, 'accent') ?? scheme.primary,
+      primary: accent ?? scheme.primary,
+      // Text on the accent: black on a light one, else white.
+      onPrimary: accent == null ? null : (accent.computeLuminance() > .4 ? Colors.black : Colors.white),
       surface: background,
       onSurface: foreground,
       onSurfaceVariant: hexColor(colors, 'muted') == null
@@ -201,7 +204,7 @@ ThemeData appTheme(Brightness platform, Map colors, double radius) {
       surfaceTintColor: Colors.transparent,
       elevation: 6,
       shadowColor: Colors.black54,
-      menuPadding: const EdgeInsets.all(5),
+      menuPadding: const EdgeInsets.all(4),
       textStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: fg),
       shape: shape,
     ),
@@ -209,7 +212,7 @@ ThemeData appTheme(Brightness platform, Map colors, double radius) {
     inputDecorationTheme: InputDecorationTheme(
       filled: false,
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       hintStyle: TextStyle(color: look.muted, fontSize: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(control),
@@ -239,7 +242,7 @@ ThemeData appTheme(Brightness platform, Map colors, double radius) {
       contentTextStyle: TextStyle(color: look.selectionFg, fontSize: 14),
       actionTextColor: look.selectionFg,
       behavior: SnackBarBehavior.floating,
-      insetPadding: const EdgeInsets.all(17),
+      insetPadding: const EdgeInsets.all(16),
       shape: shape,
     ),
     checkboxTheme: CheckboxThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(small))),

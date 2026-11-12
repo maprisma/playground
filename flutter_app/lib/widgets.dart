@@ -24,7 +24,7 @@ const gap = 12.0; // ai_core.GAP
 /// One height for the small controls: small buttons, choice boxes, fields (the plugin's 22 px).
 const controlHeight = 22.0;
 
-/// .am-section-title: 12 px, bold, letter-spaced, in capitals.
+/// .am-section-title: the 11 px bold upper-case heading (the one raw size the layout rules allow).
 class SectionTitle extends StatelessWidget {
   const SectionTitle(this.text, {super.key, this.color});
   final String text;
@@ -32,7 +32,7 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text.toUpperCase(),
-    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1, color: color ?? Look.of(context).fg),
+    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1, color: color ?? Look.of(context).fg),
   );
 }
 
@@ -46,9 +46,7 @@ class Hint extends StatelessWidget {
     final look = Look.of(context);
     return Text(
       text,
-      style: TextStyle(
-        fontSize: 12,
-        color: error ? look.red : look.muted,
+      style: Theme.of(context).textTheme.bodySmall!.copyWith(color: error ? look.red : look.muted,
         fontWeight: error ? FontWeight.w700 : FontWeight.w400,
         height: 1.35,
       ),
@@ -63,7 +61,7 @@ class TabIntro extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: [SectionTitle(title), const SizedBox(height: 6), Hint(text)],
+    children: [SectionTitle(title), const SizedBox(height: 4), Hint(text)],
   );
 }
 
@@ -90,7 +88,7 @@ class MarkText extends StatelessWidget {
       child: Text(
         text,
         textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: color, height: 1),
+        style: Theme.of(context).textTheme.titleLarge!.copyWith(fontWeight: FontWeight.w800, color: color, height: 1),
       ),
     );
   }
@@ -166,7 +164,7 @@ class _FoldCardState extends State<FoldCard> {
                               widget.summary,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 11, color: look.dim),
+                              style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.dim),
                             ),
                     ),
                     ?widget.action,
@@ -180,7 +178,7 @@ class _FoldCardState extends State<FoldCard> {
             alignment: Alignment.topCenter,
             child: open
                 ? Padding(
-                    padding: const EdgeInsets.only(top: gap, bottom: 6),
+                    padding: const EdgeInsets.only(top: gap, bottom: 8),
                     child: widget.child,
                   )
                 : const SizedBox(width: double.infinity),
@@ -208,15 +206,15 @@ class SmallButton extends StatelessWidget {
         side: BorderSide(color: look.fg.withValues(alpha: .35)),
         // .am-small-btn: the controls' height (22 px) and corners (Settings › Corners, at most 8).
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(cornerSizes(context).control)),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         minimumSize: const Size(0, controlHeight),
         visualDensity: VisualDensity.standard,
-        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        textStyle: Theme.of(context).textTheme.labelMedium!.copyWith(fontWeight: FontWeight.w700),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[Icon(icon, size: 15), if (label.isNotEmpty) const SizedBox(width: 6)],
+          if (icon != null) ...[Icon(icon, size: 15), if (label.isNotEmpty) const SizedBox(width: 4)],
           if (label.isNotEmpty) Text(label),
         ],
       ),
@@ -242,7 +240,7 @@ class IconSmallButton extends StatelessWidget {
           foregroundColor: look.fg,
           side: BorderSide(color: look.fg.withValues(alpha: .35)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(cornerSizes(context).control)),
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           minimumSize: const Size(26, controlHeight),
           visualDensity: VisualDensity.standard,
         ),
@@ -271,8 +269,8 @@ class ActionButton extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(cornerSizes(context).control)),
         minimumSize: const Size(120, 34),
         visualDensity: VisualDensity.standard,
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
-        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+        textStyle: Theme.of(context).textTheme.labelLarge!.copyWith(fontWeight: FontWeight.w600),
       ),
       child: Text(label),
     );
@@ -306,7 +304,7 @@ class Choice<T> extends StatelessWidget {
     final text = value == null ? empty : label(value as T);
     Widget pill = Container(
       constraints: const BoxConstraints(minHeight: controlHeight),
-      padding: const EdgeInsets.fromLTRB(10, 2, 6, 2),
+      padding: const EdgeInsets.fromLTRB(8, 0, 4, 0),
       decoration: BoxDecoration(
         border: Border.all(color: look.fg.withValues(alpha: .35)),
         borderRadius: BorderRadius.circular(radius),
@@ -318,10 +316,10 @@ class Choice<T> extends StatelessWidget {
             child: Text(
               text,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: enabled ? look.fg : look.dim),
+              style: Theme.of(context).textTheme.bodySmall!.copyWith(color: enabled ? look.fg : look.dim),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
           Icon(Icons.expand_more, size: 16, color: enabled ? look.fg : look.dim),
         ],
       ),
@@ -384,10 +382,10 @@ class _PromptFieldState extends State<PromptField> {
       focusNode: _focus,
       minLines: widget.minLines,
       maxLines: 12,
-      style: const TextStyle(fontSize: 13, height: 1.4),
+      style: Theme.of(context).textTheme.bodyMedium!.copyWith(height: 1.4),
       decoration: InputDecoration(
         hintText: widget.hint,
-        contentPadding: _mic ? const EdgeInsets.fromLTRB(8, 9, 40, 9) : null,
+        contentPadding: _mic ? const EdgeInsets.fromLTRB(8, 8, 40, 8) : null,
       ),
     );
     if (widget.onSubmit != null) {
@@ -489,7 +487,7 @@ Future<void> showDictationSetup(BuildContext context, Dictation dictation) async
   final open = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(tr(dictationSetupTitle), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+      title: Text(tr(dictationSetupTitle), style: Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700)),
       content: SizedBox(width: 440, child: AnswerText(tr(dictationSetupText))),
       actions: [
         SmallButton(tr("Close"), onPressed: () => Navigator.pop(context, false)),
@@ -510,9 +508,7 @@ class AnswerText extends StatelessWidget {
     final look = Look.of(context);
     return SelectableText(
       text,
-      style: TextStyle(
-        fontSize: 13,
-        height: 1.4,
+      style: Theme.of(context).textTheme.bodyMedium!.copyWith(height: 1.4,
         color: error ? look.red : look.fg,
         fontFamily: mono ? 'monospace' : null,
       ),
@@ -534,7 +530,7 @@ class CheckLabel extends StatelessWidget {
       borderRadius: BorderRadius.circular(cornerSizes(context).small),
       onTap: onChanged == null ? null : () => onChanged!(!value),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+        padding: const EdgeInsets.all(4),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -551,7 +547,7 @@ class CheckLabel extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Flexible(
-              child: Text(label, style: TextStyle(fontSize: 12, color: onChanged == null ? look.dim : look.fg)),
+              child: Text(label, style: Theme.of(context).textTheme.bodySmall!.copyWith(color: onChanged == null ? look.dim : look.fg)),
             ),
           ],
         ),
@@ -569,7 +565,7 @@ class PageScroll extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
     controller: controller,
-    padding: const EdgeInsets.fromLTRB(17, 6, 17, 17),
+    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
   );
 }

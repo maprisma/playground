@@ -207,7 +207,7 @@ class _GeneratePageState extends State<GeneratePage> {
         if (_status != null && !_ready) ...[
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: card(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,7 +253,7 @@ class _GeneratePageState extends State<GeneratePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_progress, style: TextStyle(fontSize: 12, color: look.muted)),
+                    Text(_progress, style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.muted)),
                     const SizedBox(height: 4),
                     LinearProgressIndicator(value: _fraction > 0 ? _fraction : null, minHeight: 6),
                   ],
@@ -276,7 +276,7 @@ class _GeneratePageState extends State<GeneratePage> {
                 for (final p in _pictures)
                   Container(
                     width: width,
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: card(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,12 +289,12 @@ class _GeneratePageState extends State<GeneratePage> {
                             child: Image.file(File(p.path), fit: BoxFit.contain),
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Hint(trf("{0} s · seed {1}", [p.seconds.toStringAsFixed(1), p.seed])),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
+                          spacing: 8,
+                          runSpacing: 8,
                           children: [
                             SmallButton(tr("Save as…"), onPressed: () => _save(p)),
                             SmallButton(

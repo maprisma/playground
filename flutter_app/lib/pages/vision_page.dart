@@ -275,12 +275,12 @@ class _VisionPageState extends State<VisionPage> {
         if (_images.isNotEmpty) ...[
           vgap,
           Wrap(
-            spacing: 6,
-            runSpacing: 6,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               for (final p in _images)
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(corners(context).clamp(0, 8)),
+                  borderRadius: BorderRadius.circular(cornerSizes(context).control),
                   child: Container(
                     width: 160,
                     height: 100,

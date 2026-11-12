@@ -123,7 +123,7 @@ class _LocalPageState extends State<LocalPage> {
               empty: p.scanning ? tr("Looking…") : tr("No local LLM server is running"),
               onChanged: (c) => setState(() => _first = c.id),
             ),
-            Text(tr("compared with"), style: TextStyle(fontSize: 13, color: look.fg)),
+            Text(tr("compared with"), style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: look.fg)),
             Tooltip(
               message: tr(
                 "A second model gets the same question; if both may not fit in GPU memory together, you are asked first",

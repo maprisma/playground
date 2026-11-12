@@ -155,14 +155,14 @@ class _GpuDialog extends StatelessWidget {
     return AlertDialog(
       title: Text(
         tr("These local models may not fit in GPU memory together"),
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: look.fg),
+        style: Theme.of(context).textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700, color: look.fg),
       ),
       content: SizedBox(
         width: 460,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [for (final l in lines) Padding(padding: const EdgeInsets.only(bottom: 6), child: AnswerText(l))],
+          children: [for (final l in lines) Padding(padding: const EdgeInsets.only(bottom: 8), child: AnswerText(l))],
         ),
       ),
       actions: [
@@ -228,7 +228,7 @@ class RunCard extends StatelessWidget {
     child: FoldCard(
       title: run.contestant.name,
       initiallyOpen: true, // the time line stays in view, open or folded (as the plugin's)
-      action: Text(run.summary(), style: TextStyle(fontSize: 11, color: Look.of(context).dim)),
+      action: Text(run.summary(), style: Theme.of(context).textTheme.bodySmall!.copyWith(color: Look.of(context).dim)),
       child: AnswerText(run.done ? run.text : (waiting ?? tr('asking…')), error: run.failed),
     ),
   );

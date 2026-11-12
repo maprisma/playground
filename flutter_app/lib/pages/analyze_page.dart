@@ -225,7 +225,7 @@ class _AnalyzePageState extends State<AnalyzePage> {
                 child: Text(
                   f.summary,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11, color: look.dim),
+                  style: Theme.of(context).textTheme.bodySmall!.copyWith(color: look.dim),
                 ),
               ),
             ),
