@@ -68,8 +68,8 @@ starts with "Maprisma" so the Maprisma Icons widget picks it up.
 - `~/.local/share/maprisma-playground/`: the sd.cpp program and the Z-Image-Turbo model (~11 GB).
 - No shared Omarchy names: the plugin's folders live on the Omarchy install, not here.
 
-**Window:** the window is a normal one. Closing it quits the app. `--toggle` closes the window if
-it is in front, and otherwise starts the app or raises it. A second start hands its arguments to
+**Window:** the window is a normal one. Closing it quits the app. `--toggle` (and Esc on a tab) hides a
+shown window while work runs and closes it otherwise, and otherwise starts the app or shows it. A second start hands its arguments to
 the running app over a unix socket in `$XDG_RUNTIME_DIR` (as Theme/Launcher do). Arguments:
 `--agent <command> --test <tab>`.
 

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maprisma_playground/app.dart';
 import 'package:maprisma_playground/backend.dart';
+import 'package:maprisma_playground/window.dart';
 import 'package:maprisma_playground/work.dart';
 
 /// Rule 5a for the Playground: Esc on a tab never stops running work; it hides the window then.
@@ -52,5 +55,27 @@ void main() {
     closeOrHide();
     await pumpEventQueue();
     expect(calls, ['hide', 'close']);
+  });
+
+  test('--toggle asks "busy": the runner hides while work runs, closes otherwise', () async {
+    AppWindow.instance; // its handler answers the runner
+    const codec = StandardMethodCodec();
+    Future<Object?> ask() async {
+      final reply = Completer<Object?>();
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
+        'maprisma-playground/window',
+        codec.encodeMethodCall(const MethodCall('busy')),
+        (data) => reply.complete(codec.decodeEnvelope(data!)),
+      );
+      return reply.future;
+    }
+
+    final owner = Object();
+    var running = true;
+    Work.watch(owner, () => running);
+    addTearDown(() => Work.unwatch(owner));
+    expect(await ask(), isTrue);
+    running = false;
+    expect(await ask(), isFalse);
   });
 }

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
+import 'work.dart';
+
 /// Something dropped onto the window: image bytes (a picture from a browser)
 /// or a text/uri-list (files from the file manager, a link from a browser).
 final class Drop {
@@ -42,6 +44,9 @@ final class AppWindow {
         focus.add(false);
       case 'closing':
         closing.add(null);
+      case 'busy':
+        // --toggle on a shown window: hide while work runs, else close (as Esc on a tab).
+        return Work.running;
       case 'open':
         opened.add([for (final w in call.arguments as List) '$w']);
       case 'dragMotion':

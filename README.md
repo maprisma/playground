@@ -40,8 +40,9 @@ entry and icons.
   panel widget shows it with the other Maprisma apps.
 - **COSMIC:** add "Maprisma Playground" in Settings › Desktop › Panel › Applets.
 
-A click on the icon opens Maprisma Playground, brings it to the front, or closes it when it is
-already the window in front (`maprisma-playground --toggle`). `maprisma-playground --test chess`
+A click on the icon opens Maprisma Playground; when the window is shown (focused or not) it hides
+it while something runs (a game, a generation, an agent, a download) and closes it otherwise
+(`maprisma-playground --toggle`). Esc on a tab does the same. `maprisma-playground --test chess`
 opens a tab (or `--test analyze` the Analyze page), including in a window that is already open.
 
 Optional tools, each only for the feature named:

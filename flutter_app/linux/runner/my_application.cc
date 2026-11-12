@@ -18,6 +18,8 @@ struct _MyApplication {
   FlMethodChannel* window_channel;
   gboolean hidden_start;
   gboolean closing;
+  // --toggle asked Dart whether work runs ("busy") and waits for the answer.
+  gboolean asking_busy;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -271,8 +273,32 @@ static gboolean sigterm_cb(gpointer user_data) {
   return G_SOURCE_CONTINUE;
 }
 
-// --toggle (the bar icon, the applet, a shortcut): a shown window closes as its close button
-// does, focused or not (a click on the bar may take the focus first); else show and focus.
+// Dart's answer to "busy": work runs (a game, a generation, an agent, a download, a model load,
+// the automaton) -> the window only hides, nothing stops; else it closes as the close button.
+static void busy_answered_cb(GObject* object, GAsyncResult* result, gpointer user_data) {
+  MyApplication* self = MY_APPLICATION(user_data);
+  self->asking_busy = FALSE;
+  g_autoptr(GError) error = nullptr;
+  g_autoptr(FlMethodResponse) response =
+      fl_method_channel_invoke_method_finish(FL_METHOD_CHANNEL(object), result, &error);
+  gboolean busy = FALSE;
+  if (response != nullptr) {
+    FlValue* value = fl_method_response_get_result(response, nullptr);
+    busy = value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL && fl_value_get_bool(value);
+  }
+  if (self->closing) return;
+  GtkWindow* window = gtk_application_get_active_window(GTK_APPLICATION(self));
+  if (window == nullptr || !gtk_widget_get_visible(GTK_WIDGET(window))) return;
+  if (busy) {
+    gtk_widget_hide(GTK_WIDGET(window));
+  } else {
+    begin_close(self);
+  }
+}
+
+// --toggle (the bar icon, the applet, a shortcut): a shown window goes away, focused or not (a
+// click on the bar may take the focus first) -- as Esc on a tab: hidden while work runs (the
+// next toggle shows it again), else closed as its close button does. A hidden one is shown.
 static void toggle_activated(GSimpleAction* action, GVariant* parameter,
                              gpointer user_data) {
   MyApplication* self = MY_APPLICATION(user_data);
@@ -281,9 +307,15 @@ static void toggle_activated(GSimpleAction* action, GVariant* parameter,
     g_application_activate(G_APPLICATION(self));
     return;
   }
-  if (self->closing) return;
+  if (self->closing || self->asking_busy) return;
   if (gtk_widget_get_visible(GTK_WIDGET(window))) {
-    begin_close(self);
+    if (self->window_channel == nullptr) {
+      begin_close(self);
+      return;
+    }
+    self->asking_busy = TRUE;
+    fl_method_channel_invoke_method(self->window_channel, "busy", nullptr, nullptr,
+                                    busy_answered_cb, self);
     return;
   }
   show_window(self, window);
