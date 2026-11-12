@@ -49,7 +49,7 @@ bool _text(Object? v) => v is String;
 bool _bool(Object? v) => v is bool;
 bool _texts(Object? v) => v is List && v.every((x) => x is String);
 bool _map(Object? v) => v is Map;
-bool _size(Object? v) => v is List && v.length == 2 && v.every((x) => x is int && x > 0);
+bool _size(Object? v) => v is List && v.length == 2 && v.every((x) => x is int && x > 0 && x <= 20000);
 bool Function(Object?) _oneOf(List<String> choices) =>
     (v) => choices.contains(v);
 
@@ -67,7 +67,7 @@ final Map<String, Setting> schema = {
     "Settings › Corners: the desktop's, slightly rounded (6 px), rounded (12 px) or square",
   ),
   'screenshot_key': Setting(true, _bool, 'Settings › F12 saves a screenshot (with a note)'),
-  'window_size': Setting(null, _size, "the window's size when it was last closed: [width, height]"),
+  'window_size': Setting(null, _size, "the window's size as the user left it (saved after a resize): [width, height]"),
   'automaton_rule': Setting('B3/S23', _text, 'Automaton › Rule'),
   'automaton_speed': Setting(10, (v) => v is int && v >= 1 && v <= 60, 'Automaton › Speed (generations per second)'),
   'automaton_colors': Setting('age', _oneOf(['age', 'plain']), 'Automaton › Colours: by age or one colour'),

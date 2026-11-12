@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:maprisma_playground/app.dart';
 import 'package:maprisma_playground/backend.dart';
 import 'package:maprisma_playground/contestants.dart';
+import 'package:maprisma_playground/esc_close.dart';
 import 'package:maprisma_playground/pages/chess_page.dart';
 import 'package:maprisma_playground/theme.dart';
 import 'package:maprisma_playground/widgets.dart';
@@ -86,6 +87,49 @@ void main() {
     await tester.tap(find.byTooltip('Back (Esc)'));
     await tester.pump();
     expect(lit(tester, 'settings'), isFalse);
+  });
+
+  testWidgets('Esc (rule 5a): Back from a symbol page, then the window closes as its close button', (tester) async {
+    var closed = 0;
+    final esc = EscFallback(onClose: () => closed++)..attach();
+    addTearDown(esc.detach);
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: appTheme(Brightness.dark, const {}, 8),
+        builder: (context, child) => windowFrame(context, esc.wrap(child!)),
+        navigatorObservers: [esc],
+        home: Shell(
+          esc: esc,
+          settings: settings,
+          playground: Playground(Backend.idle()),
+          args: const [],
+          onLookChanged: () {},
+          screenshots: '${home.path}/Pictures/Maprisma Playground',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('symbol-settings')));
+    await tester.pump();
+    expect(lit(tester, 'settings'), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(lit(tester, 'settings'), isFalse);
+    expect(closed, 0);
+    // The Board and pieces menu (a MenuAnchor, no route) closes before the window.
+    await tester.tap(find.byTooltip('Board and pieces'));
+    await tester.pumpAndSettle();
+    expect(EscFallback.menus.any((m) => m.isOpen), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(EscFallback.menus.any((m) => m.isOpen), isFalse);
+    expect(closed, 0);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(closed, 1);
   });
 
   testWidgets('Ctrl+1 … Ctrl+7 switch tabs, Ctrl+8 does nothing', (tester) async {

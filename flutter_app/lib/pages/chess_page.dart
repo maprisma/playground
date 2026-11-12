@@ -16,6 +16,7 @@ import '../app.dart';
 import '../backend.dart';
 import '../chess_board.dart';
 import '../contestants.dart';
+import '../esc_close.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../window.dart';
@@ -62,6 +63,7 @@ class _ChessPageState extends State<ChessPage> {
     s.toast = widget.host.toast;
     s.addListener(_changed);
     ChessPage._paste = _paste;
+    EscFallback.menus.add(_look); // Esc closes the Board and pieces menu before anything else
     _subscriptions
       ..add(
         AppWindow.instance.dragging.stream.listen((at) {
@@ -82,6 +84,7 @@ class _ChessPageState extends State<ChessPage> {
   void dispose() {
     s.removeListener(_changed);
     if (ChessPage._paste == _paste) ChessPage._paste = null;
+    EscFallback.menus.remove(_look);
     for (final sub in _subscriptions) {
       sub.cancel();
     }

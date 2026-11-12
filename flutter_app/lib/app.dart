@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:maprisma_playground_core/maprisma_playground_core.dart';
 
 import 'contestants.dart';
+import 'esc_close.dart';
 import 'pages/analyze_page.dart';
 import 'pages/automaton_page.dart';
 import 'pages/chess_page.dart';
@@ -23,6 +24,7 @@ import 'pages/todo_page.dart';
 import 'theme.dart';
 import 'widgets.dart';
 import 'window.dart';
+import 'window_size.dart';
 
 /// The tabs, in the plugin's order with the Automaton after Chess (Ctrl+1 … Ctrl+7). Analyze is
 /// not a tab: it is a header symbol's page, as Information and Settings.
@@ -74,6 +76,33 @@ class PlaygroundApp extends StatefulWidget {
 class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserver {
   late Map<String, dynamic> _look = widget.look;
   StreamSubscription<bool>? _focus;
+
+  /// Esc that no page took (rule 5a): leave a field, Back on a symbol page, then close the window
+  /// as its close button does.
+  late final _esc = EscFallback(onClose: () => AppWindow.instance.close());
+
+  /// The window's size, saved half a second after the last resize (rule 5a).
+  late final _windowSize = WindowSizeKeeper(
+    saved: _savedSize(),
+    geometry: AppWindow.instance.geometry,
+    save: (w, h) async => widget.settings.update({
+      'window_size': [w, h],
+    }),
+  );
+
+  (int, int)? _savedSize() {
+    try {
+      return parseWindowSize(widget.settings.get('window_size'));
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    _windowSize.resized();
+  }
   Timer? _lookTimer;
   DateTime? _lookRead;
   bool _reading = false;
@@ -82,6 +111,7 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _esc.attach();
     _readLook(force: true);
     // Maprisma Theme can change the desktop's colours at any time: read them again every 5 s
     // and when the window gets the focus back (hyprctl's rounding at most every 30 s).
@@ -121,6 +151,8 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
   void dispose() {
     _lookTimer?.cancel();
     _focus?.cancel();
+    _esc.detach();
+    _windowSize.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -136,8 +168,10 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
       title: 'Maprisma Playground',
       debugShowCheckedModeBanner: false,
       theme: theme,
-      builder: windowFrame,
+      builder: (context, child) => windowFrame(context, _esc.wrap(child!)),
+      navigatorObservers: [_esc],
       home: Shell(
+        esc: _esc,
         settings: widget.settings,
         playground: widget.playground,
         args: widget.args,
@@ -157,10 +191,15 @@ class Shell extends StatefulWidget {
     this.rounding,
     required this.onLookChanged,
     this.screenshots,
+    this.esc,
   });
   final Settings settings;
   final Playground playground;
   final List<String> args;
+
+  /// The app's Esc fallback: the symbol pages (Settings, Information, Analyze, Games) are its
+  /// side pages.
+  final EscFallback? esc;
   final int? rounding;
   final VoidCallback onLookChanged;
 
@@ -192,9 +231,9 @@ class _ShellState extends State<Shell> {
     _lastTab = _page;
     _open(widget.args);
     HardwareKeyboard.instance.addHandler(_f12);
-    if (widget.settings.get('window_size') case [final int w, final int h]) {
-      AppWindow.instance.resize(w, h); // a tiling desktop may still place it as it likes
-    }
+    widget.esc
+      ?..sidePage = (() => symbolPages.contains(_page))
+      ..onBack = (() => _show(_lastTab));
     _subscriptions
       ..add(AppWindow.instance.opened.stream.listen(_open))
       ..add(AppWindow.instance.closing.stream.listen((_) => _close()));
@@ -204,24 +243,9 @@ class _ShellState extends State<Shell> {
   /// every agent, download and held model it started, and only then the app quits.
   Future<void> _close() async {
     _remember();
-    _rememberSize();
     ChessSession.disposeAll();
     await widget.playground.backend.shutdown();
     await AppWindow.instance.quit();
-  }
-
-  /// The window's size when it closes (the plugin's window_size): the next start opens so.
-  void _rememberSize() {
-    final view = View.of(context);
-    final size = view.physicalSize / view.devicePixelRatio;
-    if (size.width < 400 || size.height < 300) return;
-    try {
-      widget.settings.update({
-        'window_size': [size.width.round(), size.height.round()],
-      });
-    } on Object {
-      // not remembered
-    }
   }
 
   void _open(List<String> words) {
@@ -240,6 +264,11 @@ class _ShellState extends State<Shell> {
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_f12);
+    if (widget.esc case final esc?) {
+      esc
+        ..sidePage = null
+        ..onBack = null;
+    }
     for (final s in _subscriptions) {
       s.cancel();
     }

@@ -1,5 +1,5 @@
 // Maprisma Playground's gamepad in the KDE system tray (a StatusNotifierItem with a dbusmenu).
-// A click opens Maprisma Playground, brings it to the front, or closes it when it is in front
+// A click opens Maprisma Playground, brings it to the front, or closes it when it is shown
 // (`maprisma-playground --toggle`); the menu opens it on a tab. Its title starts with
 // "Maprisma", so the Maprisma Icons panel widget shows it among the others.
 mod model;

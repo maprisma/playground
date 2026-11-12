@@ -22,7 +22,7 @@ final class AppWindow {
   final shown = StreamController<void>.broadcast();
   final focus = StreamController<bool>.broadcast();
 
-  /// The app is about to quit (closed, or --toggle while in front): stop what runs, keep the state.
+  /// The app is about to quit (closed, Esc, or --toggle while shown): stop what runs, keep the state.
   final closing = StreamController<void>.broadcast();
 
   /// A second start's words (`--agent <command> --test <tab>`).
@@ -67,6 +67,20 @@ final class AppWindow {
   }
 
   Future<void> present() => _call('present');
+
+  /// Esc on a tab with nothing open: close as the window's close button does ("closing", then
+  /// quit; what runs is stopped, the state kept).
+  Future<void> close() => _call('close');
+
+  /// {width, height, free}: GTK's size (title bar included), free = shown and neither maximized,
+  /// fullscreen nor tiled.
+  Future<Object?> geometry() async {
+    try {
+      return await _channel.invokeMethod<Object?>('geometry');
+    } on MissingPluginException {
+      return null;
+    }
+  }
 
   /// After `closing` was handled: the native side quits now (it also does after a grace time).
   Future<void> quit() => _call('quit');

@@ -4,10 +4,19 @@ import 'package:maprisma_playground_core/maprisma_playground_core.dart';
 import 'app.dart';
 import 'backend.dart';
 import 'contestants.dart';
+import 'window.dart';
+import 'window_size.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   final settings = Settings(Places.fromEnv());
+  // Rule 5a: the window opens at the size the user left it (clamped to the screen by the runner).
+  try {
+    final size = parseWindowSize(settings.get('window_size'));
+    if (size != null) AppWindow.instance.resize(size.$1, size.$2);
+  } on Object {
+    // the default size
+  }
   setLanguage(resolveLanguage(settings.text('language'))); // the core sets its own the same way
   final backend = await Backend.launch();
   final playground = Playground(backend);

@@ -1,5 +1,5 @@
 // Maprisma Playground for COSMIC: its gamepad in the panel. A click opens Maprisma Playground,
-// brings it to the front, or closes it when it is the window in front.
+// brings it to the front, or closes it when it is shown (focused or not).
 //
 // That is the app's own: `maprisma-playground --toggle` (single instance).
 
