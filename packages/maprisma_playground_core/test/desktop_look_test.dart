@@ -20,7 +20,7 @@ void main() {
   });
 
   test('Hyprland: the colours come from Caelestia\'s scheme', () {
-    File('${root.path}/state/caelestia/scheme.json')
+    File('${root.path}/state/maprisma-shell/scheme.json')
       ..createSync(recursive: true)
       ..writeAsStringSync(jsonEncode({
         'name': 'dynamic',
@@ -41,7 +41,7 @@ void main() {
 
   test('Hyprland without Caelestia (or a broken file): no colours, nothing throws', () {
     expect(desktopLook(desktop: DesktopId.hyprland, paths: paths)['colors'], isEmpty);
-    File('${root.path}/state/caelestia/scheme.json')
+    File('${root.path}/state/maprisma-shell/scheme.json')
       ..createSync(recursive: true)
       ..writeAsStringSync('{not json');
     expect(desktopLook(desktop: DesktopId.hyprland, paths: paths)['colors'], isEmpty);

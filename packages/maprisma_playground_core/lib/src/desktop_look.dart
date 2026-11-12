@@ -28,7 +28,7 @@ final class LookPaths {
   }
   final String config, root;
 
-  /// XDG_STATE_HOME (Caelestia keeps its colour scheme there).
+  /// XDG_STATE_HOME (Maprisma Shell keeps its colour scheme there).
   final String state;
 }
 
@@ -48,7 +48,7 @@ Map<String, dynamic> _look(_Ctx ctx) {
   final colors = switch (ctx.desktop) {
     DesktopId.cosmic => _cosmicColors(ctx),
     DesktopId.kde => _kdeColors(ctx),
-    DesktopId.hyprland => _caelestiaColors(ctx),
+    DesktopId.hyprland => _shellColors(ctx),
     DesktopId.other => <String, String>{},
   };
   final bg = colors['background'];
@@ -181,12 +181,13 @@ String? ronColor(String? value) {
   return '#${hex(r)}${hex(g)}${hex(b)}';
 }
 
-// --- Hyprland with Caelestia ----------------------------------------------------------------
+// --- Hyprland with Maprisma Shell -----------------------------------------------------------
 
-/// Caelestia's colour scheme (XDG_STATE_HOME/caelestia/scheme.json, Material names, hex
-/// without '#'); empty without Caelestia, so the app keeps its own colours.
-Map<String, String> _caelestiaColors(_Ctx ctx) {
-  final text = _read(p.join(ctx.paths.state, 'caelestia', 'scheme.json'), 256 * 1024);
+/// Maprisma Shell's colour scheme (XDG_STATE_HOME/maprisma-shell/scheme.json, written by
+/// Maprisma Theme; Material names, hex without '#'); empty without it, so the app keeps its
+/// own colours.
+Map<String, String> _shellColors(_Ctx ctx) {
+  final text = _read(p.join(ctx.paths.state, 'maprisma-shell', 'scheme.json'), 256 * 1024);
   if (text == null) return {};
   Object? data;
   try {
