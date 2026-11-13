@@ -4,6 +4,7 @@ library;
 export 'src/chess_rules.dart';
 export 'src/desktop_look.dart';
 export 'src/settings.dart';
+export 'src/shared_ai.dart';
 export 'src/runner.dart';
 export 'src/agents.dart';
 export 'src/helpers_catalog.dart';

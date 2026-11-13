@@ -1,4 +1,5 @@
-import 'package:maprisma_playground_core/maprisma_playground_core.dart' show tr, trf;
+import 'package:maprisma_playground_core/maprisma_playground_core.dart'
+    show sharedHelperAuto, sharedHelperCommand, tr, trf;
 
 import 'dart:async';
 import 'dart:convert';
@@ -182,6 +183,8 @@ class _ChessPageState extends State<ChessPage> {
       return;
     }
     if (!mounted || !widget.active) return;
+    s.playground?.readHelperChoice(); // the helper for every Maprisma app, as it is now
+    final choice = s.playground?.helperChoice ?? sharedHelperAuto;
     final ready = s.agentsOf().where((a) => a.ready).toList();
     final seeing = ready.where((a) => seeingCommands.contains(a.command)).toList();
     final everyone = ready.where((a) => textCommands.contains(a.command)).toList();
@@ -228,6 +231,7 @@ class _ChessPageState extends State<ChessPage> {
         path: path,
         url: url,
         seeing: seeing,
+        shared: choice == sharedHelperAuto ? null : sharedHelperCommand(choice),
         everyone: everyone,
         opponent: s.opponent,
         before: earlier,
@@ -339,7 +343,7 @@ class _ChessPageState extends State<ChessPage> {
           label: s.nameOf,
           empty: tr("No agent is set up"),
           tooltip: tr("The agent you play against; with “Agent against agent” it plays Black"),
-          onChanged: (c) => s.open(agents.firstWhere((a) => a.command == c)),
+          onChanged: (c) => s.pickOpponent(agents.firstWhere((a) => a.command == c)),
         ),
         const SizedBox(width: 8),
         SmallButton(
@@ -1005,12 +1009,16 @@ class _ImportDialog extends StatefulWidget {
     required this.everyone,
     required this.opponent,
     required this.before,
+    this.shared,
     this.seconds,
   });
   final String path, url;
   final List<Agent> seeing, everyone;
   final Agent? opponent;
   final SavedGame? before;
+
+  /// The agent of the helper chosen for every Maprisma app (null: automatic).
+  final String? shared;
 
   /// The video's length (a file), when the core could tell.
   final double? seconds;
@@ -1028,6 +1036,7 @@ class _ImportDialogState extends State<_ImportDialog> {
   String? get _chosen {
     final commands = [for (final a in _readers) a.command];
     if (_reader != null && commands.contains(_reader)) return _reader;
+    if (widget.shared != null && commands.contains(widget.shared)) return widget.shared;
     if (widget.opponent != null && commands.contains(widget.opponent!.command)) return widget.opponent!.command;
     return commands.firstOrNull;
   }
@@ -1317,6 +1326,9 @@ final class ChessSession extends ChangeNotifier {
 
   final game = ChessGame(agent: '');
   Agent? opponent, rival, rivalPick;
+
+  /// The opponent was chosen on the tab: the shared helper choice no longer moves it.
+  bool opponentPicked = false;
   String choice = 'white';
   String turnChoice = 'w'; // define: who moves
   String? palette; // define: the piece a click places
@@ -1421,18 +1433,30 @@ final class ChessSession extends ChangeNotifier {
 
   void syncAgents() {
     final all = playable;
-    if (opponent != null && all.any((a) => a.command == opponent!.command)) {
+    // The helper chosen for every Maprisma app (Maprisma Manager → AI) is the opponent until one
+    // is chosen here; it changes only before a game has begun.
+    final start = agentNamed(playground?.preferred(all.map((a) => a.command))) ?? all.firstOrNull;
+    final settled =
+        opponentPicked || game.moves.isNotEmpty || game.mode != ChessMode.game || rival != null || _ask != null;
+    final here = opponent != null && all.any((a) => a.command == opponent!.command);
+    if (here && (settled || start == null || start.command == opponent!.command)) {
       opponent = all.firstWhere((a) => a.command == opponent!.command);
       _changed();
       return;
     }
-    if (all.isNotEmpty) {
-      open(all.first);
+    if (start != null) {
+      open(start);
     } else {
       opponent = null;
       game.agent = '';
       _changed();
     }
+  }
+
+  /// The opponent chosen on the tab.
+  void pickOpponent(Agent agent) {
+    opponentPicked = true;
+    open(agent);
   }
 
   /// open_chess: a game against this agent (the same agent again: the game goes on).

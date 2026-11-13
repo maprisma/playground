@@ -294,6 +294,7 @@ class _ShellState extends State<Shell> {
   }
 
   void _show(String page) {
+    widget.playground.readHelperChoice(); // the helper for every Maprisma app may have changed
     setState(() {
       _page = page;
       if (tabKeys.contains(page)) _lastTab = page;

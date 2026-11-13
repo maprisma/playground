@@ -19,7 +19,7 @@ Future<void> main(List<String> args) async {
   }
   setLanguage(resolveLanguage(settings.text('language'))); // the core sets its own the same way
   final backend = await Backend.launch();
-  final playground = Playground(backend);
+  final playground = Playground(backend, sharedAiFile: settings.places.sharedAiFile);
   // The agents set up here and the local LLM servers running: every tab offers them.
   playground.loadAgents();
   playground.scan();

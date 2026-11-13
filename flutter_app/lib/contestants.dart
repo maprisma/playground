@@ -1,4 +1,5 @@
-import 'package:maprisma_playground_core/maprisma_playground_core.dart' show tr, trf;
+import 'package:maprisma_playground_core/maprisma_playground_core.dart'
+    show readSharedHelper, resolveSharedHelper, sharedHelperAuto, tr, trf;
 import 'package:flutter/material.dart';
 
 import 'backend.dart';
@@ -45,8 +46,28 @@ final class Contestant {
 /// The agents set up here and the local LLM servers running: shared by every tab, refreshed by
 /// Local LLMs' Look again (and on start).
 final class Playground extends ChangeNotifier {
-  Playground(this.backend);
+  Playground(this.backend, {this.sharedAiFile});
   final Backend backend;
+
+  /// Maprisma's shared AI settings (Maprisma Manager → AI); null: always automatic.
+  final String? sharedAiFile;
+
+  /// The helper chosen for every Maprisma app: "auto" or a helper id ([readHelperChoice]).
+  String helperChoice = sharedHelperAuto;
+
+  /// The shared choice read again (on start and whenever a page opens); listeners hear a change.
+  void readHelperChoice() {
+    final path = sharedAiFile;
+    if (path == null) return;
+    final now = readSharedHelper(path);
+    if (now == helperChoice) return;
+    helperChoice = now;
+    notifyListeners();
+  }
+
+  /// The agent a one-agent test starts with: the shared choice when it is among [commands] (in
+  /// the catalog's order), else the first of them; null when there is none.
+  String? preferred(Iterable<String> commands) => resolveSharedHelper(helperChoice, commands.toList());
   List<Agent> agents = const [];
   List<Contestant> locals = const [];
   List<String> notes = const [];
@@ -67,6 +88,8 @@ final class Playground extends ChangeNotifier {
     } on Object {
       agents = const [];
     }
+    final path = sharedAiFile;
+    if (path != null) helperChoice = readSharedHelper(path);
     loaded = true;
     notifyListeners();
   }

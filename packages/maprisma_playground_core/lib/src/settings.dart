@@ -35,6 +35,9 @@ final class Places {
 
   String get settingsFile => p.join(config, 'settings.json');
   String get gamesFile => p.join(config, 'games.json');
+
+  /// The AI helper chosen for every Maprisma app (shared_ai.dart), next to this app's folder.
+  String get sharedAiFile => p.join(p.dirname(config), 'maprisma-ai', 'settings.json');
 }
 
 /// One declared setting: its default and the shape a stored value must have.

@@ -92,6 +92,7 @@ class AnalyzePage extends StatefulWidget {
 
 class _AnalyzePageState extends State<AnalyzePage> {
   String? _agent; // command
+  bool _picked = false; // chosen here: the shared helper choice no longer moves it
   List<Map<String, dynamic>>? _choices; // null: looking
   int _choice = 0;
   Map<String, Finding> _findings = {};
@@ -109,8 +110,12 @@ class _AnalyzePageState extends State<AnalyzePage> {
 
   void _changed() {
     final ready = widget.playground.ready;
-    if (_agent == null && ready.isNotEmpty) {
-      _agent = ready.first.command;
+    // The helper chosen for every Maprisma app first (Maprisma Manager → AI), until one is
+    // chosen here; else the first one set up.
+    final start = widget.playground.preferred(ready.map((a) => a.command));
+    final keep = _agent != null && (_picked || _running) && ready.any((a) => a.command == _agent);
+    if (!keep && start != null && start != _agent) {
+      _agent = start;
       _loadChoices();
     }
     if (mounted) setState(() {});
@@ -288,7 +293,10 @@ class _AnalyzePageState extends State<AnalyzePage> {
               onChanged: _running
                   ? null
                   : (a) {
-                      setState(() => _agent = a.command);
+                      setState(() {
+                        _agent = a.command;
+                        _picked = true;
+                      });
                       _loadChoices();
                     },
             ),
