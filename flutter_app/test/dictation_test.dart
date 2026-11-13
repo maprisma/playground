@@ -6,6 +6,8 @@ import 'package:maprisma_playground/theme.dart';
 import 'package:maprisma_playground/widgets.dart';
 import 'package:maprisma_playground_core/maprisma_playground_core.dart';
 
+import 'voice_fake.dart';
+
 /// The microphone in the question fields: only on Omarchy, a set-up hint without a backend,
 /// start and stop with a backend, never anything else run.
 void main() {
@@ -142,5 +144,41 @@ void main() {
       ['/usr/bin/omarchy-dictation', 'toggle'],
     ]);
     expect(ran.where((a) => a.first.endsWith('/superwhisper')), isEmpty); // no status is polled
+  });
+
+  group('the shared voice service (fake maprisma-voice)', () {
+    late FakeVoice voice;
+    setUp(() async => voice = await FakeVoice.create());
+    tearDown(() => voice.dispose());
+
+    testWidgets('not ready: no voice mic; on Omarchy its dictation key stays', (tester) async {
+      voice.status(ready: false);
+      omarchy(backend: 'voxtype');
+      await pump(tester);
+      await settle(tester);
+      expect(find.byKey(const ValueKey('voice-mic')), findsNothing);
+      expect(find.byKey(const ValueKey('dictate')), findsOneWidget);
+    });
+
+    testWidgets('ready: its mic replaces Omarchy\'s, in the lower right corner; the words go in at the cursor', (tester) async {
+      omarchy(backend: 'voxtype');
+      final controller = await pump(tester);
+      await settle(tester);
+      expect(find.byKey(const ValueKey('dictate')), findsNothing);
+      final mic = find.byKey(const ValueKey('voice-mic'));
+      expect(mic, findsOneWidget);
+      final field = tester.getRect(find.byType(TextField)), button = tester.getRect(mic);
+      expect(field.right - button.right, closeTo(4, 1));
+      expect(field.bottom - button.bottom, closeTo(4, 1));
+      await tester.tap(mic);
+      await settle(tester);
+      expect(find.text('hello'), findsOneWidget);
+      await tester.tap(mic);
+      await settle(tester);
+      expect(controller.text, 'What is hello world');
+      expect(find.byKey(const ValueKey('voice-heard')), findsNothing);
+      expect(voice.args.last, 'dictate --events --release --app-id com.maprisma.Playground');
+      expect(spawned, isEmpty); // Omarchy's dictation never ran
+    });
   });
 }

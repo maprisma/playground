@@ -14,7 +14,9 @@ import 'package:maprisma_playground_core/maprisma_playground_core.dart'
         tr,
         trf;
 
+import 'mic_button.dart';
 import 'theme.dart';
+import 'voice_input.dart';
 
 /// The pieces of the plugin's pages (host.py, theme_css.py): the tab intro, the folding card,
 /// small and main buttons, the bordered drop-down, the capability mark and answer text.
@@ -353,8 +355,10 @@ class Choice<T> extends StatelessWidget {
 }
 
 /// host.prompt_view: a framed, wrapping text field for a question, 72 px high to start with
-/// (three lines of 13 px text), with the microphone in its lower right corner on Omarchy
-/// (dictation.with_mic); the text keeps clear of it.
+/// (three lines of 13 px text), with the microphone in its lower right corner; the text keeps
+/// clear of it. The microphone is Maprisma's voice service (maprisma-voice, the words go in at
+/// the cursor, what it hears so far shows greyed under the field) when that is ready, else
+/// Omarchy's dictation key (dictation.with_mic).
 class PromptField extends StatefulWidget {
   const PromptField({super.key, required this.controller, this.minLines = 3, this.hint, this.onSubmit});
   final TextEditingController controller;
@@ -368,6 +372,26 @@ class PromptField extends StatefulWidget {
 class _PromptFieldState extends State<PromptField> {
   final _focus = FocusNode(debugLabel: 'question');
   late final bool _mic = Dictation.instance.supported;
+
+  /// The shared voice service is ready (then its mic button is used).
+  bool _voice = VoiceInput.cached?.usable ?? false;
+
+  /// What dictation heard so far; empty: nothing.
+  String _heard = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _checkVoice();
+    _focus.addListener(() {
+      if (_focus.hasFocus) _checkVoice();
+    });
+  }
+
+  Future<void> _checkVoice() async {
+    final usable = (await VoiceInput.available()).usable;
+    if (mounted && usable != _voice) setState(() => _voice = usable);
+  }
 
   @override
   void dispose() {
@@ -385,7 +409,7 @@ class _PromptFieldState extends State<PromptField> {
       style: Theme.of(context).textTheme.bodyMedium!.copyWith(height: 1.4),
       decoration: InputDecoration(
         hintText: widget.hint,
-        contentPadding: _mic ? const EdgeInsets.fromLTRB(8, 8, 40, 8) : null,
+        contentPadding: _mic || _voice ? const EdgeInsets.fromLTRB(8, 8, 40, 8) : null,
       ),
     );
     if (widget.onSubmit != null) {
@@ -394,15 +418,46 @@ class _PromptFieldState extends State<PromptField> {
         child: field,
       );
     }
-    if (!_mic) return field;
-    return Stack(
+    if (!_mic && !_voice) return field;
+    final stack = Stack(
       children: [
         field,
-        Positioned(
-          right: 6,
-          bottom: 6,
-          child: DictateButton(controller: widget.controller, focus: _focus),
-        ),
+        if (_voice)
+          Positioned(
+            right: 4,
+            bottom: 4,
+            child: MicButton(
+              appId: 'com.maprisma.Playground',
+              tr: tr,
+              controller: widget.controller,
+              focusNode: _focus,
+              size: 30,
+              iconSize: 16,
+              onPartial: (t) {
+                if (mounted) setState(() => _heard = t);
+              },
+            ),
+          )
+        else
+          Positioned(
+            right: 6,
+            bottom: 6,
+            child: DictateButton(controller: widget.controller, focus: _focus),
+          ),
+      ],
+    );
+    // One tree whether or not the heard text shows, so the mic keeps its session.
+    final muted = Theme.of(context).textTheme.bodySmall!.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        stack,
+        if (_heard.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(_heard, key: const ValueKey('voice-heard'), maxLines: 2, overflow: TextOverflow.ellipsis, style: muted),
+          ),
       ],
     );
   }
