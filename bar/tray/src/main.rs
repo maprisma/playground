@@ -14,7 +14,7 @@ use zbus::{
 const TITLE: &str = "Maprisma Playground";
 const ICON: &str = "io.github.ubruckhaus.CosmicMaprismaPlayground-symbolic";
 const BUS_NAME: &str = "io.github.ubruckhaus.CosmicMaprismaPlayground.Tray";
-/// The gamepad in the theme green while work runs (data/icons/…-active-symbolic.svg).
+/// The gamepad in the theme accent while work runs (data/icons/…-active-symbolic.svg).
 const ICON_ACTIVE: &str = "io.github.ubruckhaus.CosmicMaprismaPlayground-active-symbolic";
 /// Work runs in Maprisma Playground (a game, a generation, an agent, a download, the automaton).
 static BUSY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
