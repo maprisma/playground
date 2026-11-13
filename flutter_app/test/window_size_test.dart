@@ -46,4 +46,30 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     expect(saves, [(950, 700)], reason: 'the same size is not saved again');
   });
+
+  testWidgets('closed or hidden within half a second: the size it had while shown is kept', (tester) async {
+    final saves = <(int, int)>[];
+    var geo = <String, Object>{'width': 1000, 'height': 760, 'free': true};
+    final keeper = WindowSizeKeeper(geometry: () async => geo, save: (w, h) async => saves.add((w, h)), saved: (900, 700));
+    addTearDown(keeper.dispose);
+    keeper.resized();
+    await tester.pump(const Duration(milliseconds: 100));
+    geo = {'width': 1000, 'height': 760, 'free': false}; // hidden (Esc, the bar): not free any more
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(saves, [(1000, 760)]);
+    // closing right after a resize: flush saves it at once, the timer adds nothing
+    geo = {'width': 1100, 'height': 800, 'free': true};
+    keeper.resized();
+    await tester.pump(const Duration(milliseconds: 10));
+    geo = {'width': 1100, 'height': 800, 'free': false};
+    await keeper.flush();
+    expect(saves, [(1000, 760), (1100, 800)]);
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(saves, hasLength(2));
+    // maximized: no size of the user's, nothing saved
+    geo = {'width': 1920, 'height': 1080, 'free': false};
+    keeper.resized();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(saves, hasLength(2));
+  });
 }

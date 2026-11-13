@@ -129,7 +129,11 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
     _focus = AppWindow.instance.focus.stream.listen((on) {
       if (on) _readLook();
     });
+    // closing (the window is hidden already): a resize not saved yet is saved now
+    _closing = AppWindow.instance.closing.stream.listen((_) => unawaited(_windowSize.flush()));
   }
+
+  StreamSubscription<void>? _closing;
 
   /// The look again; rebuilt only when it changed. Focus and brightness reads count against
   /// the timer's: the files at most every 2 s.
@@ -161,6 +165,7 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
   void dispose() {
     _lookTimer?.cancel();
     _focus?.cancel();
+    _closing?.cancel();
     _esc.detach();
     Work.unwatch(widget.playground.backend);
     _windowSize.dispose();
