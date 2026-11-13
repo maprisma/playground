@@ -96,6 +96,8 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
     save: (w, h) async => widget.settings.update({
       'window_size': [w, h],
     }),
+    // Maprisma Tiling on KDE sizes the window without GTK knowing (window_size.dart)
+    tiled: () => tiledByMaprismaTiling('com.maprisma.Playground'),
   );
 
   (int, int)? _savedSize() {

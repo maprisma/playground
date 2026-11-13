@@ -23,7 +23,14 @@ void main() {
     expect(detectDesktop({'XDG_SESSION_DESKTOP': 'KDE'}), DesktopId.kde);
     expect(detectDesktop({'XDG_CURRENT_DESKTOP': '', 'DESKTOP_SESSION': 'plasma'}), DesktopId.kde);
     expect(detectDesktop({'XDG_SESSION_DESKTOP': 'COSMIC'}), DesktopId.cosmic);
-    expect(detectDesktop({'HYPRLAND_INSTANCE_SIGNATURE': 'abc'}), DesktopId.hyprland);
+    // the signature counts only with its socket (a stale one stays in systemd's environment)
+    expect(detectDesktop({'HYPRLAND_INSTANCE_SIGNATURE': 'abc'}), DesktopId.other);
+    final live = {'HYPRLAND_INSTANCE_SIGNATURE': 'abc', 'XDG_RUNTIME_DIR': '${root.path}/run'};
+    expect(detectDesktop(live), DesktopId.other);
+    File('${root.path}/run/hypr/abc/.socket.sock').createSync(recursive: true);
+    expect(detectDesktop(live), DesktopId.hyprland);
+    expect(detectDesktop({...live, 'XDG_CURRENT_DESKTOP': 'KDE'}), DesktopId.kde);
+    expect(detectDesktop({...live, 'HYPRLAND_INSTANCE_SIGNATURE': '../abc'}), DesktopId.other);
     expect(detectDesktop({'KDE_FULL_SESSION': 'true'}), DesktopId.kde);
     expect(detectDesktop({'XDG_SESSION_DESKTOP': 'gnome'}), DesktopId.other);
     expect(detectDesktop({'XDG_CURRENT_DESKTOP': 'GNOME', 'HYPRLAND_INSTANCE_SIGNATURE': 'abc'}), DesktopId.other);
@@ -119,5 +126,24 @@ void main() {
       expect(watch.elapsed, lessThan(const Duration(seconds: 3)));
       expect(await HyprRounding(environment: {'PATH': '${root.path}/nothing'}).read(), isNull);
     });
+  });
+
+  test('COSMIC 1.x: the theme in v2 (v1 empty), the user\'s before the system\'s', () {
+    final cosmic = '${root.path}/config/cosmic';
+    void write(String path, String text) => File(path)
+      ..createSync(recursive: true)
+      ..writeAsStringSync(text);
+    Directory('$cosmic/com.system76.CosmicTheme.Dark/v1').createSync(recursive: true);
+    write('$cosmic/com.system76.CosmicTheme.Mode/v1/is_dark', 'true');
+    write('$cosmic/com.system76.CosmicTheme.Dark/v2/accent', '(\n    base: "#FF0000FF",\n)'); // v2: hex strings
+    write('$cosmic/com.system76.CosmicTheme.Dark/v2/corner_radii', '(\n    radius_s: (4.0, 4.0, 4.0, 4.0),\n)');
+    final system = '${root.path}/sys/usr/share/cosmic/com.system76.CosmicTheme.Dark';
+    write('$system/v1/accent', '(\n    base: (red: 0.0, green: 1.0, blue: 0.0, alpha: 1.0),\n)');
+    write('$system/v2/background', '(\n    base: "#333333FF",\n    component: (\n        on: "#000000FF",\n    ),\n    on: "#FFFFFFFF",\n)');
+    final look = desktopLook(desktop: DesktopId.cosmic, paths: LookPaths(config: '${root.path}/config', root: '${root.path}/sys', state: '${root.path}/state'));
+    expect(look['colors']['accent'], '#ff0000');
+    expect(look['colors']['background'], '#333333');
+    expect(look['colors']['foreground'], '#ffffff', reason: 'the top level on, not the component\'s');
+    expect(look['rounding'], 4);
   });
 }

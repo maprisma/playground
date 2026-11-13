@@ -9,7 +9,7 @@ enum DesktopId { cosmic, kde, hyprland, other }
 
 /// From XDG_CURRENT_DESKTOP; without it (a service or launcher with a short environment) the
 /// session's other marks count: XDG_SESSION_DESKTOP, DESKTOP_SESSION, then
-/// HYPRLAND_INSTANCE_SIGNATURE and KDE_FULL_SESSION (as Maprisma Settings' detectDesktop).
+/// a live Hyprland ([hyprlandSocketLive]) and KDE_FULL_SESSION (as Maprisma Settings' detectDesktop).
 DesktopId detectDesktop([Map<String, String>? env]) {
   final e = env ?? Platform.environment;
   DesktopId? named(String? v) {
@@ -24,11 +24,20 @@ DesktopId detectDesktop([Map<String, String>? env]) {
   if (current.trim().isNotEmpty) return named(current) ?? DesktopId.other;
   return named(e['XDG_SESSION_DESKTOP']) ??
       named(e['DESKTOP_SESSION']) ??
-      ((e['HYPRLAND_INSTANCE_SIGNATURE'] ?? '').isNotEmpty
+      (hyprlandSocketLive(e)
           ? DesktopId.hyprland
           : e['KDE_FULL_SESSION'] == 'true'
               ? DesktopId.kde
               : DesktopId.other);
+}
+
+/// HYPRLAND_INSTANCE_SIGNATURE names a Hyprland whose socket is there
+/// (`$XDG_RUNTIME_DIR/hypr/<signature>/.socket.sock`). The variable alone proves nothing: after a
+/// Hyprland session it stays in the systemd user environment, so COSMIC and KDE apps see it too.
+bool hyprlandSocketLive(Map<String, String> env) {
+  final signature = env['HYPRLAND_INSTANCE_SIGNATURE'] ?? '', runtime = env['XDG_RUNTIME_DIR'] ?? '';
+  if (signature.isEmpty || signature.contains('/') || signature.startsWith('.') || !runtime.startsWith('/')) return false;
+  return FileSystemEntity.typeSync(p.join(runtime, 'hypr', signature, '.socket.sock')) != FileSystemEntityType.notFound;
 }
 
 /// Where the desktop's settings are (tests point it at a folder of their own).
@@ -211,10 +220,14 @@ String? _read(String path, int max) {
 
 // --- COSMIC ----------------------------------------------------------------------------
 
+/// The user's config, else the system's defaults; in each the newest schema first (COSMIC 1.x
+/// keeps its themes in `v2` and leaves `v1` empty or stale; the Mode is still `v1`).
 String? _cosmicConfig(_Ctx ctx, String component, String key) {
   for (final base in [p.join(ctx.paths.config, 'cosmic'), p.join(ctx.paths.root, 'usr/share/cosmic')]) {
-    final text = _read(p.join(base, component, 'v1', key), 256 * 1024);
-    if (text != null) return text;
+    for (final version in const ['v2', 'v1']) {
+      final text = _read(p.join(base, component, version, key), 256 * 1024);
+      if (text != null) return text;
+    }
   }
   return null;
 }
@@ -283,9 +296,13 @@ String? ronField(String text, String key) {
   return null;
 }
 
-/// A RON colour `(red: 0.1, green: …, blue: …)` as #rrggbb, or null.
+/// A RON colour `(red: 0.1, green: …, blue: …)` (schema v1) or `"#RRGGBBAA"` (v2) as #rrggbb, or
+/// null.
 String? ronColor(String? value) {
   if (value == null) return null;
+  // COSMIC 1.x (schema v2) writes colours as "#RRGGBBAA" strings.
+  final hexString = RegExp(r'^"?#([0-9a-fA-F]{6})(?:[0-9a-fA-F]{2})?"?$').firstMatch(value.trim());
+  if (hexString != null) return '#${hexString[1]!.toLowerCase()}';
   int? part(String name) {
     final m = RegExp('$name:\\s*([0-9.eE+-]+)').firstMatch(value);
     final v = m == null ? null : double.tryParse(m[1]!);

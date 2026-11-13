@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maprisma_playground/window_size.dart';
 
@@ -71,5 +73,55 @@ void main() {
     keeper.resized();
     await tester.pump(const Duration(milliseconds: 600));
     expect(saves, hasLength(2));
+  });
+
+  group('Maprisma Tiling on KDE sizes windows itself (D7)', () {
+    late Directory home;
+    setUp(() => home = Directory.systemTemp.createTempSync('ws-kwin'));
+    tearDown(() => home.deleteSync(recursive: true));
+    Map<String, String> env([String desktop = 'KDE']) => {'HOME': home.path, 'XDG_CURRENT_DESKTOP': desktop};
+    void kwinrc(String text) => File('${home.path}/.config/kwinrc')
+      ..createSync(recursive: true)
+      ..writeAsStringSync(text);
+    bool tiled(String app, [String desktop = 'KDE']) =>
+        tiledByMaprismaTiling(app, environment: env(desktop), systemData: '${home.path}/none');
+
+    test('on only when the script is on (switched on, or installed and not switched off)', () {
+      expect(tiled('com.maprisma.Settings'), isFalse, reason: 'not installed, not switched');
+      Directory('${home.path}/.local/share/kwin/scripts/maprisma-tiling').createSync(recursive: true);
+      expect(tiled('com.maprisma.Settings'), isTrue, reason: 'on by default once installed');
+      kwinrc('[Plugins]\nmaprisma-tilingEnabled=false\n');
+      expect(tiled('com.maprisma.Settings'), isFalse);
+      kwinrc('[Plugins]\nblurEnabled=true\nmaprisma-tilingEnabled=true\n');
+      expect(tiled('com.maprisma.Settings'), isTrue);
+      expect(tiled('com.maprisma.Settings', 'COSMIC'), isFalse, reason: 'KDE only');
+      expect(tiled('com.maprisma.Settings', 'Hyprland'), isFalse);
+    });
+
+    test('an app the script always floats keeps its size (by default the Launcher)', () {
+      kwinrc('[Plugins]\nmaprisma-tilingEnabled=true\n');
+      expect(tiled('com.maprisma.Launcher'), isFalse);
+      kwinrc('[Plugins]\nmaprisma-tilingEnabled=true\n\n[Script-maprisma-tiling]\nfloatingClasses=com.maprisma.Theme, com.maprisma.Mail\n');
+      expect(tiled('com.maprisma.Mail'), isFalse);
+      expect(tiled('com.maprisma.Launcher'), isTrue);
+    });
+
+    testWidgets('the keeper saves nothing while the tiler sizes the window', (tester) async {
+      final saves = <(int, int)>[];
+      var tiledNow = true;
+      final keeper = WindowSizeKeeper(
+        geometry: () async => {'width': 960, 'height': 1040, 'free': true}, // GTK sees no tiled state
+        save: (w, h) async => saves.add((w, h)),
+        tiled: () => tiledNow,
+      );
+      addTearDown(keeper.dispose);
+      keeper.resized();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(saves, isEmpty);
+      tiledNow = false;
+      keeper.resized();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(saves, [(960, 1040)]);
+    });
   });
 }
