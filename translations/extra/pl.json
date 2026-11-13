@@ -1,4 +1,5 @@
 {
+ " (untested)": " (nieprzetestowany)",
  "1 game": "1 partia",
  "1 move": "1 ruch",
  "127.0.0.1 did not answer": "127.0.0.1 nie odpowiada",
@@ -116,6 +117,7 @@
  "Invalid video options.": "Nieprawidłowe opcje wideo.",
  "Invalid video source.": "Nieprawidłowe źródło wideo.",
  "It stays young (yellow and orange) because its cells keep being born and dying, and leaves a red trace.": "Pozostaje młody (żółty i pomarańczowy), ponieważ jego komórki wciąż się rodzą i giną, i zostawia czerwony ślad.",
+ "It works with every installed coding agent Maprisma knows: Claude Code, Codex, Hermes and Pi with their own settings, the others (Gemini CLI, Antigravity, Cursor, Copilot, Grok …) as Maprisma's helpers list runs them; those nobody has tried yet are marked “(untested)”. Each is asked once per question in an empty private folder, Claude Code, Hermes and Pi without any tools, Codex in its read-only sandbox, the others without tools or read-only; nothing they answer is run.": "Działa z każdym zainstalowanym agentem programistycznym, którego zna Maprisma: Claude Code, Codex, Hermes i Pi z własnymi ustawieniami, pozostałe (Gemini CLI, Antigravity, Cursor, Copilot, Grok …) tak, jak uruchamia je lista pomocników Maprismy; te, których nikt jeszcze nie wypróbował, są oznaczone „(nieprzetestowany)”. Każdy otrzymuje jedno pytanie w pustym prywatnym folderze: Claude Code, Hermes i Pi bez narzędzi, Codex w piaskownicy tylko do odczytu, pozostałe bez narzędzi lub tylko do odczytu. Żadna odpowiedź nie jest wykonywana.",
  "Just died": "Właśnie zginęła",
  "Lightweight spaceship": "Lekki statek kosmiczny",
  "Like Life, but a dead cell is also born with 6 live neighbours. Almost everything behaves as in Life, but HighLife has a famous replicator: a small shape that makes copies of itself again and again.": "Jak Life, ale martwa komórka rodzi się także przy 6 żywych sąsiadach. Prawie wszystko zachowuje się jak w Life, lecz HighLife ma słynny replikator: mały kształt, który wciąż tworzy własne kopie.",
@@ -185,6 +187,7 @@
  "The growing front is green and yellow, the old body violet: you see how it grew.": "Rosnący front jest zielony i żółty, a stara część fioletowa: widać, jak wzorzec się rozrastał.",
  "The gun on an empty grid with Edges wrap off, so it can shoot forever.": "Działo na pustej siatce z wyłączoną opcją Połącz krawędzie, aby mogło strzelać bez końca.",
  "The mixing nozzle of a two-component adhesive cartridge holds a static mixer: a row of twisted elements. Each element cuts the flow of resin and hardener in two, stacks the halves and turns them by 90°. So the number of layers doubles with every element: 2, 4, 8, 16 … After about ten elements the layers are so thin that the two components react everywhere. Here each generation is one mixer element: the resin is one colour, the hardener the other.": "Dysza mieszająca kartusza z klejem dwuskładnikowym zawiera mieszalnik statyczny: szereg skręconych elementów. Każdy element dzieli strumień żywicy i utwardzacza na dwie części, układa je jedna na drugiej i obraca o 90°. Liczba warstw podwaja się więc z każdym elementem: 2, 4, 8, 16 … Po około dziesięciu elementach warstwy są tak cienkie, że oba składniki reagują wszędzie. Tutaj każde pokolenie to jeden element mieszający: żywica ma jeden kolor, a utwardzacz drugi.",
+ "The question is too long for this agent.": "Pytanie jest za długie dla tego agenta.",
  "The screenshot is taken in 3 seconds.": "Zrzut ekranu zostanie wykonany za 3 sekundy.",
  "The setting could not be saved: {0}": "Nie można zapisać ustawienia: {0}",
  "The small sparks behind it appear and vanish at once: red traces right behind it.": "Małe iskry za nim pojawiają się i od razu znikają: czerwone ślady tuż za statkiem.",

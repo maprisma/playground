@@ -35,7 +35,7 @@ An **answer** is
 ### Agents and local LLMs
 | method | params | result |
 |---|---|---|
-| `agents.list` | – | `{agents: [{command, name, installed, set_up, can_ask, plays_chess, takes_images, reads_untrusted, model_flag}]}`. Only Claude Code, Codex, Hermes and Pi; `set_up` = credentials present (stat only) or a local provider configured. |
+| `agents.list` | – | `{agents: [{command, name, installed, set_up, can_ask, plays_chess, takes_images, reads_untrusted, model_flag, verified}]}`. Claude Code, Codex, Hermes and Pi (bundled adapters), then every other installed-or-not agent of Maprisma's helpers catalog with an `ask`, in the catalog's order; `set_up` = credentials present (stat only) or a local provider configured (a catalog agent: always, only an Ask can tell); `verified` false = the catalog's entry is untested. |
 | `local.servers` | – | `{servers: [{port, runtime, models: [id]}]}`. Loopback listeners of this user only. |
 | `gpu.check` | `{targets: [target]}` | `{fits: bool|null, message, needs: [{label, loaded, size: int|null, bytes_needed: int|null}], needed: int|null, free: int|null, total: int|null}` (gpu_check; asked before two local models run at once) |
 | `local.make_room` | `{target}` | `{}` (unloads other models as the plugin does between sequential runs) |

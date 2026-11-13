@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'agents.dart';
+import 'helpers_catalog.dart';
 import 'runner.dart';
 import 'private_files.dart';
 
@@ -72,6 +73,14 @@ BuiltAsk buildAsk(
   bool think = true,
   String model = '',
 }) {
+  final a = adapter(command);
+  if (a != null && a.fromCatalog) {
+    // A catalog agent: its own argv with the prompt as one argument (or on stdin), no thinking
+    // time, model or pictures; its stdout is the answer.
+    if (model.isNotEmpty || images.isNotEmpty) return BuiltAsk([], null);
+    final argv = catalogAskArgv(a.argv, prompt, stdin: a.promptOnStdin);
+    return BuiltAsk(argv, a.promptOnStdin ? utf8.encode(prompt.replaceAll('\x00', '')) : null);
+  }
   const marker = '\u0000prompt\u0000';
   final argv = runArgv(
     command,
@@ -207,10 +216,14 @@ Future<Answer> askAgent(
       await File(image).copy(dest);
       copies.add(dest);
     }
+    final agent = adapter(command);
+    if (agent != null && agent.fromCatalog && !agent.promptOnStdin && utf8.encode(prompt).length > argvPromptMax) {
+      return Answer(error: tr("The question is too long for this agent."));
+    }
     final built = buildAsk(command, prompt, images: copies, level: level, think: think, model: model);
     if (built.argv.isEmpty) return Answer(error: tr("This agent cannot be asked."));
-    // Resolve against the supplied PATH, not the host process's PATH.
-    final exe = executableOnPath(command, runner.environment);
+    // Resolve against the supplied PATH, not the host process's PATH (or where mise has it).
+    final exe = agentExecutable(command, runner.environment);
     if (exe == null) return Answer(error: tr("This agent cannot be asked."));
     built.argv[0] = exe;
     final out = await runner.run(

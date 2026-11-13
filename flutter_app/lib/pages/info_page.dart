@@ -53,7 +53,7 @@ class InfoPage extends StatelessWidget {
                   "Try out the AI agents on your computer, a test per tab: see what an agent and its model can do, play chess against it (or let two play each other), watch a cellular automaton, compare speed and cost, judge two answers blind, test what they see in a picture, make pictures on your own graphics card, and ask your local LLMs.",
                 ),
                 tr(
-                  "For now it works with four agents: Claude Code, Codex, Hermes and Pi. Each is asked once per question in an empty private folder, Claude Code, Hermes and Pi without any tools, Codex in its read-only sandbox; nothing they answer is run.",
+                  "It works with every installed coding agent Maprisma knows: Claude Code, Codex, Hermes and Pi with their own settings, the others (Gemini CLI, Antigravity, Cursor, Copilot, Grok …) as Maprisma's helpers list runs them; those nobody has tried yet are marked “(untested)”. Each is asked once per question in an empty private folder, Claude Code, Hermes and Pi without any tools, Codex in its read-only sandbox, the others without tools or read-only; nothing they answer is run.",
                 ),
                 tr(
                   "What comes from outside (pictures, a video's captions and frames) goes only to the agents without tools: Codex can still read files, so it never gets it.",

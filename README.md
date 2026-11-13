@@ -18,7 +18,11 @@ Omarchy plugin, for **KDE Plasma** and **COSMIC**. It goes with
 Maprisma Playground asks them. The one exception is Analyze, which may set up a local model for
 pictures (see "Shared settings Analyze may change" below).
 
-**For now it works with four agents: Claude Code, Codex, Hermes and Pi.**
+**It works with every installed coding agent Maprisma knows:** Claude Code, Codex, Hermes and Pi with
+their own settings (pictures, thinking time, chess), the others of Maprisma's helpers list (Gemini CLI,
+Antigravity, Cursor, Copilot, Grok, Oh My Pi, OpenClaw …) for questions, as that list runs them; one
+nobody has tried yet is marked "(untested)". After a newer Maprisma list: copy its
+`data/helpers.json` to `packages/maprisma_playground_core/data/` and run `tools/gen-helpers.py`.
 
 ![Maprisma Playground](preview.png)
 

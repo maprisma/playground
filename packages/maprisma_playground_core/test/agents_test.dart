@@ -7,12 +7,17 @@ void main() {
   late TestEnvironment e;
   setUp(() => e = TestEnvironment());
   tearDown(() => e.dispose());
-  test('four bundled adapters and distinct capabilities', () {
-    expect(adapters.map((a) => a.command), ['claude', 'codex', 'hermes', 'pi']);
+  test('four bundled adapters and distinct capabilities; the catalog\'s other agents can only be asked', () {
+    final own = [for (final a in adapters) if (!a.fromCatalog) a.command];
+    expect(own, ['claude', 'codex', 'hermes', 'pi']);
     for (final a in adapters) {
       expect(canAsk(a.command), isTrue);
-      expect(plays(a.command), isTrue);
+      expect(plays(a.command), a.fromCatalog ? isFalse : isTrue, reason: a.command);
       expect(plays(a.command, 'poker'), isFalse);
+      if (a.fromCatalog) {
+        expect(takesImages(a.command), isFalse);
+        expect(readsUntrusted(a.command), isFalse, reason: 'tools or not, it is not trusted with outside input');
+      }
     }
     expect(takesImages('codex'), isTrue);
     expect(readsUntrusted('codex'), isFalse);

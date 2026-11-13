@@ -1,4 +1,5 @@
 {
+ " (untested)": " (niet getest)",
  "1 game": "1 partij",
  "1 move": "1 zet",
  "127.0.0.1 did not answer": "127.0.0.1 heeft niet geantwoord",
@@ -116,6 +117,7 @@
  "Invalid video options.": "Ongeldige video-opties.",
  "Invalid video source.": "Ongeldige videobron.",
  "It stays young (yellow and orange) because its cells keep being born and dying, and leaves a red trace.": "Het blijft jong (geel en oranje) doordat zijn cellen steeds geboren worden en sterven, en laat een rood spoor achter.",
+ "It works with every installed coding agent Maprisma knows: Claude Code, Codex, Hermes and Pi with their own settings, the others (Gemini CLI, Antigravity, Cursor, Copilot, Grok …) as Maprisma's helpers list runs them; those nobody has tried yet are marked “(untested)”. Each is asked once per question in an empty private folder, Claude Code, Hermes and Pi without any tools, Codex in its read-only sandbox, the others without tools or read-only; nothing they answer is run.": "Het werkt met elke geïnstalleerde codeeragent die Maprisma kent: Claude Code, Codex, Hermes en Pi met hun eigen instellingen, de andere (Gemini CLI, Antigravity, Cursor, Copilot, Grok …) zoals de helperlijst van Maprisma ze start; die nog niemand heeft geprobeerd staan als „(niet getest)”. Elk krijgt per vraag één verzoek in een lege persoonlijke map, Claude Code, Hermes en Pi zonder hulpmiddelen, Codex in zijn sandbox met alleen leestoegang, de andere zonder hulpmiddelen of alleen lezend; geen enkel antwoord wordt uitgevoerd.",
  "Just died": "Net gestorven",
  "Lightweight spaceship": "Licht ruimteschip",
  "Like Life, but a dead cell is also born with 6 live neighbours. Almost everything behaves as in Life, but HighLife has a famous replicator: a small shape that makes copies of itself again and again.": "Zoals Life, maar een dode cel wordt ook geboren bij 6 levende buren. Bijna alles gedraagt zich zoals in Life, maar HighLife heeft een beroemde replicator: een kleine vorm die zichzelf steeds opnieuw kopieert.",
@@ -185,6 +187,7 @@
  "The growing front is green and yellow, the old body violet: you see how it grew.": "Het groeiende front is groen en geel, het oude deel violet: je ziet hoe het gegroeid is.",
  "The gun on an empty grid with Edges wrap off, so it can shoot forever.": "Het kanon op een leeg raster met Randen verbinden uit, zodat het eeuwig kan blijven schieten.",
  "The mixing nozzle of a two-component adhesive cartridge holds a static mixer: a row of twisted elements. Each element cuts the flow of resin and hardener in two, stacks the halves and turns them by 90°. So the number of layers doubles with every element: 2, 4, 8, 16 … After about ten elements the layers are so thin that the two components react everywhere. Here each generation is one mixer element: the resin is one colour, the hardener the other.": "De mengtuit van een patroon met tweecomponentenlijm bevat een statische menger: een rij gedraaide elementen. Elk element deelt de stroom van hars en harder in tweeën, stapelt de helften en draait ze 90°. Zo verdubbelt het aantal lagen bij elk element: 2, 4, 8, 16 … Na ongeveer tien elementen zijn de lagen zo dun dat de twee componenten overal reageren. Hier is elke generatie één mengelement: de hars heeft de ene kleur, de harder de andere.",
+ "The question is too long for this agent.": "De vraag is te lang voor deze agent.",
  "The screenshot is taken in 3 seconds.": "De schermafbeelding wordt over 3 seconden gemaakt.",
  "The setting could not be saved: {0}": "Kan de instelling niet opslaan: {0}",
  "The small sparks behind it appear and vanish at once: red traces right behind it.": "De kleine vonkjes erachter verschijnen en verdwijnen meteen weer: rode sporen vlak achter het schip.",

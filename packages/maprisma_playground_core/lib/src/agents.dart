@@ -3,11 +3,49 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:toml/toml.dart';
+import 'helpers_catalog.dart';
 import 'private_files.dart';
 
-// Bundled upstream adapters: facts only. No user-supplied executable templates.
-List<AgentAdapter> get adapters =>
-    adapterData.map((v) => AgentAdapter(Map<String, dynamic>.from(v))).toList(growable: false);
+/// Every agent the Playground can ask, in the order of Maprisma's helpers catalog
+/// (helpers_catalog.dart): Claude Code, Codex, Hermes and Pi with their bundled adapters
+/// ([adapterData]: their own stricter argv, thinking times, pictures, chess, sign-in check), every
+/// other catalog entry with an `ask` as the catalog runs it. Facts only: no user-supplied
+/// executable templates.
+List<AgentAdapter> get adapters => adaptersFrom(helpersCatalog());
+
+List<AgentAdapter> adaptersFrom(HelpersCatalog catalog) {
+  final own = [for (final v in adapterData) AgentAdapter(Map<String, dynamic>.from(v))];
+  final out = <AgentAdapter>[];
+  for (final e in catalog.helpers) {
+    if (out.any((a) => a.command == e.command)) continue;
+    out.add(own.where((a) => a.command == e.command).firstOrNull ?? AgentAdapter(catalogAdapterData(e)));
+  }
+  for (final a in own) {
+    if (!out.any((o) => o.command == a.command)) out.add(a);
+  }
+  return List.unmodifiable(out);
+}
+
+/// API key variables a catalog agent may use (for "set up"; it gets the whole environment, as
+/// the bundled ones do).
+const catalogEnv = <String, List<String>>{
+  'gemini': ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+  'agy': ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+  'cursor-agent': ['CURSOR_API_KEY'],
+  'copilot': ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN'],
+  'grok': ['XAI_API_KEY', 'GROK_API_KEY'],
+};
+
+/// A catalog entry as an adapter: its `ask` argv, no thinking times, games or pictures; its
+/// sign-in is not known here (an Ask shows it).
+Map<String, dynamic> catalogAdapterData(CatalogHelper e) => {
+  'command': e.command,
+  'name': e.name,
+  'catalog': true,
+  'verified': e.verified,
+  'ask': {'argv': e.argv, 'stdin': e.stdin, 'games': <String>[], 'effort': <String, List<String>>{}, 'note': ''},
+  'access': {'files': <String>[], 'env': catalogEnv[e.id] ?? const <String>[]},
+};
 
 class AgentAdapter {
   AgentAdapter(this.data);
@@ -20,6 +58,15 @@ class AgentAdapter {
   List<String> get files => List<String>.from(data['access']['files'] ?? []);
   List<String> get env => List<String>.from(data['access']['env'] ?? []);
   bool get localOk => data['access']['local_ok'] == true;
+
+  /// From Maprisma's helpers catalog (not one of the four bundled adapters).
+  bool get fromCatalog => data['catalog'] == true;
+
+  /// false: the catalog's entry was not tried with the agent yet ("(untested)").
+  bool get verified => data['verified'] != false;
+
+  /// The prompt goes on stdin instead of an argument.
+  bool get promptOnStdin => data['ask']['stdin'] == true;
 }
 
 AgentAdapter? adapter(String command) {
@@ -68,6 +115,57 @@ String? executableOnPath(String command, Map<String, String> environment) {
     }
   }
   return null;
+}
+
+bool _usableProgram(String path) {
+  try {
+    final stat = fileIdentity(path, noFollow: false);
+    return stat != null &&
+        stat.mode & 0xf000 == 0x8000 &&
+        (stat.uid == 0 || stat.uid == fileOwnerUid) &&
+        stat.mode & 73 != 0 &&
+        executableByUser(path);
+  } on FileSystemException {
+    return false;
+  }
+}
+
+final _miseFound = <String, (DateTime, String?)>{};
+
+/// mise's shims folder (`$MISE_DATA_DIR/shims`, by default `~/.local/share/mise/shims`).
+String miseShims(Map<String, String> environment) {
+  final data = environment['MISE_DATA_DIR'] ?? '';
+  if (data.startsWith('/')) return p.join(data, 'shims');
+  final xdg = environment['XDG_DATA_HOME'] ?? '';
+  return p.join(xdg.startsWith('/') ? xdg : p.join(environment['HOME'] ?? '/', '.local/share'), 'mise', 'shims');
+}
+
+/// An agent's program: [executableOnPath], else where mise has it (`mise which`, asked only for
+/// a command mise has a shim for, at most 5 s, remembered for half a minute). Nothing that would
+/// install it is ever run.
+String? agentExecutable(String command, Map<String, String> environment) {
+  final found = executableOnPath(command, environment);
+  if (found != null || command == 'mise' || !plainHelperName(command)) return found;
+  final shim = p.join(miseShims(environment), command);
+  if (FileSystemEntity.typeSync(shim, followLinks: false) == FileSystemEntityType.notFound) return null;
+  final mise = executableOnPath('mise', environment);
+  if (mise == null) return null;
+  final key = '$mise\x00$command\x00${environment['HOME']}\x00${environment['PATH']}';
+  final cached = _miseFound[key];
+  if (cached != null && DateTime.now().difference(cached.$1) < const Duration(seconds: 30)) return cached.$2;
+  String? result;
+  final timeout = executableOnPath('timeout', environment) ?? (_usableProgram('/usr/bin/timeout') ? '/usr/bin/timeout' : null);
+  if (timeout != null) {
+    try {
+      final r = Process.runSync(timeout, ['5', mise, 'which', command], environment: environment, includeParentEnvironment: false);
+      final out = r.exitCode == 0 ? '${r.stdout}'.split('\n').first.trim() : '';
+      if (out.startsWith('/') && _usableProgram(out)) result = out;
+    } on ProcessException {
+      result = null;
+    }
+  }
+  _miseFound[key] = (DateTime.now(), result);
+  return result;
 }
 
 String readConfig(String path, {int maxBytes = 512 * 1024}) => readRegularNoFollow(path, maxBytes: maxBytes);
@@ -185,6 +283,7 @@ bool hasLocalProvider(String command, Map<String, String> environment) {
 bool agentSetUp(String command, Map<String, String> environment) {
   final a = adapter(command);
   if (a == null) return false;
+  if (a.fromCatalog) return true; // only an Ask can tell
   if (a.env.any((k) => (environment[k] ?? '').isNotEmpty)) return true;
   if (a.files.any(
     (f) => FileSystemEntity.typeSync(p.join(environment['HOME'] ?? '/', f)) == FileSystemEntityType.file,
@@ -197,13 +296,14 @@ bool agentSetUp(String command, Map<String, String> environment) {
 Map<String, Object?> agentInfo(AgentAdapter a, Map<String, String> environment) => {
   'command': a.command,
   'name': a.name,
-  'installed': executableOnPath(a.command, environment) != null,
+  'installed': agentExecutable(a.command, environment) != null,
   'set_up': agentSetUp(a.command, environment),
   'can_ask': canAsk(a.command),
   'plays_chess': plays(a.command),
   'takes_images': takesImages(a.command),
   'reads_untrusted': readsUntrusted(a.command),
   'model_flag': modelFlags[a.command] ?? '',
+  'verified': a.verified,
 };
 List<Map<String, dynamic>> get adapterData => [
   {
@@ -379,4 +479,4 @@ List<Map<String, dynamic>> get adapterData => [
 
 /// Ready to be offered as a chess opponent. Capability itself is independent of readiness.
 bool canPlay(String command, Map<String, String> environment) =>
-    plays(command) && executableOnPath(command, environment) != null && agentSetUp(command, environment);
+    plays(command) && agentExecutable(command, environment) != null && agentSetUp(command, environment);

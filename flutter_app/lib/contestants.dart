@@ -5,11 +5,13 @@ import 'backend.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
-/// An agent from agents.list.
+/// An agent from agents.list; one from Maprisma's helpers catalog that nobody has tried yet is
+/// named "(untested)".
 final class Agent {
   Agent(Map<String, dynamic> j)
     : command = '${j['command']}',
-      name = '${j['name']}',
+      name = '${j['name']}${j['verified'] == false ? tr(" (untested)") : ''}',
+      verified = j['verified'] != false,
       installed = j['installed'] == true,
       setUp = j['set_up'] == true,
       canAsk = j['can_ask'] == true,
@@ -17,7 +19,7 @@ final class Agent {
       takesImages = j['takes_images'] == true,
       readsUntrusted = j['reads_untrusted'] == true;
   final String command, name;
-  final bool installed, setUp, canAsk, playsChess, takesImages, readsUntrusted;
+  final bool installed, setUp, canAsk, playsChess, takesImages, readsUntrusted, verified;
 
   /// Offered on the tabs: installed, set up (signed in or on a local LLM) and askable.
   bool get ready => installed && setUp && canAsk;

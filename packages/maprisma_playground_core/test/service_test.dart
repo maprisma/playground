@@ -79,8 +79,8 @@ void main() {
     e.script('pi', '');
     e.file('.pi/agent/auth.json', 'secret');
     final agents = (await call('agents.list'))['result']['agents'] as List;
-    expect(agents.length, 4);
-    final pi = agents.last;
+    expect(agents.length, adapters.length);
+    final pi = agents.firstWhere((a) => a['command'] == 'pi');
     expect(pi['installed'], isTrue);
     expect(pi['set_up'], isTrue);
     expect(agents.first['installed'], isFalse);

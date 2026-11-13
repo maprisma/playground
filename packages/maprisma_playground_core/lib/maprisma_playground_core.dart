@@ -6,6 +6,7 @@ export 'src/desktop_look.dart';
 export 'src/settings.dart';
 export 'src/runner.dart';
 export 'src/agents.dart';
+export 'src/helpers_catalog.dart';
 export 'src/agent_run.dart';
 export 'src/chess_agent.dart';
 export 'src/chess_game.dart';

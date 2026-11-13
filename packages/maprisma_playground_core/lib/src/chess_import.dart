@@ -95,7 +95,7 @@ class ChessImport {
             readsUntrusted(a.command) &&
             agentInfo(a, runner.environment)['can_ask'] == true &&
             agentInfo(a, runner.environment)['set_up'] == true &&
-            executableOnPath(a.command, runner.environment) != null)
+            agentExecutable(a.command, runner.environment) != null)
           {'command': a.command, 'name': a.name},
     ];
     for (final server in await LocalLlm(http).servers(cancel: token)) {
@@ -139,7 +139,7 @@ class ChessImport {
         for (final a in adapters)
           if (readsUntrusted(a.command) &&
               agentSetUp(a.command, runner.environment) &&
-              executableOnPath(a.command, runner.environment) != null)
+              agentExecutable(a.command, runner.environment) != null)
             a.command,
       ],
       if (before != null)

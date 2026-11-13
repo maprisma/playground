@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:maprisma_playground_core/maprisma_playground_core.dart' show adapters;
 import 'package:test/test.dart';
 import 'test_environment.dart';
 
@@ -16,7 +17,7 @@ void main() {
   test('CLI agents and call use the same protocol service', () async {
     final agents = await cli(['agents']);
     expect(agents.exitCode, 0);
-    expect((jsonDecode(agents.stdout)['result']['agents'] as List).length, 4);
+    expect((jsonDecode(agents.stdout)['result']['agents'] as List).length, adapters.length);
     final info = await cli(['call', 'app.info', '{}']);
     expect(info.exitCode, 0);
     expect(jsonDecode(info.stdout)['result']['version'], '0.1.0');
