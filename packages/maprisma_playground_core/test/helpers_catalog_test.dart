@@ -39,7 +39,8 @@ void main() {
     expect(jsonDecode(shippedHelpersJson), jsonDecode(File('$root/data/helpers.json').readAsStringSync()), reason: 'run tools/gen-helpers.py');
     final ids = [for (final h in shippedHelpersCatalog.helpers) h.id];
     expect(ids.take(2), ['claude', 'codex']);
-    expect(ids, containsAll(['gemini', 'agy', 'cursor-agent', 'copilot', 'grok', 'hermes', 'omp', 'openclaw', 'pi']));
+    expect(ids, containsAll(['agy', 'cursor-agent', 'copilot', 'grok', 'hermes', 'omp', 'openclaw', 'pi']));
+    expect(ids, isNot(contains('gemini')), reason: 'interactive only: its tools stay on in one-shot mode');
     expect(ids, isNot(contains('opencode')), reason: 'no ask');
   });
 
@@ -79,7 +80,7 @@ void main() {
   test('the agents: catalog order, the bundled four keep their adapters', () {
     final list = adapters;
     final commands = [for (final a in list) a.command];
-    expect(commands.take(4), ['claude', 'codex', 'gemini', 'agy']);
+    expect(commands.take(4), ['claude', 'codex', 'agy', 'cursor-agent']);
     expect(commands.indexOf('hermes'), lessThan(commands.indexOf('pi')));
     for (final own in ['claude', 'codex', 'hermes', 'pi']) {
       final a = adapter(own)!;
@@ -88,37 +89,39 @@ void main() {
       expect(plays(own), isTrue);
     }
     expect(adapter('pi')!.argv, contains('--no-context-files'), reason: 'stricter than the catalog');
-    final gemini = adapter('gemini')!;
-    expect(gemini.fromCatalog, isTrue);
-    expect(gemini.verified, isFalse);
-    expect(gemini.name, 'Gemini CLI');
-    expect(gemini.argv, shippedHelpersCatalog.helpers.firstWhere((h) => h.id == 'gemini').argv);
-    expect(plays('gemini'), isFalse);
-    expect(takesImages('gemini'), isFalse);
-    expect(readsUntrusted('gemini'), isFalse);
+    final cursor = adapter('cursor-agent')!;
+    expect(cursor.fromCatalog, isTrue);
+    expect(cursor.verified, isFalse);
+    expect(cursor.name, 'Cursor CLI');
+    expect(cursor.argv, shippedHelpersCatalog.helpers.firstWhere((h) => h.id == 'cursor-agent').argv);
+    expect(plays('cursor-agent'), isFalse);
+    expect(takesImages('cursor-agent'), isFalse);
+    expect(readsUntrusted('cursor-agent'), isFalse);
     expect(canAsk('opencode'), isFalse);
+    expect(adapter('gemini'), isNull, reason: 'no one-shot ask in catalog version 2');
+    expect(canAsk('gemini'), isFalse);
   });
 
   test('detection: PATH and the user folders, else mise which (for a command it has a shim for)', () {
-    expect(agentExecutable('gemini', e.env), isNull);
+    expect(agentExecutable('cursor-agent', e.env), isNull);
     e.file('.npm-global/bin/copilot', '#!/bin/sh\n');
     Process.runSync('/bin/chmod', ['700', '${e.home}/.npm-global/bin/copilot']);
     expect(agentExecutable('copilot', e.env), '${e.home}/.npm-global/bin/copilot');
     // mise in its own data folder (no shims on any searched path): asked `which`, nothing runs
-    final real = '${e.home}/installs/gemini';
-    e.file('installs/gemini', '#!/bin/sh\necho ran > "${e.home}/ran"\n');
+    final real = '${e.home}/installs/cursor-agent';
+    e.file('installs/cursor-agent', '#!/bin/sh\necho ran > "${e.home}/ran"\n');
     Process.runSync('/bin/chmod', ['700', real]);
-    e.script('mise', 'echo "\$@" >> "${e.home}/mise-args"\n[ "\$1" = which ] && [ "\$2" = gemini ] && echo "$real" && exit 0\nexit 1', interpreter: '/bin/sh');
+    e.script('mise', 'echo "\$@" >> "${e.home}/mise-args"\n[ "\$1" = which ] && [ "\$2" = cursor-agent ] && echo "$real" && exit 0\nexit 1', interpreter: '/bin/sh');
     final env = {...e.env, 'PATH': '${e.home}/bin:/usr/bin:/bin', 'MISE_DATA_DIR': '${e.home}/mise'};
-    expect(agentExecutable('gemini', env), isNull, reason: 'no shim: not asked');
+    expect(agentExecutable('cursor-agent', env), isNull, reason: 'no shim: not asked');
     expect(File('${e.home}/mise-args').existsSync(), isFalse);
-    e.file('mise/shims/gemini', '');
-    expect(agentExecutable('gemini', env), real);
-    expect(File('${e.home}/mise-args').readAsStringSync(), 'which gemini\n');
-    expect(agentExecutable('gemini', env), real, reason: 'remembered');
-    expect(File('${e.home}/mise-args').readAsStringSync(), 'which gemini\n');
+    e.file('mise/shims/cursor-agent', '');
+    expect(agentExecutable('cursor-agent', env), real);
+    expect(File('${e.home}/mise-args').readAsStringSync(), 'which cursor-agent\n');
+    expect(agentExecutable('cursor-agent', env), real, reason: 'remembered');
+    expect(File('${e.home}/mise-args').readAsStringSync(), 'which cursor-agent\n');
     expect(File('${e.home}/ran').existsSync(), isFalse);
-    final info = agentInfo(adapter('gemini')!, env);
+    final info = agentInfo(adapter('cursor-agent')!, env);
     expect(info['installed'], isTrue);
     expect(info['set_up'], isTrue, reason: 'its sign-in is not known here');
     expect(info['verified'], isFalse);
@@ -127,13 +130,13 @@ void main() {
 
   test('argv: the prompt as one argument, never an option, NULs dropped; stdin entries get it there', () {
     const odd = "two words; \$(rm -rf ~) `x` \"q\" 's'\nline";
-    final gemini = buildAsk('gemini', odd);
-    expect(gemini.argv, ['gemini', '--approval-mode', 'default', '-o', 'text', '-p', odd]);
-    expect(gemini.stdin, isNull);
-    expect(buildAsk('gemini', '--version').argv.last, ' --version');
-    expect(buildAsk('gemini', 'a\x00b').argv.last, 'ab');
-    expect(buildAsk('gemini', 'x', model: 'm').argv, isEmpty, reason: 'no model flag');
-    expect(buildAsk('gemini', 'x', images: ['/p.png']).argv, isEmpty);
+    final cursor = buildAsk('cursor-agent', odd);
+    expect(cursor.argv, ['cursor-agent', '-p', '--mode', 'ask', '--sandbox', 'enabled', '--output-format', 'text', odd]);
+    expect(cursor.stdin, isNull);
+    expect(buildAsk('cursor-agent', '--version').argv.last, ' --version');
+    expect(buildAsk('cursor-agent', 'a\x00b').argv.last, 'ab');
+    expect(buildAsk('cursor-agent', 'x', model: 'm').argv, isEmpty, reason: 'no model flag');
+    expect(buildAsk('cursor-agent', 'x', images: ['/p.png']).argv, isEmpty);
     expect(catalogAskArgv(['a', '--p={prompt}', '{effort}', '{prompt}'], '-x'), ['a', '--p=-x', ' -x']);
     expect(catalogAskArgv(['a', '-', '{prompt}'], 'x', stdin: true), ['a', '-']);
     e.file('usr/lib/maprisma/data/helpers.json', catalogText(shippedHelpersCatalog.version, [entry('piped', argv: ['piped', '-'], stdin: true)]));
@@ -153,25 +156,25 @@ void main() {
     expect(buildAsk('pi', 'q').argv, contains('--no-skills'));
     expect(buildAsk('hermes', 'q', level: 'deep').argv, containsAll(['--reasoning', 'high', '-z', 'q']));
     expect(parseAnswer('claude', '{"type":"result","result":"hi","usage":{"output_tokens":3}}').tokensOut, 3);
-    expect(parseAnswer('gemini', '  the answer \n').text, 'the answer');
+    expect(parseAnswer('cursor-agent', '  the answer \n').text, 'the answer');
   });
 
   test('askAgent runs a catalog agent with the prompt as its argument; stdout is the answer', () async {
-    e.script('gemini', r'''
+    e.script('cursor-agent', r'''
 import sys, os
 open(os.environ['HOME'] + '/args', 'w').write('\n'.join(sys.argv[1:]))
 open(os.environ['HOME'] + '/stdin', 'w').write(sys.stdin.read())
 print('the answer')
 ''');
-    final a = await askAgent(e.runner, 'gemini', '-what is 2+2?');
+    final a = await askAgent(e.runner, 'cursor-agent', '-what is 2+2?');
     expect(a.error, '');
     expect(a.text, 'the answer');
-    expect(File('${e.home}/args').readAsStringSync(), '--approval-mode\ndefault\n-o\ntext\n-p\n -what is 2+2?');
+    expect(File('${e.home}/args').readAsStringSync(), '-p\n--mode\nask\n--sandbox\nenabled\n--output-format\ntext\n -what is 2+2?');
     expect(File('${e.home}/stdin').readAsStringSync(), '');
-    final long = await askAgent(e.runner, 'gemini', 'x' * (argvPromptMax + 1));
+    final long = await askAgent(e.runner, 'cursor-agent', 'x' * (argvPromptMax + 1));
     expect(long.error, contains('too long'));
-    expect((await askAgent(e.runner, 'gemini', 'x', images: ['/x.png'])).error, contains('cannot be sent pictures'));
-    expect((await askAgent(e.runner, 'gemini', 'x', untrusted: true)).error, contains('untrusted'));
+    expect((await askAgent(e.runner, 'cursor-agent', 'x', images: ['/x.png'])).error, contains('cannot be sent pictures'));
+    expect((await askAgent(e.runner, 'cursor-agent', 'x', untrusted: true)).error, contains('untrusted'));
   });
 
   test('agents.list offers an installed catalog agent as ready and untested', () async {
