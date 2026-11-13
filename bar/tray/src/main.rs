@@ -14,6 +14,27 @@ use zbus::{
 const TITLE: &str = "Maprisma Playground";
 const ICON: &str = "io.github.ubruckhaus.CosmicMaprismaPlayground-symbolic";
 const BUS_NAME: &str = "io.github.ubruckhaus.CosmicMaprismaPlayground.Tray";
+/// The gamepad in the theme green while work runs (data/icons/…-active-symbolic.svg).
+const ICON_ACTIVE: &str = "io.github.ubruckhaus.CosmicMaprismaPlayground-active-symbolic";
+/// Work runs in Maprisma Playground (a game, a generation, an agent, a download, the automaton).
+static BUSY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The bar's gamepad: green while work runs, the plain symbolic one otherwise.
+fn icon_for(busy: bool) -> &'static str {
+    if busy { ICON_ACTIVE } else { ICON }
+}
+/// The app keeps `$XDG_RUNTIME_DIR/maprisma-playground/busy` (its pid) while work runs.
+fn busy_marker() -> Option<PathBuf> {
+    let dir = std::env::var_os("XDG_RUNTIME_DIR").filter(|d| !d.is_empty())?;
+    Some(PathBuf::from(dir).join("maprisma-playground/busy"))
+}
+/// The marker counts only while the app that wrote it is still alive (a crash leaves it behind).
+fn busy_from(marker: Option<&std::path::Path>, proc: &std::path::Path) -> bool {
+    let Some(text) = marker.and_then(|m| std::fs::read_to_string(m).ok()) else {
+        return false;
+    };
+    text.trim().parse::<u32>().is_ok_and(|pid| proc.join(pid.to_string()).exists())
+}
 
 type Props = HashMap<String, OwnedValue>;
 type Layout = (i32, Props, Vec<OwnedValue>);
@@ -194,7 +215,7 @@ impl Tray {
     }
     #[zbus(property)]
     fn icon_name(&self) -> &str {
-        ICON
+        icon_for(BUSY.load(std::sync::atomic::Ordering::Relaxed))
     }
     #[zbus(property)]
     fn icon_pixmap(&self) -> Pixmaps {
@@ -244,6 +265,8 @@ impl Tray {
     async fn new_status(emitter: &SignalEmitter<'_>, status: &str) -> zbus::Result<()>;
     #[zbus(signal)]
     async fn new_tool_tip(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
+    #[zbus(signal)]
+    async fn new_icon(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
 }
 /// MAPRISMA_PLAYGROUND, the app next to this tray (the installed bundle's bin/), the link in
 /// ~/.local/bin, or one on PATH.
@@ -340,6 +363,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
     });
+    // The gamepad follows the app's busy marker (checked every second).
+    let icon_connection = connection.clone();
+    tokio::spawn(async move {
+        let marker = busy_marker();
+        loop {
+            let busy = busy_from(marker.as_deref(), std::path::Path::new("/proc"));
+            if BUSY.swap(busy, std::sync::atomic::Ordering::Relaxed) != busy
+                && let Ok(emitter) = SignalEmitter::new(&icon_connection, "/StatusNotifierItem")
+            {
+                let _ = Tray::new_icon(&emitter).await;
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    });
     while let Some(action) = rx.recv().await {
         if action == Action::Quit {
             return Ok(());
@@ -347,4 +384,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         execute(action);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn gamepad_follows_the_busy_marker() {
+        assert_eq!(icon_for(true), ICON_ACTIVE);
+        assert_eq!(icon_for(false), ICON);
+        let dir = std::env::temp_dir().join(format!("playground-tray-test-{}", std::process::id()));
+        let proc = dir.join("proc");
+        std::fs::create_dir_all(proc.join("4242")).unwrap();
+        let marker = dir.join("busy");
+        assert!(!busy_from(None, &proc));
+        assert!(!busy_from(Some(&marker), &proc), "no marker: idle");
+        std::fs::write(&marker, "4242\n").unwrap();
+        assert!(busy_from(Some(&marker), &proc), "marker of a live app: busy");
+        std::fs::write(&marker, "4343").unwrap();
+        assert!(!busy_from(Some(&marker), &proc), "marker of a dead app: idle");
+        std::fs::write(&marker, "junk").unwrap();
+        assert!(!busy_from(Some(&marker), &proc));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

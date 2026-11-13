@@ -46,7 +46,7 @@ FLUTTER=/path/to/flutter/bin tools/install-local
 
 This installs into `~/.local/lib/maprisma-playground`, with links in `~/.local/bin`, a desktop
 entry and icons.
-- **KDE Plasma:** a tray icon (a gamepad) is started and starts again at login. The Maprisma Icons
+- **KDE Plasma:** a tray icon (a gamepad, green while work runs) is started and starts again at login. The Maprisma Icons
   panel widget shows it with the other Maprisma apps.
 - **COSMIC:** add "Maprisma Playground" in Settings › Desktop › Panel › Applets.
 

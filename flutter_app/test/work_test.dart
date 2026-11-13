@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -77,5 +78,21 @@ void main() {
     expect(await ask(), isTrue);
     running = false;
     expect(await ask(), isFalse);
+  });
+
+  test('busy marker: the pid while work runs, gone when it stops', () {
+    expect(busyMarkerPath({}), isNull);
+    expect(busyMarkerPath({'XDG_RUNTIME_DIR': '/run/user/1000'}), '/run/user/1000/maprisma-playground/busy');
+    final dir = Directory.systemTemp.createTempSync('busy-marker');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final file = File(busyMarkerPath({'XDG_RUNTIME_DIR': dir.path})!);
+    final marker = BusyMarker(file.path);
+    marker.update(false);
+    expect(file.existsSync(), isFalse);
+    marker.update(true);
+    expect(file.readAsStringSync().trim(), '$pid');
+    marker.update(false);
+    expect(file.existsSync(), isFalse);
+    BusyMarker(null).update(true); // no runtime dir: nothing happens
   });
 }

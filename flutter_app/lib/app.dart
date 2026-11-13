@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show FileSystemException;
+import 'dart:io' show FileSystemException, Platform;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -114,6 +114,8 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
     _windowSize.resized();
   }
   Timer? _lookTimer;
+  Timer? _busyTimer;
+  final _busy = BusyMarker(busyMarkerPath(Platform.environment));
   DateTime? _lookRead;
   bool _reading = false;
 
@@ -132,7 +134,12 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
       if (on) _readLook();
     });
     // closing (the window is hidden already): a resize not saved yet is saved now
-    _closing = AppWindow.instance.closing.stream.listen((_) => unawaited(_windowSize.flush()));
+    _closing = AppWindow.instance.closing.stream.listen((_) {
+      unawaited(_windowSize.flush());
+      _busy.update(false);
+    });
+    // The tray's gamepad is coloured while work runs (checked every second).
+    _busyTimer = Timer.periodic(const Duration(seconds: 1), (_) => _busy.update(Work.running));
   }
 
   StreamSubscription<void>? _closing;
@@ -166,6 +173,8 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
   @override
   void dispose() {
     _lookTimer?.cancel();
+    _busyTimer?.cancel();
+    _busy.update(false);
     _focus?.cancel();
     _closing?.cancel();
     _esc.detach();
