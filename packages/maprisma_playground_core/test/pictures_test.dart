@@ -143,10 +143,17 @@ void main() {
     e.script('ffprobe', "import sys\nsys.exit(1)");
     await expectLater(pictures.videoFrames('/fake/playlist.mp4', CancelToken()), throwsStateError);
   });
-  for (final desktop in ['KDE', 'COSMIC', 'sway']) {
-    test('$desktop screenshot flags and raw cleanup', () async {
+  // KDE/COSMIC by session: XDG_CURRENT_DESKTOP unset (a short environment), XDG_SESSION_DESKTOP set
+  for (final named in ['KDE', 'COSMIC', 'sway', 'session:KDE', 'session:COSMIC']) {
+    final desktop = named.replaceFirst('session:', '');
+    test('$named screenshot flags and raw cleanup', () async {
       final png = base64Encode(img.encodePng(img.Image(width: 20, height: 20, numChannels: 3)));
-      e.env['XDG_CURRENT_DESKTOP'] = desktop;
+      if (named.startsWith('session:')) {
+        e.env.remove('XDG_CURRENT_DESKTOP');
+        e.env['XDG_SESSION_DESKTOP'] = desktop;
+      } else {
+        e.env['XDG_CURRENT_DESKTOP'] = desktop;
+      }
       final runner = ProcessRunner(environment: e.env), shots = Pictures(ProcessRunner(environment: e.env));
       addTearDown(() async {
         shots.dispose();

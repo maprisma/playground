@@ -19,6 +19,16 @@ void main() {
     expect(detectDesktop({'XDG_CURRENT_DESKTOP': 'GNOME'}), DesktopId.other);
   });
 
+  test('without XDG_CURRENT_DESKTOP: the session\'s other marks', () {
+    expect(detectDesktop({'XDG_SESSION_DESKTOP': 'KDE'}), DesktopId.kde);
+    expect(detectDesktop({'XDG_CURRENT_DESKTOP': '', 'DESKTOP_SESSION': 'plasma'}), DesktopId.kde);
+    expect(detectDesktop({'XDG_SESSION_DESKTOP': 'COSMIC'}), DesktopId.cosmic);
+    expect(detectDesktop({'HYPRLAND_INSTANCE_SIGNATURE': 'abc'}), DesktopId.hyprland);
+    expect(detectDesktop({'KDE_FULL_SESSION': 'true'}), DesktopId.kde);
+    expect(detectDesktop({'XDG_SESSION_DESKTOP': 'gnome'}), DesktopId.other);
+    expect(detectDesktop({'XDG_CURRENT_DESKTOP': 'GNOME', 'HYPRLAND_INSTANCE_SIGNATURE': 'abc'}), DesktopId.other);
+  });
+
   test('Hyprland: the colours come from Caelestia\'s scheme', () {
     File('${root.path}/state/maprisma-shell/scheme.json')
       ..createSync(recursive: true)

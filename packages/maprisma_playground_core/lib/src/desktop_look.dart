@@ -7,12 +7,28 @@ import 'package:path/path.dart' as p;
 /// Which desktop this is (XDG_CURRENT_DESKTOP).
 enum DesktopId { cosmic, kde, hyprland, other }
 
+/// From XDG_CURRENT_DESKTOP; without it (a service or launcher with a short environment) the
+/// session's other marks count: XDG_SESSION_DESKTOP, DESKTOP_SESSION, then
+/// HYPRLAND_INSTANCE_SIGNATURE and KDE_FULL_SESSION (as Maprisma Settings' detectDesktop).
 DesktopId detectDesktop([Map<String, String>? env]) {
-  final names = ((env ?? Platform.environment)['XDG_CURRENT_DESKTOP'] ?? '').toUpperCase().split(':');
-  if (names.contains('COSMIC')) return DesktopId.cosmic;
-  if (names.contains('KDE')) return DesktopId.kde;
-  if (names.contains('HYPRLAND')) return DesktopId.hyprland;
-  return DesktopId.other;
+  final e = env ?? Platform.environment;
+  DesktopId? named(String? v) {
+    final names = (v ?? '').toUpperCase().split(RegExp(r'[:/]'));
+    if (names.contains('COSMIC')) return DesktopId.cosmic;
+    if (names.contains('KDE') || names.contains('PLASMA') || names.contains('PLASMAWAYLAND') || names.contains('PLASMAX11')) return DesktopId.kde;
+    if (names.contains('HYPRLAND')) return DesktopId.hyprland;
+    return null;
+  }
+
+  final current = e['XDG_CURRENT_DESKTOP'] ?? '';
+  if (current.trim().isNotEmpty) return named(current) ?? DesktopId.other;
+  return named(e['XDG_SESSION_DESKTOP']) ??
+      named(e['DESKTOP_SESSION']) ??
+      ((e['HYPRLAND_INSTANCE_SIGNATURE'] ?? '').isNotEmpty
+          ? DesktopId.hyprland
+          : e['KDE_FULL_SESSION'] == 'true'
+              ? DesktopId.kde
+              : DesktopId.other);
 }
 
 /// Where the desktop's settings are (tests point it at a folder of their own).

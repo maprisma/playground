@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'agents.dart';
+import 'desktop_look.dart' show DesktopId, detectDesktop;
 import 'private_files.dart';
 import 'runner.dart';
 
@@ -268,11 +269,11 @@ class Pictures {
     final raw = createPrivateTempDirectory(prefix: 'maprisma-screenshot-');
     try {
       final path = p.join(raw.path, 'screen.png');
-      final desktop = (runner.environment['XDG_CURRENT_DESKTOP'] ?? '').toLowerCase();
+      final desktop = detectDesktop(runner.environment);
       List<String> argv;
-      if (desktop.contains('kde')) {
+      if (desktop == DesktopId.kde) {
         argv = ['spectacle', '-b', '-n', '-f', '-o', path];
-      } else if (desktop.contains('cosmic')) {
+      } else if (desktop == DesktopId.cosmic) {
         final help = await runner.run(['cosmic-screenshot', '--help'], cancel: token);
         if (!help.ok || !help.text.contains('--interactive') || !help.text.contains('--save-dir')) {
           throw StateError(tr("The screenshot did not work."));
