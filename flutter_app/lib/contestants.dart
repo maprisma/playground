@@ -49,7 +49,7 @@ final class Playground extends ChangeNotifier {
   Playground(this.backend, {this.sharedAiFile});
   final Backend backend;
 
-  /// Maprisma's shared AI settings (Maprisma Manager → AI); null: always automatic.
+  /// Maprisma's shared AI settings (Maprisma Settings → AI); null: always automatic.
   final String? sharedAiFile;
 
   /// The helper chosen for every Maprisma app: "auto" or a helper id ([readHelperChoice]).

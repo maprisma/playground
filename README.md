@@ -24,7 +24,7 @@ Antigravity, Cursor, Copilot, Grok, Oh My Pi, OpenClaw …) for questions, as th
 nobody has tried yet is marked "(untested)". After a newer Maprisma list: copy its
 `data/helpers.json` to `packages/maprisma_playground_core/data/` and run `tools/gen-helpers.py`.
 
-**The AI helper chosen for every Maprisma app** (Maprisma Manager → AI, stored in
+**The AI helper chosen for every Maprisma app** (Maprisma Settings → AI, stored in
 `~/.config/maprisma-ai/settings.json`) is where a test of one agent starts: Analyze, the chess
 opponent and the agent that reads a chess video. Choosing another one on a tab is for that tab
 only; Maprisma Playground never changes the shared choice. "Automatic", or a helper that is not set
@@ -34,7 +34,7 @@ up here, means the first one that is.
 
 ## Install
 
-With [Maprisma Manager](https://github.com/maprisma/manager): **Install** on Maprisma Playground.
+With [Maprisma Settings](https://github.com/maprisma/manager): **Install** on Maprisma Playground.
 
 From the source (Flutter, Dart, cargo; no root needed):
 

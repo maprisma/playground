@@ -110,7 +110,7 @@ class _AnalyzePageState extends State<AnalyzePage> {
 
   void _changed() {
     final ready = widget.playground.ready;
-    // The helper chosen for every Maprisma app first (Maprisma Manager → AI), until one is
+    // The helper chosen for every Maprisma app first (Maprisma Settings → AI), until one is
     // chosen here; else the first one set up.
     final start = widget.playground.preferred(ready.map((a) => a.command));
     final keep = _agent != null && (_picked || _running) && ready.any((a) => a.command == _agent);

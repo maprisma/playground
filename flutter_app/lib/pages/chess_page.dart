@@ -1433,7 +1433,7 @@ final class ChessSession extends ChangeNotifier {
 
   void syncAgents() {
     final all = playable;
-    // The helper chosen for every Maprisma app (Maprisma Manager → AI) is the opponent until one
+    // The helper chosen for every Maprisma app (Maprisma Settings → AI) is the opponent until one
     // is chosen here; it changes only before a game has begun.
     final start = agentNamed(playground?.preferred(all.map((a) => a.command))) ?? all.firstOrNull;
     final settled =

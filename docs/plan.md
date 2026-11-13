@@ -100,7 +100,7 @@ ActionButton and the Mark.
 6. **Generate.** Set up with its downloads and progress, Generate, Save as…, and Ask about it
    (hands the picture to Vision).
 7. **Bar and install.** The Rust applet and tray, `tools/install-local`, the desktop entries and
-   icons, and the **Maprisma Manager catalog entry** `playground` (flutter + rust, like `theme`:
+   icons, and the **Maprisma Settings catalog entry** `playground` (flutter + rust, like `theme`:
    tree `{lib}/maprisma-playground`, links, desktop files, the tray autostart, `BarIcon` with
    COSMIC applet and KDE tray), plus the Manager's inventory.md.
 8. **Checks and publish.** Screenshot comparison per tab, a Codex full review, a README with a
