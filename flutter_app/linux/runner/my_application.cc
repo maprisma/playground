@@ -339,6 +339,13 @@ static void my_application_activate(GApplication* application) {
     return;
   }
   GtkWindow* window = GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
+  // Maprisma Settings › App windows (window_style.dart): an RGBA window, so a see-through
+  // background shows the desktop (Flutter paints the background itself).
+  GdkVisual* rgba_visual = gdk_screen_get_rgba_visual(gtk_widget_get_screen(GTK_WIDGET(window)));
+  if (rgba_visual != nullptr) {
+    gtk_widget_set_visual(GTK_WIDGET(window), rgba_visual);
+    gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
+  }
   gtk_window_set_title(window, "Maprisma Playground");
   gtk_window_set_default_size(window, 1240, 920);
   gtk_widget_set_size_request(GTK_WIDGET(window), 720, 560);
@@ -349,6 +356,7 @@ static void my_application_activate(GApplication* application) {
   FlView* view = fl_view_new(project);
   GdkRGBA background_color;
   gdk_rgba_parse(&background_color, "#000000");
+  if (rgba_visual != nullptr) background_color.alpha = 0;
   fl_view_set_background_color(view, &background_color);
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));

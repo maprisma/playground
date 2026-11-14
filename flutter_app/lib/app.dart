@@ -25,6 +25,7 @@ import 'theme.dart';
 import 'widgets.dart';
 import 'window.dart';
 import 'window_size.dart';
+import 'window_style.dart';
 import 'work.dart';
 
 /// The tabs, in the plugin's order with the Automaton after Chess (Ctrl+1 … Ctrl+7). Analyze is
@@ -115,6 +116,9 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
   }
   Timer? _lookTimer;
   Timer? _busyTimer;
+
+  /// Maprisma Settings › App windows: see-through windows for all Maprisma apps (window_style.dart).
+  WindowStyleWatcher? _windowStyle;
   final _busy = BusyMarker(busyMarkerPath(Platform.environment));
   DateTime? _lookRead;
   bool _reading = false;
@@ -130,6 +134,7 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
     // Maprisma Theme can change the desktop's colours at any time: read them again every 5 s
     // and when the window gets the focus back (hyprctl's rounding at most every 30 s).
     _lookTimer = Timer.periodic(const Duration(seconds: 5), (_) => _readLook(force: true));
+    _windowStyle = WindowStyleWatcher();
     _focus = AppWindow.instance.focus.stream.listen((on) {
       if (on) _readLook();
     });
@@ -173,6 +178,7 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
   @override
   void dispose() {
     _lookTimer?.cancel();
+    _windowStyle?.dispose();
     _busyTimer?.cancel();
     _busy.update(false);
     _focus?.cancel();
@@ -191,6 +197,12 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
     final radius = cornerRadius(widget.settings.text('corners'), rounding);
     final theme = appTheme(MediaQuery.platformBrightnessOf(context), colors, radius);
     AppWindow.instance.titlebar(theme.brightness == Brightness.dark);
+    final style = _windowStyle;
+    if (style == null) return _app(theme, rounding);
+    return ValueListenableBuilder<double>(valueListenable: style, builder: (context, alpha, _) => _app(withWindowAlpha(theme, alpha), rounding));
+  }
+
+  Widget _app(ThemeData theme, int? rounding) {
     return MaterialApp(
       title: 'Maprisma Playground',
       debugShowCheckedModeBanner: false,
@@ -447,11 +459,12 @@ class _ShellState extends State<Shell> {
 
   @override
   Widget build(BuildContext context) {
-    final look = Look.of(context);
     // Analyze stays built after the tabs (a running analysis keeps going under Settings).
     final index = _page == 'analyze' ? tabs.length : tabs.indexWhere((t) => t.$1 == _page);
+    // The theme's background, so a see-through window (Maprisma Settings › App windows) shows.
+    final background = Theme.of(context).scaffoldBackgroundColor;
     return Scaffold(
-      backgroundColor: look.bg,
+      backgroundColor: background,
       body: Focus(
         autofocus: true,
         onKeyEvent: _onKey,
@@ -480,7 +493,7 @@ class _ShellState extends State<Shell> {
                   ),
                   if (index < 0)
                     ColoredBox(
-                      color: look.bg,
+                      color: background,
                       child: switch (_page) {
                         'settings' => SettingsPage(
                           host: _host,
