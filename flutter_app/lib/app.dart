@@ -101,6 +101,22 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
     tiled: () => tiledByMaprismaTiling('com.maprisma.Playground'),
   );
 
+  /// Hyprland: the window's place, kept and put back each time it shows (window_size.dart).
+  late final _windowPlace = WindowPlaceKeeper(
+    saved: _savedPlace(),
+    save: (x, y) async => widget.settings.update({
+      'window_position': [x, y],
+    }),
+  );
+
+  (int, int)? _savedPlace() {
+    try {
+      return parseWindowPosition(widget.settings.get('window_position'));
+    } on Object {
+      return null;
+    }
+  }
+
   (int, int)? _savedSize() {
     try {
       return parseWindowSize(widget.settings.get('window_size'));
@@ -128,6 +144,7 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _esc.attach();
+    _windowPlace.start();
     final backend = widget.playground.backend;
     Work.watch(backend, () => backend.busy);
     _readLook(force: true);
@@ -172,6 +189,7 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _windowPlace.lifecycle(AppLifecycleStateName.values.byName(state.name));
     if (state == AppLifecycleState.resumed) _readLook();
   }
 
@@ -186,6 +204,7 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
     _esc.detach();
     Work.unwatch(widget.playground.backend);
     _windowSize.dispose();
+    _windowPlace.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

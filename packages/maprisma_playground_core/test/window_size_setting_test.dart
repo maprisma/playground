@@ -29,4 +29,23 @@ void main() {
       expect(settings.get('window_size'), isNull, reason: '$broken');
     }
   });
+
+  test('window_position: [x, y] kept (may be negative), broken values fall back to none', () {
+    final places = Places(config: p.join(folder.path, 'c'), data: folder.path, cache: folder.path);
+    final settings = Settings(places);
+    expect(settings.get('window_position'), isNull);
+    settings.update({
+      'window_position': [-20, 42],
+    });
+    expect(settings.get('window_position'), [-20, 42]);
+    for (final broken in [
+      [1],
+      [1.5, 2],
+      [200000, 2],
+      'left',
+    ]) {
+      settings.update({'window_position': broken});
+      expect(settings.get('window_position'), isNull, reason: '$broken');
+    }
+  });
 }
