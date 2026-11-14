@@ -3,6 +3,8 @@
 //
 // That is the app's own: `maprisma-playground --toggle` (single instance).
 
+mod fonts;
+
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::LazyLock;
@@ -17,6 +19,7 @@ const ICON: &str = "io.github.ubruckhaus.CosmicMaprismaPlayground-symbolic";
 static AUTOSIZE_ID: LazyLock<Id> = LazyLock::new(|| Id::new("playground-autosize"));
 
 fn main() -> cosmic::iced::Result {
+    fonts::keep_fonts();
     cosmic::applet::run::<Applet>(())
 }
 
@@ -79,6 +82,7 @@ impl cosmic::Application for Applet {
     }
 
     fn view(&self) -> Element<'_, Message> {
+        fonts::keep_fonts();
         let horizontal = matches!(self.core.applet.anchor, PanelAnchor::Top | PanelAnchor::Bottom);
         let padding = self.core.applet.suggested_padding(true).0;
         let size = self.core.applet.suggested_size(true).0;
