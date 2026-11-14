@@ -44,6 +44,7 @@ class CoreService {
 
   /// Hyprland's window rounding for app.info's look (hyprctl from this environment's PATH).
   late final HyprRounding _hypr = HyprRounding(environment: environment);
+  late final GtkFonts _gtk = GtkFonts(environment: environment);
   final ProcessRunner runner;
   final LocalHttp http;
   final Settings settings;
@@ -184,7 +185,7 @@ class CoreService {
         return {
           'version': '0.1.0',
           'desktop': desktop.name,
-          'look': await readDesktopLook(desktop: desktop, paths: LookPaths.fromEnv(environment), hypr: _hypr),
+          'look': await readDesktopLook(desktop: desktop, paths: LookPaths.fromEnv(environment), hypr: _hypr, gtk: _gtk),
         };
       case 'settings.get':
         final keys = p.containsKey('keys') ? _strings(p['keys']) : schema.keys.toList();

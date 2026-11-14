@@ -84,10 +84,11 @@ void main() {
         asked.add(args);
         return '{"option": "decoration:rounding", "int": 15, "set": true }';
       });
-      expect((await readDesktopLook(desktop: DesktopId.hyprland, paths: paths, hypr: hypr))['rounding'], 15);
+      final gtk = GtkFonts(run: (_, _) async => null);
+      expect((await readDesktopLook(desktop: DesktopId.hyprland, paths: paths, hypr: hypr, gtk: gtk))['rounding'], 15);
       expect(asked, [['-j', 'getoption', 'decoration:rounding']]);
-      expect((await readDesktopLook(desktop: DesktopId.kde, paths: paths, hypr: hypr))['rounding'], 8);
-      expect((await readDesktopLook(desktop: DesktopId.other, paths: paths, hypr: hypr))['rounding'], isNull);
+      expect((await readDesktopLook(desktop: DesktopId.kde, paths: paths, hypr: hypr, gtk: gtk))['rounding'], 8);
+      expect((await readDesktopLook(desktop: DesktopId.other, paths: paths, hypr: hypr, gtk: gtk))['rounding'], isNull);
       expect(asked, hasLength(1));
       expect(desktopLook(desktop: DesktopId.hyprland, paths: paths)['rounding'], isNull);
     });
@@ -145,5 +146,48 @@ void main() {
     expect(look['colors']['background'], '#333333');
     expect(look['colors']['foreground'], '#ffffff', reason: 'the top level on, not the component\'s');
     expect(look['rounding'], 4);
+  });
+
+  group('fonts', () {
+    void write(String path, String text) => File('${root.path}/config/$path')
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync(text);
+    LookPaths sys() => LookPaths(config: '${root.path}/config', root: '${root.path}/sys', state: '${root.path}/state');
+
+    test('COSMIC: CosmicTk\'s interface and monospace families (v2 first)', () {
+      expect(desktopLook(desktop: DesktopId.cosmic, paths: sys())['fonts'], isEmpty);
+      write('cosmic/com.system76.CosmicTk/v1/interface_font', '(\n    family: "Open Sans",\n    weight: Normal,\n)');
+      write('cosmic/com.system76.CosmicTk/v1/monospace_font', '(\n    family: "Hack",\n    weight: Normal,\n)');
+      expect(desktopLook(desktop: DesktopId.cosmic, paths: sys())['fonts'], {'ui': 'Open Sans', 'mono': 'Hack'});
+      write('cosmic/com.system76.CosmicTk/v2/interface_font', '(family: "Inter")');
+      expect(desktopLook(desktop: DesktopId.cosmic, paths: sys())['fonts'], {'ui': 'Inter', 'mono': 'Hack'});
+    });
+
+    test('KDE: kdeglobals\' font and fixed, the first field', () {
+      expect(desktopLook(desktop: DesktopId.kde, paths: paths)['fonts'], isEmpty);
+      write('kdeglobals', '[General]\nfixed=Hack,10,-1,5,400,0,0,0,0,0\nfont=Noto Sans,10,-1,5,400,0,0,0,0,0\n');
+      expect(desktopLook(desktop: DesktopId.kde, paths: paths)['fonts'], {'ui': 'Noto Sans', 'mono': 'Hack'});
+      write('kdeglobals', '[General]\nfont= ,10\nfixed=${'x' * 101}\n');
+      expect(desktopLook(desktop: DesktopId.kde, paths: paths)['fonts'], isEmpty);
+    });
+
+    test('Hyprland and other: gsettings without the size, asked at most every 30 s', () async {
+      final bin = Directory('${root.path}/bin')..createSync();
+      final log = '${root.path}/gs.log';
+      final fake = File('${bin.path}/gsettings')
+        ..writeAsStringSync('#!/bin/sh\necho "\$@" >> "$log"\ncase "\$3" in font-name) echo "\'Noto Sans  10\'";; '
+            'monospace-font-name) echo "\'Hack, 10.5\'";; esac\n');
+      Process.runSync('/bin/chmod', ['755', fake.path]);
+      final gtk = GtkFonts(environment: {'PATH': bin.path});
+      final hypr = HyprRounding(run: (_, _) async => null);
+      expect((await readDesktopLook(desktop: DesktopId.hyprland, paths: paths, hypr: hypr, gtk: gtk))['fonts'], {'ui': 'Noto Sans', 'mono': 'Hack'});
+      expect((await readDesktopLook(desktop: DesktopId.other, paths: paths, hypr: hypr, gtk: gtk))['fonts'], {'ui': 'Noto Sans', 'mono': 'Hack'});
+      expect(File(log).readAsLinesSync(), hasLength(2));
+      // without gsettings: none
+      expect(await GtkFonts(environment: {'PATH': '${root.path}/nothing'}).read(), (null, null));
+      expect(desktopLook(desktop: DesktopId.hyprland, paths: paths)['fonts'], isEmpty);
+      expect(pangoFamily('JetBrains Mono Nerd Font 12'), 'JetBrains Mono Nerd Font');
+      expect(pangoFamily('Hack'), 'Hack');
+    });
   });
 }

@@ -195,7 +195,7 @@ class _PlaygroundAppState extends State<PlaygroundApp> with WidgetsBindingObserv
     final colors = (_look['colors'] as Map?) ?? const {};
     final rounding = _look['rounding'] as int?;
     final radius = cornerRadius(widget.settings.text('corners'), rounding);
-    final theme = appTheme(MediaQuery.platformBrightnessOf(context), colors, radius);
+    final theme = appTheme(MediaQuery.platformBrightnessOf(context), colors, radius, fonts: _look['fonts'] as Map?);
     AppWindow.instance.titlebar(theme.brightness == Brightness.dark);
     final style = _windowStyle;
     if (style == null) return _app(theme, rounding);

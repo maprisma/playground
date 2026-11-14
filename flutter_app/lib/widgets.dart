@@ -565,7 +565,7 @@ class AnswerText extends StatelessWidget {
       text,
       style: Theme.of(context).textTheme.bodyMedium!.copyWith(height: 1.4,
         color: error ? look.red : look.fg,
-        fontFamily: mono ? 'monospace' : null,
+        fontFamily: mono ? monoFont(context) : null,
       ),
     );
   }

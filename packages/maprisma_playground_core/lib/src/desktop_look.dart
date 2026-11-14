@@ -66,19 +66,75 @@ final class _Ctx {
 
 /// The desktop's palette and window corners, as Maprisma Launcher and Manager read them
 /// (copied from maprisma_manager_core desktop_look.dart), so the Playground looks like them.
-/// `{desktop, colors: {accent, background, foreground, muted, selection, red, yellow, orange, green}, rounding, is_dark}`.
+/// `{desktop, colors: {accent, background, foreground, muted, selection, red, yellow, orange, green}, rounding, is_dark,
+/// fonts: {ui, mono}}` (fonts: the desktop's interface and monospace families, each left out when unknown).
 /// On Hyprland the windows' rounding comes from `hyprctl` (a process): [hyprRounding] passes it
-/// in (see [readDesktopLook], which asks [HyprRounding] for it); without it it is null.
-Map<String, dynamic> desktopLook({DesktopId? desktop, LookPaths? paths, int? hyprRounding}) =>
-    _look(_Ctx(desktop ?? detectDesktop(), paths ?? LookPaths.fromEnv()), hyprRounding);
+/// in (see [readDesktopLook], which asks [HyprRounding] for it); without it it is null. The same
+/// for GTK's fonts on Hyprland and other desktops ([gtkFonts], from [GtkFonts]).
+Map<String, dynamic> desktopLook({DesktopId? desktop, LookPaths? paths, int? hyprRounding, (String?, String?)? gtkFonts}) =>
+    _look(_Ctx(desktop ?? detectDesktop(), paths ?? LookPaths.fromEnv()), hyprRounding, gtkFonts);
 
 /// [desktopLook] with Hyprland's window rounding read from `hyprctl` (through [hypr], by default
-/// one shared reader that asks at most every 30 s).
-Future<Map<String, dynamic>> readDesktopLook({DesktopId? desktop, LookPaths? paths, HyprRounding? hypr}) async {
+/// one shared reader that asks at most every 30 s) and, on Hyprland and other desktops, GTK's
+/// fonts from `gsettings` (through [gtk], the same way).
+Future<Map<String, dynamic>> readDesktopLook({DesktopId? desktop, LookPaths? paths, HyprRounding? hypr, GtkFonts? gtk}) async {
   final id = desktop ?? detectDesktop();
   final rounding = id == DesktopId.hyprland ? await (hypr ?? HyprRounding.shared).read() : null;
-  return desktopLook(desktop: id, paths: paths, hyprRounding: rounding);
+  final fonts = id == DesktopId.hyprland || id == DesktopId.other ? await (gtk ?? GtkFonts.shared).read() : null;
+  return desktopLook(desktop: id, paths: paths, hyprRounding: rounding, gtkFonts: fonts);
 }
+
+/// GTK's interface and monospace fonts (`gsettings get org.gnome.desktop.interface font-name /
+/// monospace-font-name`, without the size): asked at most once per [every]; meanwhile the last
+/// answer stands. Tests inject [run] (or a PATH with a fake gsettings in [environment]), never
+/// the session's gsettings.
+final class GtkFonts {
+  GtkFonts({
+    HyprctlRun? run,
+    Map<String, String>? environment,
+    this.every = const Duration(seconds: 30),
+    this.timeout = const Duration(seconds: 3),
+    DateTime Function()? clock,
+  }) : _run = run ?? _processRun(environment ?? Platform.environment, 'gsettings'),
+       _clock = clock ?? DateTime.now;
+
+  /// The app's reader (the real gsettings from PATH).
+  static final shared = GtkFonts();
+
+  final HyprctlRun _run;
+  final DateTime Function() _clock;
+  final Duration every, timeout;
+  DateTime? _asked;
+  (String?, String?) _value = (null, null);
+  Future<(String?, String?)>? _running;
+
+  Future<(String?, String?)> read() {
+    final running = _running;
+    if (running != null) return running;
+    final asked = _asked;
+    if (asked != null && _clock().difference(asked).abs() < every) return Future.value(_value);
+    _asked = _clock();
+    return _running = () async {
+      Future<String?> get(String key) async {
+        try {
+          final out = (await _run(['get', 'org.gnome.desktop.interface', key], timeout))?.trim() ?? '';
+          return out.length > 2 && out.startsWith("'") && out.endsWith("'") ? pangoFamily(out.substring(1, out.length - 1)) : null;
+        } on Object {
+          return null;
+        }
+      }
+
+      try {
+        return _value = (await get('font-name'), await get('monospace-font-name'));
+      } finally {
+        _running = null;
+      }
+    }();
+  }
+}
+
+/// A Pango font ("Noto Sans  10", "Hack, 10") without its size.
+String pangoFamily(String font) => font.trim().replaceFirst(RegExp(r',?\s+\d+(\.\d+)?$'), '').trim();
 
 /// Runs `hyprctl` with these arguments; its standard output, or null when it failed or took
 /// longer than [timeout].
@@ -139,12 +195,13 @@ int? parseHyprRounding(String text) {
   }
 }
 
-/// hyprctl from [environment]'s PATH, without a shell; killed after the timeout.
-HyprctlRun _processRun(Map<String, String> environment) => (args, timeout) async {
+/// [program] (hyprctl, gsettings) from [environment]'s PATH, without a shell; killed after the
+/// timeout.
+HyprctlRun _processRun(Map<String, String> environment, [String program = 'hyprctl']) => (args, timeout) async {
   String? exe;
   for (final dir in (environment['PATH'] ?? '').split(':')) {
     if (dir.isEmpty) continue;
-    final candidate = p.join(dir, 'hyprctl');
+    final candidate = p.join(dir, program);
     if (FileSystemEntity.typeSync(candidate) == FileSystemEntityType.file) {
       exe = candidate;
       break;
@@ -170,7 +227,7 @@ HyprctlRun _processRun(Map<String, String> environment) => (args, timeout) async
   }
 };
 
-Map<String, dynamic> _look(_Ctx ctx, int? hyprRounding) {
+Map<String, dynamic> _look(_Ctx ctx, int? hyprRounding, (String?, String?)? gtkFonts) {
   final colors = switch (ctx.desktop) {
     DesktopId.cosmic => _cosmicColors(ctx),
     DesktopId.kde => _kdeColors(ctx),
@@ -188,7 +245,39 @@ Map<String, dynamic> _look(_Ctx ctx, int? hyprRounding) {
       DesktopId.other => null,
     },
     'is_dark': bg == null ? null : _dark(bg),
+    'fonts': _fonts(ctx, gtkFonts),
   };
+}
+
+// --- fonts (the same in every Maprisma app; Maprisma Theme's Font & effects sets them) ------
+
+/// The desktop's interface and monospace font families, `{ui, mono}`, each left out when it
+/// can't be read: COSMIC's CosmicTk interface_font / monospace_font, KDE's kdeglobals font /
+/// fixed, elsewhere (Hyprland, GNOME) GTK's gsettings font-name / monospace-font-name
+/// ([gtkFonts], see [GtkFonts]).
+Map<String, String> _fonts(_Ctx ctx, (String?, String?)? gtkFonts) {
+  String? clean(String? v) {
+    final t = v?.trim();
+    return t == null || t.isEmpty || t.length > 100 ? null : t;
+  }
+
+  final (String? ui, String? mono) = switch (ctx.desktop) {
+    DesktopId.cosmic => (
+      _ronFamily(_cosmicConfig(ctx, 'com.system76.CosmicTk', 'interface_font')),
+      _ronFamily(_cosmicConfig(ctx, 'com.system76.CosmicTk', 'monospace_font')),
+    ),
+    DesktopId.kde => () {
+      final text = _read(p.join(ctx.paths.config, 'kdeglobals'), 1024 * 1024) ?? '';
+      return (_kdeIni(text, 'General', 'font')?.split(',').first, _kdeIni(text, 'General', 'fixed')?.split(',').first);
+    }(),
+    _ => gtkFonts ?? (null, null),
+  };
+  return {'ui': ?clean(ui), 'mono': ?clean(mono)};
+}
+
+String? _ronFamily(String? text) {
+  final v = text == null ? null : ronField(text, 'family');
+  return v?.replaceAll('"', '');
 }
 
 const _light = {

@@ -383,7 +383,7 @@ class _AutomatonPageState extends State<AutomatonPage> {
             width: 150,
             child: TextField(
               controller: _ruleText,
-              style: Theme.of(context).textTheme.bodySmall!.copyWith(fontFamily: 'monospace'),
+              style: Theme.of(context).textTheme.bodySmall!.copyWith(fontFamily: monoFont(context)),
               decoration: InputDecoration(
                 hintText: 'B3/S23',
                 // A one-line field as high as the controls beside it.
@@ -883,7 +883,7 @@ class _ScenarioDialog extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               notation,
-              style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontFamily: 'monospace', color: look.muted),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontFamily: monoFont(context), color: look.muted),
             ),
           ],
         ],
