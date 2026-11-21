@@ -36,6 +36,20 @@ up here, means the first one that is.
 
 With [Maprisma Settings](https://github.com/maprisma/manager): **Install** on Maprisma Playground.
 
+As an AppImage (x86_64, no install): download `Maprisma-Playground-<version>-x86_64.AppImage` and its
+`.sha256` from [Releases](https://github.com/maprisma/playground/releases), then
+
+```sh
+sha256sum -c Maprisma-Playground-*-x86_64.AppImage.sha256
+chmod +x Maprisma-Playground-*-x86_64.AppImage
+./Maprisma-Playground-*-x86_64.AppImage
+```
+
+The AppImage is the app window only: the bar icons (COSMIC applet, KDE tray) come with the
+installed version. The release also has `maprisma-playground-<version>-x86_64.tar.gz` (the built
+bundle with the core CLI and bar icons, desktop entries and icons). Releases are built with
+`tools/build-release.py` and `packaging/build-appimage.py`.
+
 From the source (Flutter, Dart, cargo; no root needed):
 
 ```sh
