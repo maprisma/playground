@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:maprisma_playground_core/maprisma_playground_core.dart';
 
 import '../app.dart';
+import '../skin.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'page_head.dart';
@@ -18,7 +19,7 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  void _save(String key, Object value) {
+  void _save(String key, Object? value) {
     try {
       widget.host.settings.update({key: value});
     } on Object catch (e) {
@@ -67,10 +68,18 @@ class _SettingsPageState extends State<SettingsPage> {
       trf("Rounded ({0} px)", [roundedRadius]),
       tr("Square"),
     ];
+    final theme = Theme.of(context);
+    final skin = theme.extension<AppSkinTheme>()?.style;
+    final dividerColor = skin != null ? skin.borderTint.withValues(alpha: 0.24) : look.fg.withValues(alpha: .08);
     final group = Container(
       decoration: BoxDecoration(
-        color: look.fg.withValues(alpha: .03),
-        border: Border.all(color: look.fg.withValues(alpha: .10)),
+        color: skin != null
+            ? (theme.cardTheme.color ?? Color.alphaBlend(skin.bgTint.withValues(alpha: 0.28), skin.windowBg))
+            : look.fg.withValues(alpha: .03),
+        border: Border.all(
+          color: skin != null ? skin.borderTint.withValues(alpha: 0.48) : look.fg.withValues(alpha: .10),
+          width: skin?.borderWidth ?? 1.0,
+        ),
         borderRadius: BorderRadius.circular(corners(context)),
       ),
       child: Column(
@@ -89,7 +98,7 @@ class _SettingsPageState extends State<SettingsPage> {
               },
             ),
           ),
-          Divider(color: look.fg.withValues(alpha: .08)),
+          Divider(color: dividerColor),
           _row(
             tr("Corners"),
             tr(
@@ -102,7 +111,20 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: (v) => _save('corners', v),
             ),
           ),
-          Divider(color: look.fg.withValues(alpha: .08)),
+          Divider(color: dividerColor),
+          _row(
+            tr("App skin"),
+            tr("Visual accent for cards and borders; Native keeps your desktop theme untouched."),
+            Choice<String>(
+              key: const ValueKey('app-skin'),
+              value: normalizeSkin(s.text(skinKey)),
+              items: appSkins,
+              label: (v) => skinLabel(v, tr),
+              swatch: (v) => skinStyle(v)?.accent,
+              onChanged: (v) => _save(skinKey, v == 'native' ? null : v),
+            ),
+          ),
+          Divider(color: dividerColor),
           _row(
             tr("Text in choice boxes"),
             tr("The chosen value in drop-down boxes: bright (the theme's text colour) or dimmed."),
@@ -113,7 +135,7 @@ class _SettingsPageState extends State<SettingsPage> {
               onChanged: (v) => _save('choice_text', v),
             ),
           ),
-          Divider(color: look.fg.withValues(alpha: .08)),
+          Divider(color: dividerColor),
           _row(
             tr("F12 saves a screenshot"),
             tr(

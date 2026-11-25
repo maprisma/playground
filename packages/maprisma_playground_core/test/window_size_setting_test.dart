@@ -48,4 +48,22 @@ void main() {
       expect(settings.get('window_position'), isNull, reason: '$broken');
     }
   });
+
+  test('skin: defaults to native, omits native on save, normalizes unknown values', () {
+    final places = Places(config: p.join(folder.path, 'c'), data: folder.path, cache: folder.path);
+    final settings = Settings(places);
+    expect(settings.text('skin'), 'native');
+    expect(settings.stored('skin'), isFalse);
+    for (final skin in ['synthwave', 'cozy', 'terminal', 'disco', 'zen']) {
+      settings.update({'skin': skin});
+      expect(settings.text('skin'), skin);
+      expect(settings.stored('skin'), isTrue);
+    }
+    settings.update({'skin': 'native'});
+    expect(settings.text('skin'), 'native');
+    expect(settings.stored('skin'), isFalse);
+    expect(File(places.settingsFile).readAsStringSync().contains('"skin"'), isFalse);
+    settings.update({'skin': 'unknown'});
+    expect(settings.text('skin'), 'native');
+  });
 }

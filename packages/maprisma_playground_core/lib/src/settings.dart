@@ -59,6 +59,7 @@ bool Function(Object?) _oneOf(List<String> choices) =>
 
 const strengths = ['beginner', 'casual', 'club', 'master', 'max'];
 const thinkingLevels = ['quick', 'normal', 'deep', 'max'];
+const _appSkins = ['native', 'synthwave', 'cozy', 'terminal', 'disco', 'zen'];
 
 /// Every key of settings.json (the plugin's settings_schema, the playground's part; no language
 /// or look: Maprisma Playground speaks English and follows the desktop's colours).
@@ -69,6 +70,11 @@ final Map<String, Setting> schema = {
     'windows',
     _oneOf(['windows', 'slight', 'rounded', 'square']),
     "Settings › Corners: the desktop's, slightly rounded (6 px), rounded (12 px) or square",
+  ),
+  'skin': Setting(
+    'native',
+    _oneOf(_appSkins),
+    'Settings › App skin: visual accent for cards and borders, or native for the desktop theme',
   ),
   'screenshot_key': Setting(true, _bool, 'Settings › F12 saves a screenshot (with a note)'),
   'window_size': Setting(null, _size, "the window's size as the user left it (saved after a resize): [width, height]"),
@@ -142,7 +148,7 @@ final class Settings {
     final unknown = values.keys.where((k) => !schema.containsKey(k)).toList();
     if (unknown.isNotEmpty) throw ArgumentError(trf("not a declared setting: {0}", [unknown.join(', ')]));
     final data = _load();
-    values.forEach((k, v) => v == null ? data.remove(k) : data[k] = v);
+    values.forEach((k, v) => (v == null || (k == 'skin' && v == 'native')) ? data.remove(k) : data[k] = v);
     writePrivate(places.settingsFile, const JsonEncoder.withIndent('  ').convert(data));
   }
 }

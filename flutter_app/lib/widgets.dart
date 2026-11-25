@@ -15,6 +15,7 @@ import 'package:maprisma_playground_core/maprisma_playground_core.dart'
         trf;
 
 import 'mic_button.dart';
+import 'skin.dart';
 import 'theme.dart';
 import 'voice_input.dart';
 
@@ -129,12 +130,19 @@ class _FoldCardState extends State<FoldCard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final look = Look.of(context);
+    final skin = theme.extension<AppSkinTheme>()?.style;
     final radius = corners(context);
     return Container(
       decoration: BoxDecoration(
-        color: look.fg.withValues(alpha: .03),
-        border: Border.all(color: look.fg.withValues(alpha: .10)),
+        color: skin != null
+            ? (theme.cardTheme.color ?? Color.alphaBlend(skin.bgTint.withValues(alpha: 0.28), skin.windowBg))
+            : look.fg.withValues(alpha: .03),
+        border: Border.all(
+          color: skin != null ? skin.borderTint.withValues(alpha: 0.48) : look.fg.withValues(alpha: .10),
+          width: skin?.borderWidth ?? 1.0,
+        ),
         borderRadius: BorderRadius.circular(radius),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -287,6 +295,7 @@ class Choice<T> extends StatelessWidget {
     required this.value,
     required this.items,
     required this.label,
+    this.swatch,
     this.onChanged,
     this.tooltip,
     this.empty = '',
@@ -294,9 +303,16 @@ class Choice<T> extends StatelessWidget {
   final T? value;
   final List<T> items;
   final String Function(T) label;
+  final Color? Function(T)? swatch;
   final ValueChanged<T>? onChanged;
   final String? tooltip;
   final String empty;
+
+  Widget _dot(Color color) => Container(
+    width: 10,
+    height: 10,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -304,6 +320,7 @@ class Choice<T> extends StatelessWidget {
     final radius = cornerSizes(context).control;
     final enabled = onChanged != null && items.isNotEmpty;
     final text = value == null ? empty : label(value as T);
+    final selectedDot = value == null ? null : swatch?.call(value as T);
     Widget pill = Container(
       constraints: const BoxConstraints(minHeight: controlHeight),
       padding: const EdgeInsets.fromLTRB(8, 0, 4, 0),
@@ -314,6 +331,7 @@ class Choice<T> extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (selectedDot != null) ...[_dot(selectedDot), const SizedBox(width: 6)],
           Flexible(
             child: Text(
               text,
@@ -342,6 +360,7 @@ class Choice<T> extends StatelessWidget {
                     width: 22,
                     child: items[i] == value ? Icon(Icons.check, size: 16, color: look.accent) : null,
                   ),
+                  if (swatch?.call(items[i]) case final dot?) ...[_dot(dot), const SizedBox(width: 8)],
                   Flexible(child: Text(label(items[i]), overflow: TextOverflow.ellipsis)),
                 ],
               ),
