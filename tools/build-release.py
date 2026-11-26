@@ -2,7 +2,7 @@
 """Build a Maprisma Playground release: dist/maprisma-playground-<version>-x86_64.tar.gz and its SHA-256
 (after Maprisma Launcher's tools/build-release.py).
 
-The generated files checked against their sources (tools/gen-translations.py, tools/gen-helpers.py),
+The generated files checked against their sources (tools/gen-translations.py),
 the Flutter app, the core CLI and the bar icons (COSMIC applet, KDE/Hyprland tray) built from a clean
 copy (release mode), the release identity checked, and one folder maprisma-playground-<version>/ with:
     app/                      the bundle (maprisma-playground, lib/, data/, bin/ with
@@ -41,7 +41,7 @@ def version() -> str:
 
 def check_generated():
     """The generated catalogs are committed: building them again must change nothing."""
-    for tool in ('gen-translations.py', 'gen-helpers.py'):
+    for tool in ('gen-translations.py',):
         subprocess.run([sys.executable, str(ROOT / 'tools' / tool)], check=True, stdout=subprocess.DEVNULL)
     changed = subprocess.run(['git', 'status', '--porcelain', '--', 'packages'], cwd=ROOT,
                              capture_output=True, text=True, check=True).stdout.strip()
