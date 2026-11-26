@@ -5,7 +5,6 @@ import 'app.dart';
 import 'backend.dart';
 import 'contestants.dart';
 import 'window.dart';
-import 'window_size.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();

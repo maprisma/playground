@@ -10,7 +10,7 @@ library;
 
 import 'dart:convert';
 
-import 'private_files.dart';
+import 'package:maprisma_core_kit/files.dart';
 
 const sharedHelperAuto = 'auto';
 final _helperId = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,160}$');

@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:maprisma_playground/app.dart';
 import 'package:maprisma_playground/backend.dart';
 import 'package:maprisma_playground/contestants.dart';
-import 'package:maprisma_playground/esc_close.dart';
+import 'package:maprisma_ui/window.dart';
 import 'package:maprisma_playground/pages/chess_page.dart';
 import 'package:maprisma_playground/theme.dart';
 import 'package:maprisma_playground/widgets.dart';

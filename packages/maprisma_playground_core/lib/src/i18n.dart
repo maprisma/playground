@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:maprisma_core_kit/ai.dart' show VoiceInput;
+import 'package:maprisma_core_kit/files.dart' show privateFilesMessageFormatter;
+
 import 'translations.g.dart';
 
 /// Interface translations, as AI Playground has them (gettext style: the English text is the key).
@@ -56,6 +59,8 @@ void setLanguage(String code) {
           final json = translationCatalogs[_code];
           return json == null ? const {} : (jsonDecode(json) as Map).cast<String, String>();
         });
+  privateFilesMessageFormatter = trf;
+  VoiceInput.formatMessage = trf;
 }
 
 /// The text in the language in use (English when there is no translation).

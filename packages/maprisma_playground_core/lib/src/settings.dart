@@ -1,7 +1,7 @@
 import 'i18n.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'private_files.dart';
+import 'package:maprisma_core_kit/files.dart';
 
 import 'package:path/path.dart' as p;
 

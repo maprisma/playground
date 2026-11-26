@@ -5,8 +5,7 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'agents.dart';
-import 'desktop_look.dart' show DesktopId, detectDesktop;
-import 'private_files.dart';
+import 'package:maprisma_core_kit/files.dart';
 import 'runner.dart';
 
 const maxPicturePixels = 16 * 1024 * 1024;

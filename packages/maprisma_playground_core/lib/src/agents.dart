@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:toml/toml.dart';
-import 'helpers_catalog.dart';
-import 'private_files.dart';
+import 'package:maprisma_core_kit/ai.dart';
+import 'package:maprisma_core_kit/files.dart';
 
 /// Every agent the Playground can ask, in the order of Maprisma's helpers catalog
 /// (helpers_catalog.dart): Claude Code, Codex, Hermes and Pi with their bundled adapters

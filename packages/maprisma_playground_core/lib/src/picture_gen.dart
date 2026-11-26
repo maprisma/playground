@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
-import 'private_files.dart';
+import 'package:maprisma_core_kit/files.dart';
 import 'runner.dart';
 import 'settings.dart';
 
@@ -152,13 +152,15 @@ void unpackRelease(String archivePath, String folder) {
     }
     Directory(folder).createSync(recursive: true);
     for (final file in archive.files) {
+      final target = p.join(folder, file.name);
       final output = StagingFile(
-        p.join(folder, file.name),
+        target,
         exclusive: true,
         mode: ['sd-cli', 'sd-server'].contains(file.name) ? 0x1ed : 0x1a4,
       );
       try {
         output.add(file.content);
+        output.publish(target);
       } finally {
         output.close();
       }

@@ -5,7 +5,7 @@ import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
-import 'private_files.dart';
+import 'package:maprisma_core_kit/files.dart';
 
 /// Speak instead of typing: a microphone in the question fields (AI Playground's dictation.py).
 ///

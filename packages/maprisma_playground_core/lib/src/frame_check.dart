@@ -13,7 +13,7 @@ import 'local_llm.dart';
 import 'loopback.dart';
 import 'netfetch.dart';
 import 'picture_gen.dart';
-import 'private_files.dart';
+import 'package:maprisma_core_kit/files.dart';
 import 'runner.dart';
 
 const probePrompt = 'What colour is the square in this picture? Answer with one English word.';
@@ -102,9 +102,11 @@ class FrameCheck {
     final backupDir = Directory('$home/.local/state/ai-playground/backups/${DateTime.now().millisecondsSinceEpoch}');
     backupDir.createSync(recursive: true);
     Process.runSync('/bin/chmod', ['700', backupDir.path]);
-    final copy = StagingFile(p.join(backupDir.path, p.basename(path)), exclusive: true, mode: mode);
+    final backupPath = p.join(backupDir.path, p.basename(path));
+    final copy = StagingFile(backupPath, exclusive: true, mode: mode);
     try {
       copy.add(old.readAsBytesSync());
+      copy.publish(backupPath);
     } finally {
       copy.close();
     }

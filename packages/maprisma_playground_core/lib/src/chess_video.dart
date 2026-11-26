@@ -5,7 +5,7 @@ import 'dart:math';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'chess_rules.dart' as rules;
-import 'private_files.dart';
+import 'package:maprisma_core_kit/files.dart';
 
 final youtubePattern = RegExp(
   r'https://(?:(?:www\.|m\.)?youtube\.com/(?:watch\?v=|shorts/|live/)|youtu\.be/)[A-Za-z0-9_-]{6,20}(?:[?&#][A-Za-z0-9_=&%.-]{0,200})?',

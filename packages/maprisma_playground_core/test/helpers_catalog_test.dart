@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:maprisma_playground_core/maprisma_playground_core.dart';
-import 'package:maprisma_playground_core/src/helpers_shipped.g.dart';
 import 'package:test/test.dart';
 
 import 'fake_http.dart';

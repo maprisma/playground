@@ -3,9 +3,23 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'agents.dart';
-import 'helpers_catalog.dart';
+import 'package:maprisma_core_kit/ai.dart' hide catalogAskArgv;
 import 'runner.dart';
-import 'private_files.dart';
+import 'package:maprisma_core_kit/files.dart';
+
+/// The argv of a catalog helper's Ask: `{prompt}` replaced inside single elements (never
+/// through a shell; NULs dropped), `{effort}` (Maprisma's thinking time) left out. A prompt
+/// alone in an element never starts with `-`, so it can't be read as an option. With `stdin`
+/// the `{prompt}` elements go (the prompt is written to stdin).
+List<String> catalogAskArgv(List<String> template, String prompt, {bool stdin = false}) {
+  final clean = prompt.replaceAll('\x00', '');
+  final lone = clean.startsWith('-') ? ' $clean' : clean;
+  return [
+    for (final a in template)
+      if (a != '{effort}' && !(stdin && a.contains(helperPrompt)))
+        a == helperPrompt ? lone : a.replaceAll(helperPrompt, clean),
+  ];
+}
 
 const thinkingSeconds = {'quick': 30, 'normal': 90, 'deep': 180, 'max': 360};
 int seconds(String level) => thinkingSeconds[level] ?? 90;

@@ -11,7 +11,7 @@ import 'agents.dart';
 import 'agent_run.dart';
 import 'chess_agent.dart';
 import 'chess_rules.dart' as rules;
-import 'desktop_look.dart';
+import 'package:maprisma_core_kit/desktop.dart';
 import 'gpu_check.dart';
 import 'local_hold.dart';
 import 'local_llm.dart';

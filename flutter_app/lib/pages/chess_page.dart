@@ -12,12 +12,12 @@ import 'package:flutter/services.dart';
 import 'package:maprisma_playground_core/maprisma_playground_core.dart' as rules;
 import 'package:maprisma_playground_core/maprisma_playground_core.dart'
     show ChessGame, ChessMode, Move, Position, Settings;
+import 'package:maprisma_ui/window.dart';
 
 import '../app.dart';
 import '../backend.dart';
 import '../chess_board.dart';
 import '../contestants.dart';
-import '../esc_close.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../window.dart';

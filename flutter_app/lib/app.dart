@@ -6,9 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:maprisma_playground_core/maprisma_playground_core.dart';
+import 'package:maprisma_ui/window.dart';
+import 'package:maprisma_ui/window_style.dart';
 
 import 'contestants.dart';
-import 'esc_close.dart';
 import 'pages/analyze_page.dart';
 import 'pages/automaton_page.dart';
 import 'pages/chess_page.dart';
@@ -25,8 +26,6 @@ import 'skin.dart';
 import 'theme.dart';
 import 'widgets.dart';
 import 'window.dart';
-import 'window_size.dart';
-import 'window_style.dart';
 import 'work.dart';
 
 /// The tabs, in the plugin's order with the Automaton after Chess (Ctrl+1 … Ctrl+7). Analyze is
@@ -404,7 +403,11 @@ class _ShellState extends State<Shell> {
         image.dispose();
       }
       if (png == null) throw _NoPicture();
-      path = saveScreenshot(widget.screenshots ?? screenshotFolder(), png.buffer.asUint8List());
+      path = saveScreenshot(
+        widget.screenshots ?? screenshotFolder(appName: 'Maprisma Playground'),
+        png.buffer.asUint8List(),
+        filePrefix: 'maprisma-playground',
+      );
     } on Object catch (e) {
       _shooting = false;
       if (mounted) _toast(trf("The screenshot could not be saved: {0}", [_why(e)]));

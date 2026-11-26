@@ -14,10 +14,10 @@ import 'package:maprisma_playground_core/maprisma_playground_core.dart'
         tr,
         trf;
 
-import 'mic_button.dart';
+import 'package:maprisma_ui/voice.dart';
+
 import 'skin.dart';
 import 'theme.dart';
-import 'voice_input.dart';
 
 /// The pieces of the plugin's pages (host.py, theme_css.py): the tab intro, the folding card,
 /// small and main buttons, the bordered drop-down, the capability mark and answer text.

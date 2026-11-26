@@ -14,7 +14,7 @@ import 'local_llm.dart';
 import 'netfetch.dart';
 import 'picture_gen.dart';
 import 'pictures.dart';
-import 'private_files.dart';
+import 'package:maprisma_core_kit/files.dart';
 import 'runner.dart';
 
 const framePrompt =

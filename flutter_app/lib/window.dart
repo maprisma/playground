@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:maprisma_ui/window.dart';
 
 import 'work.dart';
 
@@ -16,10 +17,10 @@ final class Drop {
 /// The native window (linux/runner/my_application.cc, "maprisma-playground/window").
 final class AppWindow {
   AppWindow._() {
-    _channel.setMethodCallHandler(_handle);
+    _channel.setHandler(_handle);
   }
   static final instance = AppWindow._();
-  static const _channel = MethodChannel('maprisma-playground/window');
+  final _channel = WindowChannel('maprisma-playground/window');
 
   final shown = StreamController<void>.broadcast();
   final focus = StreamController<bool>.broadcast();
@@ -61,40 +62,24 @@ final class AppWindow {
     return null;
   }
 
-  Future<void> _call(String method, [Object? args]) async {
-    try {
-      await _channel.invokeMethod(method, args);
-    } on MissingPluginException {
-      // tests
-    } on PlatformException {
-      // ignore
-    }
-  }
-
-  Future<void> present() => _call('present');
+  Future<void> present() => _channel.present();
 
   /// Esc on a tab with nothing open: close as the window's close button does ("closing", then
   /// quit; what runs is stopped, the state kept).
-  Future<void> close() => _call('close');
+  Future<void> close() => _channel.close();
 
   /// Esc on a tab while something runs: the window steps aside, the work goes on (--toggle and
   /// the tray bring it back).
-  Future<void> hide() => _call('hide');
+  Future<void> hide() => _channel.hide();
 
   /// {width, height, free}: GTK's size (title bar included), free = shown and neither maximized,
   /// fullscreen nor tiled.
-  Future<Object?> geometry() async {
-    try {
-      return await _channel.invokeMethod<Object?>('geometry');
-    } on MissingPluginException {
-      return null;
-    }
-  }
+  Future<Object?> geometry() => _channel.geometry();
 
   /// After `closing` was handled: the native side quits now (it also does after a grace time).
-  Future<void> quit() => _call('quit');
-  Future<void> titlebar(bool dark) => _call('titlebar', dark);
-  Future<void> resize(int width, int height) => _call('size', [width, height]);
+  Future<void> quit() => _channel.quit();
+  Future<void> titlebar(bool dark) => _channel.titlebar(dark);
+  Future<void> resize(int width, int height) => _channel.resize(width, height);
 }
 
 /// `--agent <command> --test <tab>` (unknown words are ignored: it is a GUI), as the plugin's parse_args.

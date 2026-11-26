@@ -7,7 +7,7 @@ import 'package:maprisma_playground/pages/settings_page.dart';
 import 'package:maprisma_playground/skin.dart';
 import 'package:maprisma_playground/theme.dart';
 import 'package:maprisma_playground/widgets.dart';
-import 'package:maprisma_playground/window_style.dart';
+import 'package:maprisma_ui/window_style.dart';
 import 'package:maprisma_playground_core/maprisma_playground_core.dart' show Places, Settings;
 import 'package:path/path.dart' as p;
 

@@ -1,13 +1,26 @@
 /// Maprisma Playground's core: everything but the window.
 library;
 
+export 'package:maprisma_core_kit/ai.dart'
+    hide
+        catalogAskArgv,
+        miseShims,
+        readSharedHelper,
+        readSharedObject,
+        resolveSharedHelper,
+        sharedAiSettingsFile,
+        sharedHelperAuto,
+        validSharedHelperId,
+        writeSharedHelper;
+export 'package:maprisma_core_kit/desktop.dart';
+export 'package:maprisma_core_kit/files.dart';
+export 'package:maprisma_core_kit/screenshot.dart';
+
 export 'src/chess_rules.dart';
-export 'src/desktop_look.dart';
 export 'src/settings.dart';
 export 'src/shared_ai.dart';
 export 'src/runner.dart';
 export 'src/agents.dart';
-export 'src/helpers_catalog.dart';
 export 'src/agent_run.dart';
 export 'src/chess_agent.dart';
 export 'src/chess_game.dart';
@@ -17,7 +30,6 @@ export 'src/local_llm.dart';
 export 'src/local_hold.dart';
 export 'src/gpu_check.dart';
 export 'src/service.dart';
-export 'src/private_files.dart';
 export 'src/pictures.dart';
 export 'src/picture_gen.dart';
 export 'src/chess_video.dart';
@@ -27,5 +39,4 @@ export 'src/frame_check.dart';
 export 'src/automaton.dart';
 export 'src/i18n.dart';
 export 'src/automaton_info.dart';
-export 'src/screenshot.dart';
 export 'src/dictation.dart';
